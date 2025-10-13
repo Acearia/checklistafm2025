@@ -1,0 +1,490 @@
+
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Save, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import SignatureCanvas from "@/components/SignatureCanvas";
+import { ChecklistItem, Operator, Equipment } from "@/lib/data";
+import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
+import ChecklistHeader from "@/components/checklist/ChecklistHeader";
+import ChecklistOperatorSelect from "@/components/checklist/ChecklistOperatorSelect";
+import ChecklistEquipmentSelect from "@/components/checklist/ChecklistEquipmentSelect";
+import ChecklistItems from "@/components/checklist/ChecklistItems";
+import ChecklistPhotoUpload from "@/components/checklist/ChecklistPhotoUpload";
+import ChecklistComments from "@/components/checklist/ChecklistComments";
+import { useChecklistData } from "@/hooks/useChecklistData";
+import { getChecklistState, saveChecklistState } from "@/lib/checklistStore";
+
+const Checklist = () => {
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const {
+    operators,
+    equipments,
+    sectors,
+    refresh
+  } = useChecklistData();
+
+  const getOperatorIdentifier = (op: any) => op?.matricula || op?.id || "";
+
+  const normalizeOperator = (op: any): Operator => ({
+    id: getOperatorIdentifier(op),
+    matricula: getOperatorIdentifier(op),
+    name: op?.name || "",
+    cargo: op?.cargo || undefined,
+    setor: op?.setor || undefined,
+    senha: op?.senha || undefined,
+  });
+
+  const [selectedOperator, setSelectedOperator] = useState<Operator | null>(null);
+  const [isOperatorLocked, setIsOperatorLocked] = useState(false);
+  const [hasInitializedOperator, setHasInitializedOperator] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([
+    { id: "1", question: "O cabo de aço possui fios amassados?", answer: null },
+    { id: "2", question: "O cabo de aço possui fios partidos?", answer: null },
+    { id: "3", question: "O cabo de aço possui fios com dobras?", answer: null },
+    { id: "4", question: "O sistema de freio do guincho está funcionando?", answer: null },
+    { id: "5", question: "O sistema de freio do Troller está funcionando?", answer: null },
+    { id: "6", question: "As travas de segurança do guincho estão funcionando?", answer: null },
+    { id: "7", question: "O gancho está girando sem dificuldades?", answer: null },
+    { id: "8", question: "O sinal sonoro está funcionando?", answer: null },
+    { id: "9", question: "As polias estão girando sem dificuldades?", answer: null },
+    { id: "10", question: "Existem grandes danos estruturais no equipamento?", answer: null },
+    { id: "11", question: "O equipamento está fazendo algum barulho estranho?", answer: null },
+    { id: "12", question: "O fim de curso inferior está funcionando?", answer: null },
+    { id: "13", question: "O fim de curso superior está funcionando?", answer: null },
+    { id: "14", question: "O fim de curso esquerdo está funcionando?", answer: null },
+    { id: "15", question: "O fim de curso direito está funcionando?", answer: null },
+    { id: "16", question: "O botão de emergência do controle está funcionando?", answer: null },
+    { id: "17", question: "O controle possui botões danificados?", answer: null },
+    { id: "18", question: "A corrente possui elos com desgaste?", answer: null },
+    { id: "19", question: "A corrente possui elos alongados?", answer: null },
+    { id: "20", question: "A corrente possui elos alargados?", answer: null },
+    { id: "21", question: "O(s) gancho(s) da corrente possui sinais de desgaste?", answer: null },
+    { id: "22", question: "O(s) gancho(s) da corrente possui elos com sinais de alongamento?", answer: null },
+    { id: "23", question: "O(s) gancho(s) da corrente possui travas de segurança funcionando?", answer: null },
+    { id: "24", question: "A corrente possui plaqueta de identificação fixada?", answer: null },
+    { id: "25", question: "O saco recolhedor da corrente, possui furos ou rasgos?", answer: null },
+    { id: "26", question: "O batente de giro, está em boas condições de uso?", answer: null },
+    { id: "27", question: "Os trilhos do pórtico estão desobstruídos?", answer: null },
+    { id: "28", question: "O freio do pórtico está funcionando?", answer: null },
+    { id: "29", question: "Os sensores contra esmagamento, estão funcionando?", answer: null }
+  ]);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [inspectionDate, setInspectionDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  );
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [successEquipmentName, setSuccessEquipmentName] = useState<string | null>(null);
+  const [highlightUnanswered, setHighlightUnanswered] = useState(false);
+  const [hasInteractedWithChecklist, setHasInteractedWithChecklist] = useState(false);
+  
+  // State for photos and comments
+  const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
+  const [comments, setComments] = useState<string>('');
+
+  const unansweredCount = useMemo(
+    () =>
+      checklist.filter((item) => item.answer === null || item.answer === "Selecione")
+        .length,
+    [checklist]
+  );
+
+  // Debug: Log operators when they change
+  useEffect(() => {
+    console.log("Operators updated in Checklist:", operators.length);
+    console.log("Operators data:", operators);
+  }, [operators]);
+
+  useEffect(() => {
+    if (hasInitializedOperator || operators.length === 0) {
+      return;
+    }
+
+    const storedState = getChecklistState();
+    const storedOperator = storedState.operator;
+
+    if (!storedOperator) {
+      setHasInitializedOperator(true);
+      return;
+    }
+
+    const storedIdentifier = getOperatorIdentifier(storedOperator);
+    if (!storedIdentifier) {
+      setHasInitializedOperator(true);
+      return;
+    }
+
+    const existingOperator = operators.find(op => getOperatorIdentifier(op) === storedIdentifier);
+    const normalizedOperator = normalizeOperator(existingOperator || storedOperator);
+
+    if (normalizedOperator.id) {
+      setSelectedOperator(normalizedOperator);
+      setIsOperatorLocked(true);
+      saveChecklistState({ operator: normalizedOperator });
+    }
+
+    setHasInitializedOperator(true);
+  }, [operators, hasInitializedOperator]);
+
+  const handleOperatorSelect = (operatorId: string) => {
+    console.log("Selecting operator with identifier:", operatorId);
+    const operator = operators.find(op => getOperatorIdentifier(op) === operatorId);
+
+    if (operator) {
+      const normalizedOperator = normalizeOperator(operator);
+      console.log("Operator found and normalized:", normalizedOperator);
+      setSelectedOperator(normalizedOperator);
+      setIsOperatorLocked(true);
+      saveChecklistState({ operator: normalizedOperator });
+    } else {
+      console.warn("Operator not found for id:", operatorId);
+      toast({
+        title: "Operador não encontrado",
+        description: "Não foi possível localizar o operador selecionado.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleUnlockOperator = () => {
+    setIsOperatorLocked(false);
+    setSelectedOperator(null);
+    saveChecklistState({ operator: null });
+  };
+
+  const handleEquipmentSelect = (equipmentId: string) => {
+    const equipment = equipments.find(eq => eq.id === equipmentId) || null;
+    setSelectedEquipment(equipment);
+  };
+
+  const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => {
+    setHasInteractedWithChecklist(true);
+    setChecklist((prevChecklist) => {
+      const updated = prevChecklist.map((item) =>
+        item.id === id ? { ...item, answer } : item
+      );
+
+      if (highlightUnanswered) {
+        const remaining = updated.some(
+          (item) => item.answer === null || item.answer === "Selecione"
+        );
+        if (!remaining) {
+          setHighlightUnanswered(false);
+        }
+      }
+
+      return updated;
+    });
+  };
+
+  const handleAddOperator = async (data: { id: string; name: string; cargo?: string; setor?: string; senha: string }) => {
+    try {
+      const { operatorService } = await import('@/lib/supabase-service');
+
+      await operatorService.create({
+        matricula: data.id,
+        name: data.name.toUpperCase(),
+        cargo: data.cargo ? data.cargo.toUpperCase() : null,
+        setor: data.setor || null,
+        senha: data.senha.trim(),
+      });
+      
+      toast({
+        title: "Operador adicionado",
+        description: `O operador ${data.name} foi adicionado com sucesso.`,
+      });
+      
+      // Refresh data to get the newly added operator
+      refresh();
+      
+    } catch (error) {
+      console.error('Erro ao adicionar operador:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o operador. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setPhotos(prev => [...prev, { id: Date.now().toString(), data: result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset the file input to allow selecting the same file again
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const handleRemovePhoto = (id: string) => {
+    setPhotos(prev => prev.filter(photo => photo.id !== id));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedOperator) {
+      toast({
+        title: "Erro",
+        description: "Selecione um operador para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedEquipment) {
+      toast({
+        title: "Erro",
+        description: "Selecione um equipamento para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const unansweredItems = checklist.filter(item => item.answer === null || item.answer === "Selecione");
+    if (unansweredItems.length > 0) {
+      setHighlightUnanswered(true);
+      setHasInteractedWithChecklist(true);
+      toast({
+        title: "Checklist incompleto",
+        description: "Responda todos os itens da verificação para continuar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!signature) {
+      toast({
+        title: "Assinatura não encontrada",
+        description: "Por favor, assine o formulário para confirmar a inspeção",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      // Save inspection to Supabase
+      const { inspectionService } = await import('@/lib/supabase-service');
+      
+      const operatorMatricula = getOperatorIdentifier(selectedOperator);
+      
+      const inspectionData = {
+        operator_matricula: operatorMatricula,
+        equipment_id: selectedEquipment.id,
+        inspection_date: inspectionDate,
+        submission_date: new Date().toISOString(),
+        comments: comments || null,
+        signature: signature || null,
+        photos: photos.length > 0 ? photos : [],
+        checklist_answers: checklist.map(item => ({
+          id: item.id,
+          question: item.question,
+          answer: item.answer
+        }))
+      };
+
+      await inspectionService.create(inspectionData);
+      refresh();
+
+      // Check if leader already exists for this sector if updating
+      if (selectedEquipment.sector) {
+        try {
+          const savedLeaders = localStorage.getItem('checklistafm-leaders');
+          if (savedLeaders) {
+            const leaders = JSON.parse(savedLeaders);
+            const sectorLeaders = leaders.filter(leader => leader.sector === selectedEquipment.sector);
+            
+            if (sectorLeaders.length > 0) {
+              // If we have leaders for this sector, simulate sending email notification
+              toast({
+                title: "Notificação enviada",
+                description: `${sectorLeaders.length} líder(es) do setor ${selectedEquipment.sector} foram notificados`,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error processing leader notifications:", error);
+        }
+      }
+
+      toast({
+        title: "Checklist enviado com sucesso!",
+        description: `Inspeção do equipamento ${selectedEquipment.name} registrada`,
+        variant: "default",
+      });
+
+      const equipmentName = selectedEquipment.name;
+
+      setChecklist(checklist.map(item => ({ ...item, answer: null })));
+      setSignature(null);
+      setSelectedEquipment(null);
+      setPhotos([]);
+      setComments('');
+      setHighlightUnanswered(false);
+      setHasInteractedWithChecklist(false);
+      saveChecklistState({
+        equipment: null,
+        checklist: [],
+        photos: [],
+        comments: '',
+        signature: null,
+      });
+      setSuccessEquipmentName(equipmentName);
+      setSubmissionSuccess(true);
+
+      // Navigate to leader dashboard if the operator has a sector set
+      setTimeout(() => {
+        setSubmissionSuccess(false);
+        setSuccessEquipmentName(null);
+        navigate('/');
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving inspection:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-white">
+      {submissionSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-700/95 px-6 text-white">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <CheckCircle size={64} className="text-white" />
+            <h2 className="text-2xl font-bold">Inspeção enviada!</h2>
+            <p className="text-sm text-green-100">
+              {successEquipmentName
+                ? `A inspeção do equipamento ${successEquipmentName} foi registrada com sucesso.`
+                : "Inspeção registrada com sucesso."}
+              {" "}Você será redirecionado para a tela inicial em instantes.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <ChecklistHeader backUrl="/" />
+      
+      <div className="flex-1 p-4 max-w-3xl mx-auto w-full overflow-auto">
+        <form onSubmit={handleSubmit}>
+          {selectedOperator && isOperatorLocked ? (
+            <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-700">Operador selecionado</p>
+                  <p className="text-xl font-semibold text-green-900">
+                    {selectedOperator.name}
+                  </p>
+                  <div className="mt-1 text-sm text-green-800">
+                    <div>Matrícula: {selectedOperator.matricula}</div>
+                    {selectedOperator.setor && <div>Setor: {selectedOperator.setor}</div>}
+                    {selectedOperator.cargo && <div>Cargo: {selectedOperator.cargo}</div>}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleUnlockOperator}
+                  className="self-start sm:self-auto"
+                >
+                  Trocar operador
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <ChecklistOperatorSelect
+              operators={operators}
+              selectedOperator={selectedOperator}
+              onOperatorSelect={handleOperatorSelect}
+            />
+          )}
+
+          <ChecklistEquipmentSelect
+            equipments={equipments}
+            selectedEquipment={selectedEquipment}
+            onEquipmentSelect={handleEquipmentSelect}
+          />
+
+          {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (
+            <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+              {unansweredCount === 1
+                ? "Ainda falta responder 1 pergunta do checklist."
+                : `Ainda faltam responder ${unansweredCount} perguntas do checklist.`}
+            </div>
+          )}
+
+          <ChecklistItems
+            checklist={checklist}
+            onChecklistChange={handleChecklistChange}
+            highlightUnanswered={highlightUnanswered}
+          />
+
+          <ChecklistPhotoUpload
+            photos={photos}
+            onPhotoUpload={handlePhotoUpload}
+            onRemovePhoto={handleRemovePhoto}
+          />
+
+          <ChecklistComments
+            comments={comments}
+            onChange={(e) => setComments(e.target.value)}
+          />
+
+          <div className="mt-6 bg-white p-4 rounded-md shadow-sm border border-gray-200">
+            <SignatureCanvas onSignatureChange={setSignature} />
+          </div>
+
+          <div className="mt-6 mb-10 flex justify-center">
+            <Button 
+              type="submit"
+              className="bg-red-700 hover:bg-red-800 text-white w-full max-w-xs py-6 text-lg"
+              disabled={isSaving}
+            >
+              {isSaving ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Salvando...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Save size={20} />
+                  Enviar Inspeção
+                </span>
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      <AddOperatorDialog 
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onAddOperator={handleAddOperator}
+        sectors={sectors}
+      />
+    </div>
+  );
+};
+
+export default Checklist;
