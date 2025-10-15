@@ -22,42 +22,55 @@ const AdminLogin = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    ensureDefaultAdminAccounts();
-    localStorage.removeItem("gearcheck-admin-auth");
-    const auth = sessionStorage.getItem("checklistafm-admin-auth");
-    if (auth === "true") {
-      navigate(redirectPath);
-    }
+    const init = async () => {
+      await ensureDefaultAdminAccounts();
+      localStorage.removeItem("gearcheck-admin-auth");
+      const auth = sessionStorage.getItem("checklistafm-admin-auth");
+      if (auth === "true") {
+        navigate(redirectPath);
+      }
+    };
+
+    void init();
   }, [navigate, redirectPath]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const result = verifyAdminCredentials(username, password);
+    try {
+      const result = await verifyAdminCredentials(username, password);
 
-    if (result) {
-      sessionStorage.setItem("checklistafm-admin-auth", "true");
-      sessionStorage.setItem(
-        "checklistafm-admin-session",
-        JSON.stringify(result),
-      );
+      if (result) {
+        sessionStorage.setItem("checklistafm-admin-auth", "true");
+        sessionStorage.setItem(
+          "checklistafm-admin-session",
+          JSON.stringify(result),
+        );
 
+        toast({
+          title: "Login realizado com sucesso",
+          description: `Bem-vindo ao painel administrativo, ${result.username}`
+        });
+
+        navigate(redirectPath);
+      } else {
+        toast({
+          title: "Falha no login",
+          description: "Usuário ou senha incorretos",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Erro no login administrativo:", error);
       toast({
-        title: "Login realizado com sucesso",
-        description: `Bem-vindo ao painel administrativo, ${result.username}`,
-      });
-
-      navigate(redirectPath);
-    } else {
-      toast({
-        title: "Falha no login",
-        description: "Usuário ou senha incorretos",
+        title: "Erro inesperado",
+        description: "Não foi possível realizar o login agora. Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleBackToChecklist = () => {

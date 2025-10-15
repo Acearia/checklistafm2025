@@ -5,6 +5,7 @@ Este documento resume o estado atual do contêiner Linux responsável por hosped
 ## Visão geral
 
 - **Supabase local** iniciado com `supabase start`
+  - Tabela `admin_users` armazena credenciais administrativas (usuários `admin` e `seguranca`).
   - API disponível em `http://172.16.1.230:54321`
   - Banco exposto em `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
   - Arquivo `/opt/supabase/.env` contém:

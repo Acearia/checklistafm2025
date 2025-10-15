@@ -45,27 +45,31 @@ const AdminSettings = () => {
   const [confirmLeaderPassword, setConfirmLeaderPassword] = useState("");
 
   useEffect(() => {
-    ensureDefaultAdminAccounts();
-    const savedLeaders = localStorage.getItem("checklistafm-leaders");
-    const leadersList = savedLeaders ? JSON.parse(savedLeaders) : [];
-    setLeaders(leadersList);
+    const init = async () => {
+      await ensureDefaultAdminAccounts();
+      const savedLeaders = localStorage.getItem("checklistafm-leaders");
+      const leadersList = savedLeaders ? JSON.parse(savedLeaders) : [];
+      setLeaders(leadersList);
 
-    if (typeof window !== "undefined") {
-      const storedSession = sessionStorage.getItem("checklistafm-admin-session");
-      if (storedSession) {
-        try {
-          setSession(JSON.parse(storedSession));
-        } catch (error) {
-          console.error("Erro ao ler sessão administrativa:", error);
-          sessionStorage.removeItem("checklistafm-admin-session");
+      if (typeof window !== "undefined") {
+        const storedSession = sessionStorage.getItem("checklistafm-admin-session");
+        if (storedSession) {
+          try {
+            setSession(JSON.parse(storedSession));
+          } catch (error) {
+            console.error("Erro ao ler sessão administrativa:", error);
+            sessionStorage.removeItem("checklistafm-admin-session");
+          }
         }
       }
-    }
+    };
+
+    void init();
   }, []);
 
   const isAdminUser = session?.role === "admin";
 
-  const handleSavePassword = (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session || !isAdminUser) {
       toast({
@@ -84,15 +88,7 @@ const AdminSettings = () => {
       });
       return;
     }
-    const verified = verifyAdminCredentials(session.username, currentPassword);
-    if (!verified) {
-      toast({
-        title: "Erro",
-        description: "Senha atual incorreta",
-        variant: "destructive",
-      });
-      return;
-    }
+
     if (newPassword !== confirmPassword) {
       toast({
         title: "Erro",
@@ -101,14 +97,43 @@ const AdminSettings = () => {
       });
       return;
     }
-    updateAdminPassword(session.username, newPassword);
-    toast({
-      title: "Senha Atualizada",
-      description: "Sua senha foi atualizada com sucesso",
-    });
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
+
+    try {
+      const verified = await verifyAdminCredentials(session.username, currentPassword);
+      if (!verified) {
+        toast({
+          title: "Erro",
+          description: "Senha atual incorreta",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const updated = await updateAdminPassword(session.username, newPassword);
+      if (!updated) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar a senha agora.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Senha Atualizada",
+        description: "Sua senha foi atualizada com sucesso",
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("Erro ao atualizar senha administrativa:", error);
+      toast({
+        title: "Erro inesperado",
+        description: "Não foi possível atualizar a senha agora. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSaveLeaderPassword = () => {

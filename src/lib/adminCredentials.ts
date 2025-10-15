@@ -1,27 +1,21 @@
-const STORAGE_KEY = "checklistafm-admin-users";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AdminRole = "admin" | "seguranca";
 
-export interface AdminAccount {
+interface AdminAccountRecord {
   username: string;
-  password: string;
+  password_hash: string;
   role: AdminRole;
 }
 
-const DEFAULT_ACCOUNTS: AdminAccount[] = [
-  {
-    username: "admin",
-    password: encodePassword("admin123"),
-    role: "admin",
-  },
-  {
-    username: "seguranca",
-    password: encodePassword("seguranca123"),
-    role: "seguranca",
-  },
-];
+interface AdminAccountSession {
+  username: string;
+  role: AdminRole;
+}
 
-function encodePassword(value: string): string {
+const ADMIN_TABLE = "admin_users";
+
+const encodePassword = (value: string): string => {
   if (typeof window !== "undefined" && typeof window.btoa === "function") {
     return window.btoa(value);
   }
@@ -29,116 +23,111 @@ function encodePassword(value: string): string {
     return Buffer.from(value, "utf-8").toString("base64");
   }
   return value;
-}
+};
 
-function decodeAccounts(raw: unknown): AdminAccount[] | null {
-  if (!Array.isArray(raw)) return null;
-  const accounts: AdminAccount[] = [];
-  for (const item of raw) {
-    if (
-      item &&
-      typeof item === "object" &&
-      typeof (item as any).username === "string" &&
-      typeof (item as any).password === "string" &&
-      (item as any).role &&
-      ["admin", "seguranca"].includes((item as any).role)
-    ) {
-      accounts.push({
-        username: (item as any).username,
-        password: (item as any).password,
-        role: (item as any).role,
-      });
-    }
+const normalizeUsername = (value: string) => value.trim().toLowerCase();
+
+const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
+  {
+    username: normalizeUsername("admin"),
+    password_hash: encodePassword("admin123"),
+    role: "admin",
+  },
+  {
+    username: normalizeUsername("seguranca"),
+    password_hash: encodePassword("seguranca123"),
+    role: "seguranca",
+  },
+];
+
+const toRow = (account: AdminAccountRecord) => ({
+  username: normalizeUsername(account.username),
+  password_hash: account.password_hash,
+  role: account.role,
+});
+
+export const ensureDefaultAdminAccounts = async (): Promise<void> => {
+  const { data, error } = await supabase
+    .from(ADMIN_TABLE)
+    .select("username");
+
+  if (error) {
+    console.error("Erro ao verificar contas administrativas:", error);
+    return;
   }
-  return accounts;
-}
 
-export const getStoredAdminAccounts = (): AdminAccount[] => {
-  if (typeof window === "undefined") {
-    return DEFAULT_ACCOUNTS.map((acc) => ({ ...acc }));
-  }
+  const existing = new Set((data || []).map((item) => item.username.toLowerCase()));
+  const missing = DEFAULT_ACCOUNTS.filter(
+    (account) => !existing.has(account.username.toLowerCase()),
+  );
 
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) {
-      return DEFAULT_ACCOUNTS.map((acc) => ({ ...acc }));
-    }
-    const parsed = JSON.parse(stored);
-    const accounts = decodeAccounts(parsed);
-    if (!accounts || accounts.length === 0) {
-      return DEFAULT_ACCOUNTS.map((acc) => ({ ...acc }));
-    }
-    return accounts;
-  } catch (error) {
-    console.error("Failed to parse admin accounts:", error);
-    return DEFAULT_ACCOUNTS.map((acc) => ({ ...acc }));
+  if (missing.length === 0) return;
+
+  const { error: insertError } = await supabase
+    .from(ADMIN_TABLE)
+    .upsert(missing.map(toRow), { onConflict: "username" });
+
+  if (insertError) {
+    console.error("Erro ao inserir contas padrão:", insertError);
   }
 };
 
-function saveAdminAccounts(accounts: AdminAccount[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(accounts));
-}
-
-export const ensureDefaultAdminAccounts = () => {
-  if (typeof window === "undefined") return;
-  const accounts = getStoredAdminAccounts();
-  let changed = false;
-
-  DEFAULT_ACCOUNTS.forEach((defaultAccount) => {
-    const exists = accounts.some(
-      (acc) =>
-        acc.username.toLowerCase() === defaultAccount.username.toLowerCase(),
-    );
-    if (!exists) {
-      accounts.push({ ...defaultAccount });
-      changed = true;
-    }
-  });
-
-  if (changed) {
-    saveAdminAccounts(accounts);
-  }
-};
-
-export const verifyAdminCredentials = (
+export const verifyAdminCredentials = async (
   username: string,
   password: string,
-): { username: string; role: AdminRole } | null => {
-  ensureDefaultAdminAccounts();
-  const accounts = getStoredAdminAccounts();
-  const normalized = username.trim().toLowerCase();
-  const account = accounts.find(
-    (acc) => acc.username.toLowerCase() === normalized,
-  );
-  if (!account) return null;
-  if (encodePassword(password) !== account.password) return null;
+): Promise<AdminAccountSession | null> => {
+  const normalized = normalizeUsername(username);
+
+  const { data, error } = await supabase
+    .from(ADMIN_TABLE)
+    .select("username, role, password_hash")
+    .eq("username", normalized)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao verificar credenciais administrativas:", error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  const expectedHash = encodePassword(password);
+  if (data.password_hash !== expectedHash) return null;
+
   return {
-    username: account.username,
-    role: account.role,
+    username: data.username,
+    role: data.role as AdminRole,
   };
 };
 
-export const updateAdminPassword = (
+export const updateAdminPassword = async (
   username: string,
   newPassword: string,
-) => {
-  ensureDefaultAdminAccounts();
-  const accounts = getStoredAdminAccounts();
-  const normalized = username.trim().toLowerCase();
-  const accountIndex = accounts.findIndex(
-    (acc) => acc.username.toLowerCase() === normalized,
-  );
-  if (accountIndex === -1) return false;
-  accounts[accountIndex] = {
-    ...accounts[accountIndex],
-    password: encodePassword(newPassword),
-  };
-  saveAdminAccounts(accounts);
-  return true;
+): Promise<boolean> => {
+  const normalized = normalizeUsername(username);
+  const newHash = encodePassword(newPassword);
+
+  const { data, error } = await supabase
+    .from(ADMIN_TABLE)
+    .update({ password_hash: newHash })
+    .eq("username", normalized)
+    .select("username")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Erro ao atualizar senha administrativa:", error);
+    return false;
+  }
+
+  return Boolean(data);
 };
 
-export const resetAdminAccounts = () => {
-  if (typeof window === "undefined") return;
-  saveAdminAccounts(DEFAULT_ACCOUNTS.map((acc) => ({ ...acc })));
+export const resetAdminAccounts = async (): Promise<void> => {
+  const { error } = await supabase
+    .from(ADMIN_TABLE)
+    .upsert(DEFAULT_ACCOUNTS.map(toRow), { onConflict: "username" });
+
+  if (error) {
+    console.error("Erro ao redefinir contas administrativas:", error);
+  }
 };
