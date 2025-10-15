@@ -29,7 +29,7 @@ const normalizeUsername = (value: string) => value.trim().toLowerCase();
 
 const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
   {
-    username: normalizeUsername("admin"),
+    username: normalizeUsername("administrador"),
     password_hash: encodePassword("admin123"),
     role: "admin",
   },
@@ -130,4 +130,23 @@ export const resetAdminAccounts = async (): Promise<void> => {
   if (error) {
     console.error("Erro ao redefinir contas administrativas:", error);
   }
+};
+
+export const listAdminAccounts = async (): Promise<
+  { username: string; role: AdminRole }[]
+> => {
+  const { data, error } = await supabase
+    .from(ADMIN_TABLE)
+    .select("username, role")
+    .order("username");
+
+  if (error) {
+    console.error("Erro ao listar contas administrativas:", error);
+    return [];
+  }
+
+  return (data || []).map((item) => ({
+    username: item.username,
+    role: (item.role ?? "admin") as AdminRole,
+  }));
 };

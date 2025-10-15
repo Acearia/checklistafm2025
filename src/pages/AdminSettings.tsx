@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import {
   ensureDefaultAdminAccounts,
+  listAdminAccounts,
   updateAdminPassword,
   verifyAdminCredentials,
 } from "@/lib/adminCredentials";
@@ -43,10 +44,19 @@ const AdminSettings = () => {
   const [selectedLeader, setSelectedLeader] = useState<Leader | null>(null);
   const [leaderPassword, setLeaderPassword] = useState("");
   const [confirmLeaderPassword, setConfirmLeaderPassword] = useState("");
+  const [adminAccounts, setAdminAccounts] = useState<{ username: string; role: string }[]>([]);
+  const [selectedAdminAccount, setSelectedAdminAccount] = useState("");
+  const [adminAccountPassword, setAdminAccountPassword] = useState("");
+  const [adminAccountConfirmPassword, setAdminAccountConfirmPassword] = useState("");
 
   useEffect(() => {
     const init = async () => {
       await ensureDefaultAdminAccounts();
+      const accounts = await listAdminAccounts();
+      setAdminAccounts(accounts);
+      if (!selectedAdminAccount && accounts.length > 0) {
+        setSelectedAdminAccount(accounts[0].username);
+      }
       const savedLeaders = localStorage.getItem("checklistafm-leaders");
       const leadersList = savedLeaders ? JSON.parse(savedLeaders) : [];
       setLeaders(leadersList);
@@ -128,6 +138,70 @@ const AdminSettings = () => {
       setConfirmPassword("");
     } catch (error) {
       console.error("Erro ao atualizar senha administrativa:", error);
+      toast({
+        title: "Erro inesperado",
+        description: "Não foi possível atualizar a senha agora. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveAdminAccountPassword = async () => {
+    if (!isAdminUser) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente o usuário ADMIN pode alterar outras contas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!selectedAdminAccount) {
+      toast({
+        title: "Selecione uma conta",
+        description: "Escolha qual usuário deseja atualizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!adminAccountPassword || !adminAccountConfirmPassword) {
+      toast({
+        title: "Erro",
+        description: "Todos os campos são obrigatórios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (adminAccountPassword !== adminAccountConfirmPassword) {
+      toast({
+        title: "Erro",
+        description: "As senhas não coincidem",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const updated = await updateAdminPassword(selectedAdminAccount, adminAccountPassword);
+      if (!updated) {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar a senha dessa conta agora.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Senha Atualizada",
+        description: `Senha da conta ${selectedAdminAccount} atualizada com sucesso`,
+      });
+      setAdminAccountPassword("");
+      setAdminAccountConfirmPassword("");
+    } catch (error) {
+      console.error("Erro ao atualizar senha de outra conta:", error);
       toast({
         title: "Erro inesperado",
         description: "Não foi possível atualizar a senha agora. Tente novamente.",
@@ -284,12 +358,63 @@ const AdminSettings = () => {
                   <Save className="mr-2 h-4 w-4" />
                   Salvar Alterações
                 </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </TabsContent>
+          </CardFooter>
+        </form>
+      </Card>
+      {isAdminUser && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Redefinir Senha de Outros Usuários</CardTitle>
+            <CardDescription>
+              Atualize a senha de qualquer conta administrativa sem realizar login separado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="admin-account-select">Usuário</Label>
+              <select
+                id="admin-account-select"
+                value={selectedAdminAccount}
+                onChange={(e) => setSelectedAdminAccount(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {adminAccounts.map((account) => (
+                  <option key={account.username} value={account.username}>
+                    {account.username} ({account.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-account-password">Nova Senha</Label>
+              <Input
+                id="admin-account-password"
+                type="password"
+                value={adminAccountPassword}
+                onChange={(e) => setAdminAccountPassword(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-account-confirm-password">Confirmar Nova Senha</Label>
+              <Input
+                id="admin-account-confirm-password"
+                type="password"
+                value={adminAccountConfirmPassword}
+                onChange={(e) => setAdminAccountConfirmPassword(e.target.value)}
+              />
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button type="button" variant="outline" onClick={handleSaveAdminAccountPassword}>
+              <Save className="mr-2 h-4 w-4" />
+              Atualizar Conta Selecionada
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+    </TabsContent>
 
-        <TabsContent value="notifications">
+    <TabsContent value="notifications">
           <Card>
             <CardHeader>
               <CardTitle>Preferências de Notificação</CardTitle>
