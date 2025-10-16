@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Clock, Save, User, Calendar as CalendarIcon, Shield, ShieldAlert, BellRing, Trash2, RefreshCw, Wrench } from "lucide-react";
+import { Plus, Clock, Save, User, Calendar as CalendarIcon, Shield, ShieldAlert, BellRing, RefreshCw, Wrench } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -40,9 +40,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { initializeDefaultData } from "@/lib/checklistStore";
-import { loadChecklistTemplate, saveChecklistTemplate, resetChecklistTemplate, loadChecklistAlerts, markAlertSeenByAdmin } from "@/lib/checklistTemplate";
+import { loadChecklistAlerts, markAlertSeenByAdmin } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, getMaintenanceOrderByInspection } from "@/lib/maintenanceOrders";
-import type { ChecklistItem } from "@/lib/data";
 import type { ChecklistAlert, MaintenanceOrder, MaintenanceOrderStatus } from "@/lib/types";
 
 interface Inspection {
@@ -121,7 +120,7 @@ const AdminChecklistsOverview = () => {
   const navigate = useNavigate();
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<string>("perguntas");
+  const [activeTab, setActiveTab] = useState<string>("alertas");
   const [bridges, setBridges] = useState<Record<string, string[]>>({});
   const [groupedInspections, setGroupedInspections] = useState<Record<string, Record<string, Inspection[]>>>({});
   const [equipmentList, setEquipmentList] = useState<{id: string, name: string, sector: string, bridgeNumber?: string}[]>([]);
@@ -134,8 +133,6 @@ const AdminChecklistsOverview = () => {
   const [selectedSector, setSelectedSector] = useState<string>("");
   const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
-  const [questionList, setQuestionList] = useState<ChecklistItem[]>([]);
-  const [questionsDirty, setQuestionsDirty] = useState(false);
   const [alerts, setAlerts] = useState<ChecklistAlert[]>([]);
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
   const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
@@ -164,11 +161,6 @@ const AdminChecklistsOverview = () => {
   const watchFrequency = form.watch("frequency");
 
   useEffect(() => {
-    setQuestionList(loadChecklistTemplate());
-    setQuestionsDirty(false);
-  }, []);
-
-  useEffect(() => {
     setMaintenanceOrders(loadMaintenanceOrders());
     const handleOrdersUpdated = () => {
       setMaintenanceOrders(loadMaintenanceOrders());
@@ -190,7 +182,7 @@ const AdminChecklistsOverview = () => {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "perguntas") {
+    if (activeTab === "alertas") {
       setAlerts(loadChecklistAlerts());
     }
   }, [activeTab]);
@@ -212,120 +204,6 @@ const AdminChecklistsOverview = () => {
       maintenanceOrder?.notes ?? selectedInspection.maintenanceOrderNotes ?? ""
     );
   }, [maintenanceDialogOpen, selectedInspection, maintenanceOrders]);
-
-  const generateQuestionId = () => {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-      return crypto.randomUUID();
-    }
-    return `question-${Date.now()}`;
-  };
-
-  const updateQuestionList = (updater: (prev: ChecklistItem[]) => ChecklistItem[]) => {
-    setQuestionList((prev) => {
-      const updated = updater(prev).map((item) => ({
-        ...item,
-        answer: null,
-        alertOnYes: item.alertOnYes ?? false,
-        alertOnNo: item.alertOnNo ?? false,
-      }));
-      return updated;
-    });
-    setQuestionsDirty(true);
-  };
-
-  const handleQuestionTextChange = (id: string, text: string) => {
-    updateQuestionList((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, question: text } : item))
-    );
-  };
-
-  const handleToggleAlert = (id: string, field: "alertOnYes" | "alertOnNo", value: boolean) => {
-    updateQuestionList((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
-  };
-
-  const handleAddQuestion = () => {
-    updateQuestionList((prev) => [
-      ...prev,
-      {
-        id: generateQuestionId(),
-        question: "",
-        answer: null,
-        alertOnYes: false,
-        alertOnNo: false,
-      },
-    ]);
-  };
-
-  const handleRemoveQuestion = (id: string) => {
-    setQuestionList((prev) => {
-      if (prev.length <= 1) {
-        toast({
-          title: "Não é possível excluir",
-          description: "O checklist precisa ter pelo menos uma pergunta.",
-          variant: "destructive",
-        });
-        return prev;
-      }
-      const updated = prev
-        .filter((item) => item.id !== id)
-        .map((item) => ({
-          ...item,
-          answer: null,
-          alertOnYes: item.alertOnYes ?? false,
-          alertOnNo: item.alertOnNo ?? false,
-        }));
-      setQuestionsDirty(true);
-      toast({
-        title: "Pergunta removida",
-        description: "A pergunta foi removida. Clique em salvar para confirmar.",
-      });
-      return updated;
-    });
-  };
-
-  const handleSaveQuestions = () => {
-    const sanitized = questionList
-      .map((item) => ({
-        ...item,
-        question: item.question.trim(),
-        answer: null,
-        alertOnYes: item.alertOnYes ?? false,
-        alertOnNo: item.alertOnNo ?? false,
-      }))
-      .filter((item) => item.question.length > 0);
-
-    if (sanitized.length === 0) {
-      toast({
-        title: "Checklist inválido",
-        description: "É necessário manter pelo menos uma pergunta com texto preenchido.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    saveChecklistTemplate(sanitized);
-    setQuestionList(sanitized);
-    setQuestionsDirty(false);
-    toast({
-      title: "Checklist atualizado",
-      description: "As perguntas do checklist foram salvas com sucesso.",
-    });
-  };
-
-  const handleResetQuestions = () => {
-    resetChecklistTemplate();
-    const template = loadChecklistTemplate();
-    setQuestionList(template);
-    setQuestionsDirty(false);
-    toast({
-      title: "Perguntas restauradas",
-      description: "O checklist foi restaurado para a versão padrão.",
-    });
-  };
 
   const reloadAlerts = () => {
     setAlerts(loadChecklistAlerts());
@@ -929,7 +807,7 @@ const AdminChecklistsOverview = () => {
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="flex w-full h-auto bg-gray-100 p-0 overflow-x-auto">
               <TabsTrigger
-                value="perguntas"
+                value="alertas"
                 className="px-6 py-3 flex-1 sm:flex-initial data-[state=active]:bg-white data-[state=active]:border-t-2 data-[state=active]:border-blue-600 rounded-none flex justify-center min-w-[180px]"
               >
                 <div className="flex flex-col items-center gap-1">
@@ -943,8 +821,7 @@ const AdminChecklistsOverview = () => {
                     )}
                   </span>
                   <span className="text-xs text-gray-500">
-                    Perguntas e alertas
-                    {questionsDirty ? " (não salvo)" : ""}
+                    Alertas recentes
                   </span>
                 </div>
               </TabsTrigger>
@@ -961,35 +838,34 @@ const AdminChecklistsOverview = () => {
                 </TabsTrigger>
               ))}
             </TabsList>
-
-            <TabsContent value="perguntas" className="m-0 p-0">
+            <TabsContent value="alertas" className="m-0 p-0">
               <div className="p-4 space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold flex items-center gap-2">
                       <BellRing className="h-5 w-5 text-blue-600" />
-                      Configurar perguntas do checklist
+                      Alertas de checklist
                     </h2>
                     <p className="text-sm text-gray-600">
-                      Edite o texto das perguntas e defina em quais respostas os líderes devem ser alertados.
+                      Acompanhe as respostas críticas e acesse a configuração completa das perguntas quando necessário.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={handleResetQuestions}
+                      variant="outline"
+                      onClick={() => navigate("/admin/checklists/template")}
                     >
-                      Restaurar padrão
+                      Configurar checklist
                     </Button>
                     <Button
+                      variant="ghost"
                       size="sm"
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={handleSaveQuestions}
-                      disabled={!questionsDirty}
+                      className="flex items-center gap-1"
+                      onClick={reloadAlerts}
                     >
-                      <Save className="h-4 w-4 mr-2" />
-                      Salvar checklist
+                      <RefreshCw className="h-4 w-4" />
+                      Atualizar
                     </Button>
                   </div>
                 </div>
@@ -1012,15 +888,6 @@ const AdminChecklistsOverview = () => {
                       >
                         {unseenAlertsCount} pendente(s)
                       </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="flex items-center gap-1"
-                        onClick={reloadAlerts}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Atualizar
-                      </Button>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
@@ -1091,57 +958,6 @@ const AdminChecklistsOverview = () => {
                     )}
                   </CardContent>
                 </Card>
-
-                <div className="space-y-3">
-                  {questionList.length === 0 ? (
-                    <Card>
-                      <CardContent className="p-6 text-center text-sm text-gray-600">
-                        Nenhuma pergunta cadastrada. Adicione pelo menos uma pergunta para compor o checklist.
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    questionList.map((item, index) => (
-                      <Card key={item.id}>
-                        <CardContent className="p-4 space-y-4">
-                          <div className="flex items-start gap-3">
-                            <span className="text-sm text-gray-500 pt-2 font-medium">{index + 1}.</span>
-                            <div className="flex-1 space-y-4">
-                              <Input
-                                value={item.question}
-                                onChange={(event) => handleQuestionTextChange(item.id, event.target.value)}
-                                placeholder="Descreva a pergunta do checklist"
-                              />
-                              <div className="flex flex-wrap gap-4">
-                                <label className="flex items-center gap-2 text-sm font-medium">
-                                  <Switch
-                                    checked={!!item.alertOnYes}
-                                    onCheckedChange={(checked) => handleToggleAlert(item.id, "alertOnYes", checked)}
-                                  />
-                                  Alertar quando a resposta for "Sim"
-                                </label>
-                                <label className="flex items-center gap-2 text-sm font-medium">
-                                  <Switch
-                                    checked={!!item.alertOnNo}
-                                    onCheckedChange={(checked) => handleToggleAlert(item.id, "alertOnNo", checked)}
-                                  />
-                                  Alertar quando a resposta for "Não"
-                                </label>
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleRemoveQuestion(item.id)}
-                              disabled={questionList.length <= 1}
-                            >
-                              <Trash2 className="h-4 w-4 text-gray-500" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
 
                 <div className="flex justify-center">
                   <Button
