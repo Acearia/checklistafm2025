@@ -56,30 +56,19 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
-import { loadChecklistAlerts, loadChecklistTemplate, markAlertSeenByLeader } from "@/lib/checklistTemplate";
+import { loadChecklistAlerts, markAlertSeenByLeader } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 
 // Types
-type ChecklistAnswer = {
-  id?: string;
-  question: string;
-  answer: string;
-  comments?: string;
-  alertOnYes?: boolean;
-  alertOnNo?: boolean;
-};
-
 interface Inspection {
   id: string;
-  equipmentId: string;
   equipment: {
-    id: string;
     name: string;
     kp: string;
     sector: string;
   };
-  checklist_answers: ChecklistAnswer[];
+  checklist_answers: { question: string; answer: string; comments?: string; alertOnYes?: boolean; alertOnNo?: boolean }[];
   comments: string;
   inspection_date: string;
   submission_date: string;
@@ -96,7 +85,7 @@ interface Leader {
   sector: string;
 }
 
-type ProblemEntry = {
+interface ProblemEntry {
   id: string;
   inspectionId: string;
   equipment: string;
@@ -107,41 +96,12 @@ type ProblemEntry = {
   comments: string;
   date: string;
   status: string;
-};
+}
 
-type EquipmentProblemSummary = {
+interface EquipmentProblemSummary {
   equipment: string;
   problemas: number;
-};
-
-type SupabaseInspectionRecord = {
-  id: string;
-  equipment_id: string | null;
-  operator_matricula: string | null;
-  inspection_date: string;
-  submission_date: string;
-  comments: string | null;
-  checklist_answers: unknown;
-  equipment?: {
-    id: string;
-    name: string;
-    kp: string;
-    sector: string;
-  } | null;
-  operator?: {
-    matricula: string;
-    name: string;
-  } | null;
-};
-
-type RawChecklistAnswer = {
-  id?: unknown;
-  question?: unknown;
-  answer?: unknown;
-  comments?: unknown;
-  alertOnYes?: unknown;
-  alertOnNo?: unknown;
-};
+}
 
 const LeaderDashboard = () => {
   const navigate = useNavigate();
@@ -157,23 +117,6 @@ const LeaderDashboard = () => {
     error: supabaseError,
     refresh
   } = useSupabaseData();
-
-  const checklistTemplate = useMemo(() => loadChecklistTemplate(), []);
-  const alertConfigLookup = useMemo(() => {
-    const byId = new Map<string, { alertOnYes: boolean; alertOnNo: boolean }>();
-    const byQuestion = new Map<string, { alertOnYes: boolean; alertOnNo: boolean }>();
-
-    checklistTemplate.forEach((item) => {
-      const config = {
-        alertOnYes: Boolean(item.alertOnYes),
-        alertOnNo: Boolean(item.alertOnNo),
-      };
-      byId.set(item.id, config);
-      byQuestion.set(item.question, config);
-    });
-
-    return { byId, byQuestion };
-  }, [checklistTemplate]);
   
   // States
   const [loading, setLoading] = useState(true);
@@ -193,61 +136,6 @@ const LeaderDashboard = () => {
   const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
   
-  const buildAlertsFromInspections = useCallback(
-    (inspectionList: Inspection[]): ChecklistAlert[] => {
-      if (!currentLeader) return [];
-
-      const alerts: ChecklistAlert[] = [];
-
-      inspectionList.forEach((inspection) => {
-        inspection.checklist_answers.forEach((answer, index) => {
-          const normalizedAnswer = (answer.answer || "").trim();
-          const triggersAlert =
-            (answer.alertOnYes && normalizedAnswer === "Sim") ||
-            (answer.alertOnNo && normalizedAnswer === "Não");
-
-          if (!triggersAlert) {
-            return;
-          }
-
-          const questionId =
-            answer.id && answer.id.length > 0
-              ? answer.id
-              : `${inspection.id}-question-${index + 1}`;
-          const alertId = `${inspection.id}-${questionId}`;
-          const createdAt =
-            inspection.submission_date ||
-            inspection.inspection_date ||
-            new Date().toISOString();
-
-          alerts.push({
-            id: alertId,
-            questionId,
-            question: answer.question,
-            answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
-            operatorName:
-              inspection.operator.name !== "N/A"
-                ? inspection.operator.name
-                : undefined,
-            operatorMatricula:
-              inspection.operator.matricula !== "N/A"
-                ? inspection.operator.matricula
-                : undefined,
-            equipmentId: inspection.equipmentId,
-            equipmentName: inspection.equipment.name,
-            sector: inspection.equipment.sector || currentLeader.sector,
-            createdAt,
-            seenByAdmin: false,
-            seenByLeaders: [],
-          });
-        });
-      });
-
-      return alerts;
-    },
-    [currentLeader]
-  );
-
   const refreshChecklistAlerts = useCallback(() => {
     if (!currentLeader) return;
 
@@ -256,7 +144,42 @@ const LeaderDashboard = () => {
       return alert.sector === currentLeader.sector;
     });
 
-    const generatedAlerts = buildAlertsFromInspections(inspections);
+    const generatedAlerts = inspections.flatMap((inspection) => {
+      if (!inspection.checklist_answers || inspection.checklist_answers.length === 0) {
+        return [];
+      }
+
+      return inspection.checklist_answers
+        .filter((answer) => {
+          const normalizedAnswer = (answer.answer || "").trim();
+          const alertOnYes = Boolean(answer.alertOnYes);
+          const alertOnNo = Boolean(answer.alertOnNo);
+          if (!alertOnYes && !alertOnNo) return false;
+
+          if (alertOnYes && normalizedAnswer === "Sim") return true;
+          if (alertOnNo && normalizedAnswer === "Não") return true;
+          return false;
+        })
+        .map((answer, index) => {
+          const normalizedAnswer = (answer.answer || "").trim();
+          const alertId = `${inspection.id}-${answer.question || index}`;
+          return {
+            id: alertId,
+            questionId: answer.question || String(index),
+            question: answer.question || `Pergunta ${index + 1}`,
+            answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
+            operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
+            operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
+            equipmentId: undefined,
+            equipmentName: inspection.equipment.name,
+            sector: inspection.equipment.sector || currentLeader.sector,
+            createdAt: inspection.submission_date || inspection.inspection_date,
+            seenByAdmin: false,
+            seenByLeaders: [],
+          } as ChecklistAlert;
+        });
+    });
+
     const mergedAlerts = new Map<string, ChecklistAlert>();
 
     localAlerts.forEach((alert) => {
@@ -277,7 +200,7 @@ const LeaderDashboard = () => {
     );
 
     setChecklistAlerts(sortedAlerts);
-  }, [buildAlertsFromInspections, currentLeader, inspections]);
+  }, [currentLeader, inspections]);
   
   // Statistics
   const [stats, setStats] = useState({
@@ -351,174 +274,116 @@ const LeaderDashboard = () => {
     setLoading(true);
     
     try {
-      const equipmentById = new Map(supabaseEquipment.map((eq) => [eq.id, eq]));
-      const operatorByMatricula = new Map(
-        supabaseOperators.map((op) => [op.matricula, op])
+      // Filter data by leader's sector
+      const sectorEquipments = supabaseEquipment.filter(eq => eq.sector === currentLeader.sector);
+      const operatorsByMatricula = new Map(
+        supabaseOperators.map(op => [op.matricula, op])
       );
-      const supabaseInspectionList: SupabaseInspectionRecord[] = Array.isArray(
-        supabaseInspections
-      )
-        ? (supabaseInspections as SupabaseInspectionRecord[])
-        : [];
+      
+      // Filter inspections by sector equipment
+      const sectorEquipmentIds = sectorEquipments.map(eq => eq.id);
+      const sectorInspections = supabaseInspections.filter(inspection => 
+        sectorEquipmentIds.includes(inspection.equipment_id)
+      );
 
-      const sectorInspections = supabaseInspectionList.filter((inspection) => {
-        const relatedEquipment =
+      // Process inspections to match expected format
+      const processedInspections = sectorInspections.map(inspection => {
+        const equipment =
           inspection.equipment ??
-          (inspection.equipment_id
-            ? equipmentById.get(inspection.equipment_id)
-            : undefined);
-        const equipmentSector = relatedEquipment?.sector;
-        return equipmentSector === currentLeader.sector;
-      });
-
-      const processedInspections: Inspection[] = sectorInspections.map((inspection) => {
-        const relatedEquipment =
-          inspection.equipment ??
-          (inspection.equipment_id ? equipmentById.get(inspection.equipment_id) : undefined);
-        const equipmentId = relatedEquipment?.id ?? inspection.equipment_id ?? "";
-
-        const relatedOperator =
-          inspection.operator ??
+          sectorEquipments.find(eq => eq.id === inspection.equipment_id);
+        const operatorFromJoin = inspection.operator;
+        const operator =
+          operatorFromJoin ??
           (inspection.operator_matricula
-            ? operatorByMatricula.get(inspection.operator_matricula)
+            ? operatorsByMatricula.get(inspection.operator_matricula)
             : undefined);
-
-        const rawAnswers: RawChecklistAnswer[] = Array.isArray(
-          inspection.checklist_answers
-        )
-          ? (inspection.checklist_answers as RawChecklistAnswer[])
-          : [];
-
-        const checklist_answers: ChecklistAnswer[] = rawAnswers.map(
-          (answer: RawChecklistAnswer, index: number) => {
-            const questionValue =
-              typeof answer.question === "string" ? (answer.question as string) : undefined;
-            const question =
-              questionValue && questionValue.length > 0
-                ? questionValue
-                : `Pergunta ${index + 1}`;
-            const id =
-              typeof answer.id === "string" && (answer.id as string).length > 0
-                ? (answer.id as string)
-                : question;
-            const normalizedAnswer =
-              typeof answer.answer === "string"
-                ? (answer.answer as string)
-                : String(answer.answer ?? "");
-            const templateConfig =
-              (id && alertConfigLookup.byId.get(id)) ||
-              (question && alertConfigLookup.byQuestion.get(question)) || {
-                alertOnYes: false,
-                alertOnNo: false,
-              };
-
-            return {
-              id,
-              question,
-              answer: normalizedAnswer,
-              comments:
-                typeof answer.comments === "string" &&
-                (answer.comments as string).length > 0
-                  ? (answer.comments as string)
-                  : undefined,
-              alertOnYes:
-                typeof answer.alertOnYes === "boolean"
-                  ? (answer.alertOnYes as boolean)
-                  : templateConfig.alertOnYes,
-              alertOnNo:
-                typeof answer.alertOnNo === "boolean"
-                  ? (answer.alertOnNo as boolean)
-                  : templateConfig.alertOnNo,
-            };
-          }
-        );
-
+        
+        // Ensure checklist_answers is an array
+        let checklistAnswers: Inspection["checklist_answers"] = [];
+        if (Array.isArray(inspection.checklist_answers)) {
+          checklistAnswers = inspection.checklist_answers as { question: string; answer: string; comments?: string; alertOnYes?: boolean; alertOnNo?: boolean }[];
+        }
+        
         return {
           id: inspection.id,
-          equipmentId,
           equipment: {
-            id: equipmentId,
-            name: relatedEquipment?.name || "N/A",
-            kp: relatedEquipment?.kp || "N/A",
-            sector: relatedEquipment?.sector || currentLeader.sector,
+            name: equipment?.name || 'N/A',
+            kp: equipment?.kp || 'N/A',
+            sector: equipment?.sector || 'N/A'
           },
-          checklist_answers,
-          comments: inspection.comments || "",
+          checklist_answers: checklistAnswers,
+          comments: inspection.comments || '',
           inspection_date: inspection.inspection_date,
           submission_date: inspection.submission_date,
           operator: {
-            name: relatedOperator?.name || "N/A",
-            matricula:
-              relatedOperator?.matricula ||
-              inspection.operator_matricula ||
-              "N/A",
-          },
+            name: operator?.name || 'N/A',
+            matricula: operator?.matricula || inspection.operator_matricula || 'N/A'
+          }
         };
       });
 
       setInspections(processedInspections);
 
-      const uniqueOperatorsMap = new Map<string, { id: string; name: string }>();
+      // Get unique operators for filter
+      const uniqueOperators = new Map<string, { id: string; name: string }>();
       processedInspections.forEach((inspection) => {
         const matricula = inspection.operator.matricula;
         const name = inspection.operator.name;
-        if (!matricula || matricula === "N/A") return;
-        uniqueOperatorsMap.set(matricula, { id: matricula, name });
+        if (!matricula || matricula === 'N/A') {
+          return;
+        }
+        uniqueOperators.set(matricula, {
+          id: matricula,
+          name: name
+        });
       });
-      setOperators(
-        Array.from(uniqueOperatorsMap.values()).sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
-      );
+      setOperators(Array.from(uniqueOperators.values()));
 
+      // Process problems from inspections
       const problems: ProblemEntry[] = [];
-      const equipmentProblems: Record<string, number> = {};
+      const equipmentProblems: { [key: string]: number } = {};
 
-      processedInspections.forEach((inspection) => {
-        inspection.checklist_answers.forEach((answer) => {
-          if (answer.answer === "Não") {
+      processedInspections.forEach(inspection => {
+        const answers = inspection.checklist_answers || [];
+        answers.forEach(answer => {
+          if (answer.answer === 'Não') {
             problems.push({
-              id: `${inspection.id}-${answer.id || answer.question}`,
+              id: `${inspection.id}-${answer.question}`,
               inspectionId: inspection.id,
               equipment: inspection.equipment.name,
               equipmentKp: inspection.equipment.kp,
               operator: inspection.operator.name,
               operatorMatricula: inspection.operator.matricula,
               problem: answer.question,
-              comments:
-                answer.comments ||
-                inspection.comments ||
-                "Nenhum comentário",
+              comments: answer.comments || inspection.comments || 'Nenhum comentário',
               date: inspection.inspection_date,
-              status: "Identificado",
+              status: 'Identificado'
             });
 
+            // Count problems by equipment
             const equipmentKey = inspection.equipment.name;
-            equipmentProblems[equipmentKey] =
-              (equipmentProblems[equipmentKey] || 0) + 1;
+            equipmentProblems[equipmentKey] = (equipmentProblems[equipmentKey] || 0) + 1;
           }
         });
       });
 
       setProblemsList(problems);
 
-      const chartData: EquipmentProblemSummary[] = Object.entries(equipmentProblems).map(
-        ([equipment, count]) => ({
-          equipment,
-          problemas: count,
-        })
-      );
+      // Convert to chart format
+      const chartData = Object.entries(equipmentProblems).map(([equipment, count]) => ({
+        equipment,
+        problemas: count
+      }));
       setProblemsByEquipment(chartData);
 
-      const problemInspectionsCount = new Set(
-        problems.map((p) => p.inspectionId)
-      ).size;
+      // Calculate statistics
+      const problemInspectionsCount = new Set(problems.map(p => p.inspectionId)).size;
 
       setStats({
         totalProblems: problems.length,
         totalInspections: processedInspections.length,
         problemInspections: problemInspectionsCount,
-        pendingActions: problems.length,
+        pendingActions: problems.length
       });
 
     } catch (error) {
@@ -531,14 +396,7 @@ const LeaderDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    alertConfigLookup,
-    currentLeader,
-    supabaseEquipment,
-    supabaseInspections,
-    supabaseOperators,
-    toast,
-  ]);
+  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast]);
 
   const handleRefreshData = () => {
     refresh(); // Refresh Supabase data
