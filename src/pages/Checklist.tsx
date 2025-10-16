@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { ChecklistItem, Operator, Equipment } from "@/lib/data";
@@ -82,6 +84,9 @@ const Checklist = () => {
   const [successEquipmentName, setSuccessEquipmentName] = useState<string | null>(null);
   const [highlightUnanswered, setHighlightUnanswered] = useState(false);
   const [hasInteractedWithChecklist, setHasInteractedWithChecklist] = useState(false);
+  const [operatorUnlockDialogOpen, setOperatorUnlockDialogOpen] = useState(false);
+  const [operatorUnlockPassword, setOperatorUnlockPassword] = useState("");
+  const [operatorUnlockError, setOperatorUnlockError] = useState<string | null>(null);
   
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
@@ -152,6 +157,43 @@ const Checklist = () => {
   };
 
   const handleUnlockOperator = () => {
+    setOperatorUnlockDialogOpen(true);
+    setOperatorUnlockPassword("");
+    setOperatorUnlockError(null);
+  };
+
+  const confirmOperatorUnlock = () => {
+    if (!selectedOperator) {
+      setOperatorUnlockDialogOpen(false);
+      return;
+    }
+
+    const trimmedPassword = operatorUnlockPassword.trim();
+    if (!trimmedPassword) {
+      setOperatorUnlockError("Informe a senha para trocar o operador.");
+      return;
+    }
+
+    const matchingOperator = operators.find(
+      (op) => getOperatorIdentifier(op) === selectedOperator.id,
+    );
+    const expectedPassword = matchingOperator?.senha
+      ? String(matchingOperator.senha).trim()
+      : "";
+
+    if (!expectedPassword) {
+      setOperatorUnlockError("Este operador não possui senha cadastrada. Solicite ao administrador.");
+      return;
+    }
+
+    if (expectedPassword !== trimmedPassword) {
+      setOperatorUnlockError("Senha incorreta. Tente novamente.");
+      return;
+    }
+
+    setOperatorUnlockDialogOpen(false);
+    setOperatorUnlockPassword("");
+    setOperatorUnlockError(null);
     setIsOperatorLocked(false);
     setSelectedOperator(null);
     saveChecklistState({ operator: null });
@@ -476,6 +518,45 @@ const Checklist = () => {
           </div>
         </form>
       </div>
+
+      <Dialog open={operatorUnlockDialogOpen} onOpenChange={handleOperatorUnlockDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Trocar operador</DialogTitle>
+            <DialogDescription>
+              Informe a senha do operador atual para liberar a troca.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              type="password"
+              placeholder="Senha do operador"
+              value={operatorUnlockPassword}
+              maxLength={4}
+              onChange={(e) => setOperatorUnlockPassword(e.target.value.replace(/[^0-9]/g, ""))}
+              autoFocus
+            />
+            {operatorUnlockError && (
+              <p className="text-sm text-red-600">{operatorUnlockError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleOperatorUnlockDialogChange(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmOperatorUnlock}
+            >
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AddOperatorDialog 
         open={dialogOpen}
