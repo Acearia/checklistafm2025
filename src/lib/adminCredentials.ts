@@ -27,7 +27,7 @@ const encodePassword = (value: string): string => {
 
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 
-const DEFAULT_ACCOUNTS = [
+const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
   {
     username: normalizeUsername("administrador"),
     password_hash: encodePassword("admin123"),
@@ -38,7 +38,7 @@ const DEFAULT_ACCOUNTS = [
     password_hash: encodePassword("seguranca123"),
     role: "seguranca",
   },
-] satisfies AdminAccountRecord[];
+];
 
 const toRow = (account: AdminAccountRecord) => ({
   username: normalizeUsername(account.username),
