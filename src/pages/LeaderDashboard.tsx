@@ -144,39 +144,40 @@ const LeaderDashboard = () => {
       return alert.sector === currentLeader.sector;
     });
 
-    const generatedAlerts = inspections.flatMap((inspection) => {
+    const generatedAlerts: ChecklistAlert[] = [];
+
+    inspections.forEach((inspection) => {
       if (!inspection.checklist_answers || inspection.checklist_answers.length === 0) {
-        return [];
+        return;
       }
 
-      return inspection.checklist_answers
-        .filter((answer) => {
-          const normalizedAnswer = (answer.answer || "").trim();
-          const alertOnYes = Boolean(answer.alertOnYes);
-          const alertOnNo = Boolean(answer.alertOnNo);
-          if (!alertOnYes && !alertOnNo) return false;
+      inspection.checklist_answers.forEach((answer, index) => {
+        const normalizedAnswer = (answer.answer || "").trim();
+        const alertOnYes = Boolean(answer.alertOnYes);
+        const alertOnNo = Boolean(answer.alertOnNo);
+        const triggersOnYes = alertOnYes && normalizedAnswer === "Sim";
+        const triggersOnNo = alertOnNo && normalizedAnswer === "Não";
 
-          if (alertOnYes && normalizedAnswer === "Sim") return true;
-          if (alertOnNo && normalizedAnswer === "Não") return true;
-          return false;
-        })
-        .map((answer, index) => {
-          const normalizedAnswer = (answer.answer || "").trim();
-          const alertId = `${inspection.id}-${answer.question || index}`;
-          return {
-            id: alertId,
-            questionId: answer.question || String(index),
-            question: answer.question || `Pergunta ${index + 1}`,
-            answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
-            operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
-            operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
-            equipmentName: inspection.equipment.name,
-            sector: inspection.equipment.sector || currentLeader.sector,
-            createdAt: inspection.submission_date || inspection.inspection_date,
-            seenByAdmin: false,
-            seenByLeaders: [],
-          } as ChecklistAlert;
+        if (!triggersOnYes && !triggersOnNo) {
+          return;
+        }
+
+        const alertId = `${inspection.id}-${answer.question || index}`;
+
+        generatedAlerts.push({
+          id: alertId,
+          questionId: answer.question || String(index),
+          question: answer.question || `Pergunta ${index + 1}`,
+          answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
+          operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
+          operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
+          equipmentName: inspection.equipment.name,
+          sector: inspection.equipment.sector || currentLeader.sector,
+          createdAt: inspection.submission_date || inspection.inspection_date,
+          seenByAdmin: false,
+          seenByLeaders: [],
         });
+      });
     });
 
     const mergedAlerts = new Map<string, ChecklistAlert>();
