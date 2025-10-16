@@ -549,7 +549,7 @@ const LeaderDashboard = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-center text-white drop-shadow-md">
+        <div className="text-center text-gray-900">
           <h1 className="text-2xl font-bold">
             Dashboard de Líderes
           </h1>
