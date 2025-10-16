@@ -162,6 +162,14 @@ const Checklist = () => {
     setOperatorUnlockError(null);
   };
 
+  const handleOperatorUnlockDialogChange = (open: boolean) => {
+    setOperatorUnlockDialogOpen(open);
+    if (!open) {
+      setOperatorUnlockPassword("");
+      setOperatorUnlockError(null);
+    }
+  };
+
   const confirmOperatorUnlock = () => {
     if (!selectedOperator) {
       setOperatorUnlockDialogOpen(false);
