@@ -549,11 +549,11 @@ const LeaderDashboard = () => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900">
+        <div className="text-center text-white drop-shadow-md">
+          <h1 className="text-2xl font-bold">
             Dashboard de Líderes
           </h1>
-          <p className="text-gray-900">
+          <p>
             {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : 'Dashboard'}
           </p>
         </div>
