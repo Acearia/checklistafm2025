@@ -95,6 +95,8 @@
     color: hsl(var(--foreground));
     position: relative;
     background-attachment: fixed;
+    /* overlay sutil para melhorar contraste */
+    background: rgba(245, 245, 245, 0.75);
   }
 
   body::before {

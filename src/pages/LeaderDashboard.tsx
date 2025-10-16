@@ -594,7 +594,7 @@ const LeaderDashboard = () => {
         </div>
       </div>
       
-      <Card className="border border-red-200 bg-red-50/40">
+      <Card className="border border-gray-200 bg-white">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <BellRing className="h-4 w-4 text-red-600" />
@@ -681,7 +681,7 @@ const LeaderDashboard = () => {
         </CardContent>
       </Card>
       
-      <Card className="border border-blue-200 bg-blue-50/40">
+      <Card className="border border-gray-200 bg-white">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Wrench className="h-4 w-4 text-blue-600" />
