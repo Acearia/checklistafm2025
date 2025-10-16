@@ -210,64 +210,6 @@ const LeaderDashboard = () => {
     pendingActions: 0
   });
 
-  // Authentication and initial setup
-  useEffect(() => {
-    const checkAuthentication = async () => {
-      const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
-      const leaderId = localStorage.getItem("checklistafm-leader-id");
-      
-      if (!isAuthenticated || !leaderId) {
-        navigate("/leader/login");
-        return;
-      }
-
-      // Load leader data from Supabase
-      if (!supabaseLoading && supabaseLeaders.length > 0) {
-        const leader = supabaseLeaders.find(l => l.id === leaderId);
-        if (leader) {
-          setCurrentLeader({
-            id: leader.id,
-            name: leader.name,
-            email: leader.email,
-            sector: leader.sector
-          });
-        }
-      }
-    };
-
-    checkAuthentication();
-  }, [navigate, supabaseLoading, supabaseLeaders]);
-
-  // Load dashboard data when Supabase data is available
-  useEffect(() => {
-    if (!supabaseLoading && currentLeader) {
-      loadDashboardData();
-    }
-  }, [supabaseLoading, currentLeader, loadDashboardData]);
-
-  useEffect(() => {
-    if (currentLeader) {
-      refreshChecklistAlerts();
-    }
-  }, [currentLeader, refreshChecklistAlerts]);
-
-  useEffect(() => {
-    const updateOrders = () => {
-      setMaintenanceOrders(loadMaintenanceOrders());
-    };
-    updateOrders();
-    window.addEventListener(
-      "checklistafm-maintenance-orders-updated",
-      updateOrders as EventListener
-    );
-    return () => {
-      window.removeEventListener(
-        "checklistafm-maintenance-orders-updated",
-        updateOrders as EventListener
-      );
-    };
-  }, []);
-
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
 
@@ -397,6 +339,64 @@ const LeaderDashboard = () => {
       setLoading(false);
     }
   }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast]);
+
+  // Authentication and initial setup
+  useEffect(() => {
+    const checkAuthentication = async () => {
+      const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
+      const leaderId = localStorage.getItem("checklistafm-leader-id");
+      
+      if (!isAuthenticated || !leaderId) {
+        navigate("/leader/login");
+        return;
+      }
+
+      // Load leader data from Supabase
+      if (!supabaseLoading && supabaseLeaders.length > 0) {
+        const leader = supabaseLeaders.find(l => l.id === leaderId);
+        if (leader) {
+          setCurrentLeader({
+            id: leader.id,
+            name: leader.name,
+            email: leader.email,
+            sector: leader.sector
+          });
+        }
+      }
+    };
+
+    checkAuthentication();
+  }, [navigate, supabaseLoading, supabaseLeaders]);
+
+  // Load dashboard data when Supabase data is available
+  useEffect(() => {
+    if (!supabaseLoading && currentLeader) {
+      loadDashboardData();
+    }
+  }, [supabaseLoading, currentLeader, loadDashboardData]);
+
+  useEffect(() => {
+    if (currentLeader) {
+      refreshChecklistAlerts();
+    }
+  }, [currentLeader, refreshChecklistAlerts]);
+
+  useEffect(() => {
+    const updateOrders = () => {
+      setMaintenanceOrders(loadMaintenanceOrders());
+    };
+    updateOrders();
+    window.addEventListener(
+      "checklistafm-maintenance-orders-updated",
+      updateOrders as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "checklistafm-maintenance-orders-updated",
+        updateOrders as EventListener
+      );
+    };
+  }, []);
 
   const handleRefreshData = () => {
     refresh(); // Refresh Supabase data
