@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
@@ -66,6 +66,87 @@ const AdminInspections = () => {
     return matchesEquipment && matchesOperator;
   });
 
+  const sectorSummary = useMemo(() => {
+    if (!inspections || inspections.length === 0) {
+      return {
+        sectors: [],
+        total: 0,
+        totalWithProblems: 0,
+      };
+    }
+
+    const equipmentById = new Map(
+      (equipment || []).map((item: any) => [item.id, item])
+    );
+
+    const summaryMap = new Map<
+      string,
+      {
+        sector: string;
+        totalInspections: number;
+        inspectionsWithProblems: number;
+      }
+    >();
+
+    const isProblematicAnswer = (answer: any): boolean => {
+      if (!answer) return false;
+      const normalizedAnswer =
+        typeof answer.answer === "string"
+          ? answer.answer.trim().toLowerCase()
+          : "";
+
+      const triggersYes = Boolean(answer.alertOnYes);
+      const triggersNo = Boolean(answer.alertOnNo);
+
+      if (triggersYes || triggersNo) {
+        if (triggersYes && normalizedAnswer === "sim") return true;
+        if (triggersNo && normalizedAnswer === "não") return true;
+        return false;
+      }
+
+      return normalizedAnswer === "não";
+    };
+
+    let inspectionsWithProblemsTotal = 0;
+
+    inspections.forEach((inspection: any) => {
+      const equipmentItem = equipmentById.get(inspection.equipment_id);
+      const sectorName = equipmentItem?.sector || "Sem setor";
+      const answers = Array.isArray(inspection.checklist_answers)
+        ? (inspection.checklist_answers as any[])
+        : [];
+
+      const hasProblems = answers.some(isProblematicAnswer);
+      if (hasProblems) {
+        inspectionsWithProblemsTotal += 1;
+      }
+
+      const existing = summaryMap.get(sectorName);
+      if (existing) {
+        existing.totalInspections += 1;
+        if (hasProblems) {
+          existing.inspectionsWithProblems += 1;
+        }
+      } else {
+        summaryMap.set(sectorName, {
+          sector: sectorName,
+          totalInspections: 1,
+          inspectionsWithProblems: hasProblems ? 1 : 0,
+        });
+      }
+    });
+
+    const sectors = Array.from(summaryMap.values()).sort((a, b) =>
+      a.sector.localeCompare(b.sector, "pt-BR")
+    );
+
+    return {
+      sectors,
+      total: inspections.length,
+      totalWithProblems: inspectionsWithProblemsTotal,
+    };
+  }, [inspections, equipment]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -86,6 +167,86 @@ const AdminInspections = () => {
           Exportar CSV
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumo por setor</CardTitle>
+          <CardDescription>
+            Acompanhe a quantidade de checklists finalizados e quantos apresentaram problemas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sectorSummary.sectors.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhuma inspeção registrada até o momento.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Setor</TableHead>
+                    <TableHead className="text-center">Checklists concluídos</TableHead>
+                    <TableHead className="text-center">Com problemas</TableHead>
+                    <TableHead className="text-center">% com problemas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sectorSummary.sectors.map((sector) => {
+                    const percentage =
+                      sector.totalInspections === 0
+                        ? 0
+                        : Math.round(
+                            (sector.inspectionsWithProblems /
+                              sector.totalInspections) *
+                              100
+                          );
+                    const problemTagVariant =
+                      sector.inspectionsWithProblems > 0
+                        ? "bg-red-100 text-red-800"
+                        : "bg-green-100 text-green-800";
+
+                    return (
+                      <TableRow key={sector.sector}>
+                        <TableCell className="font-medium">
+                          {sector.sector}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {sector.totalInspections.toLocaleString("pt-BR")}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${problemTagVariant}`}
+                          >
+                            {sector.inspectionsWithProblems.toLocaleString("pt-BR")}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground">
+                          {percentage}%
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+        {sectorSummary.sectors.length > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-muted-foreground">
+            <span>
+              Total de inspeções:{" "}
+              <strong>{sectorSummary.total.toLocaleString("pt-BR")}</strong>
+            </span>
+            <span>
+              Inspeções com problemas:{" "}
+              <strong>
+                {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+              </strong>
+            </span>
+          </CardFooter>
+        )}
+      </Card>
 
 
       <Card>
