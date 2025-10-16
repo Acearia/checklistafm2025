@@ -16,7 +16,8 @@ import {
   ArrowLeft,
   Database,
   Briefcase,
-  CheckSquare
+  CheckSquare,
+  ListChecks
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -132,6 +133,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
               <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
               <SidebarLink to="/admin/checklists" icon={<CheckSquare size={20} />} label="Visão Checklists" />
+              <SidebarLink to="/admin/checklists/template" icon={<ListChecks size={20} />} label="Configurar Checklist" />
               <SidebarLink to="/admin/operators" icon={<User size={20} />} label="Operadores" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
