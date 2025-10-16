@@ -170,7 +170,6 @@ const LeaderDashboard = () => {
             answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
             operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
             operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
-            equipmentId: undefined,
             equipmentName: inspection.equipment.name,
             sector: inspection.equipment.sector || currentLeader.sector,
             createdAt: inspection.submission_date || inspection.inspection_date,
