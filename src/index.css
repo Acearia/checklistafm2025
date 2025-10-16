@@ -101,7 +101,7 @@
     content: "";
     position: fixed;
     inset: 0;
-    background: rgba(12, 12, 12, 0.2);
+    background: rgba(12, 12, 12, 0.55);
     pointer-events: none;
     z-index: -1;
   }
