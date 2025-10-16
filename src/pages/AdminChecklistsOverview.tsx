@@ -852,13 +852,6 @@ const AdminChecklistsOverview = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate("/admin/checklists/template")}
-                    >
-                      Configurar checklist
-                    </Button>
-                    <Button
                       variant="ghost"
                       size="sm"
                       className="flex items-center gap-1"
