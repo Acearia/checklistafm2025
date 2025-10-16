@@ -17,8 +17,10 @@ const ChecklistHeader: React.FC<ChecklistHeaderProps> = ({
       <Link to={backUrl} className="text-white">
         <ArrowLeft size={24} />
       </Link>
-      <h1 className="font-bold text-xl">{title}</h1>
-      <div></div> {/* Empty div to maintain the flex layout */}
+      <h1 className="font-bold text-xl text-center flex-1">
+        {title}
+      </h1>
+      <div className="w-6" />
     </header>
   );
 };

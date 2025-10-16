@@ -431,7 +431,7 @@ const Checklist = () => {
       <div className="flex-1 p-4 max-w-3xl mx-auto w-full overflow-auto">
         <form onSubmit={handleSubmit}>
           {selectedOperator && isOperatorLocked ? (
-            <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4">
+            <div className="mb-6 rounded-lg border-2 border-green-200 bg-green-50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-medium text-green-700">Operador selecionado</p>
@@ -469,7 +469,7 @@ const Checklist = () => {
           />
 
           {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (
-            <div className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="mt-6 rounded-md border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
               {unansweredCount === 1
                 ? "Ainda falta responder 1 pergunta do checklist."
                 : `Ainda faltam responder ${unansweredCount} perguntas do checklist.`}
@@ -493,7 +493,7 @@ const Checklist = () => {
             onChange={(e) => setComments(e.target.value)}
           />
 
-          <div className="mt-6 bg-white p-4 rounded-md shadow-sm border border-gray-200">
+          <div className="mt-6 bg-white p-4 rounded-md shadow-sm border-2 border-gray-200">
             <SignatureCanvas onSignatureChange={setSignature} />
           </div>
 
