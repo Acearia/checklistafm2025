@@ -39,6 +39,19 @@ const AdminDashboard = () => {
   const [inspectionsByMonth, setInspectionsByMonth] = useState([]);
   const [inspectionsByEquipment, setInspectionsByEquipment] = useState([]);
   const [recentInspections, setRecentInspections] = useState([]);
+  const [sectorSummary, setSectorSummary] = useState<{
+    sectors: {
+      sector: string;
+      totalInspections: number;
+      inspectionsWithProblems: number;
+    }[];
+    total: number;
+    totalWithProblems: number;
+  }>({
+    sectors: [],
+    total: 0,
+    totalWithProblems: 0,
+  });
 
   useEffect(() => {
     if (!loading) {
@@ -148,6 +161,82 @@ const AdminDashboard = () => {
       
       setInspectionsByEquipment(topEquipments);
       console.log("Equipment distribution:", topEquipments);
+
+      // Summary by sector
+      const equipmentById = new Map(
+        (equipment || []).map((item: any) => [item.id, item])
+      );
+
+      const summaryMap = new Map<
+        string,
+        {
+          sector: string;
+          totalInspections: number;
+          inspectionsWithProblems: number;
+        }
+      >();
+
+      const isProblematicAnswer = (answer: any): boolean => {
+        if (!answer) return false;
+        const normalizedAnswer =
+          typeof answer.answer === "string"
+            ? answer.answer.trim().toLowerCase()
+            : "";
+        const triggersYes = Boolean(answer.alertOnYes);
+        const triggersNo = Boolean(answer.alertOnNo);
+
+        if (triggersYes || triggersNo) {
+          if (triggersYes && normalizedAnswer === "sim") return true;
+          if (triggersNo && normalizedAnswer === "não") return true;
+          return false;
+        }
+
+        return normalizedAnswer === "não";
+      };
+
+      let inspectionsWithProblemsTotal = 0;
+
+      inspections.forEach((inspection: any) => {
+        const equipmentItem =
+          inspection.equipment && inspection.equipment.sector
+            ? inspection.equipment
+            : equipmentById.get(inspection.equipment_id);
+
+        const sectorName = equipmentItem?.sector || "Sem setor";
+
+        const answers = Array.isArray(inspection.checklist_answers)
+          ? (inspection.checklist_answers as any[])
+          : [];
+
+        const hasProblems = answers.some(isProblematicAnswer);
+        if (hasProblems) {
+          inspectionsWithProblemsTotal += 1;
+        }
+
+        const existing = summaryMap.get(sectorName);
+        if (existing) {
+          existing.totalInspections += 1;
+          if (hasProblems) {
+            existing.inspectionsWithProblems += 1;
+          }
+        } else {
+          summaryMap.set(sectorName, {
+            sector: sectorName,
+            totalInspections: 1,
+            inspectionsWithProblems: hasProblems ? 1 : 0,
+          });
+        }
+      });
+
+      const summaryBySector = Array.from(summaryMap.values()).sort((a, b) =>
+        a.sector.localeCompare(b.sector, "pt-BR")
+      );
+
+      setSectorSummary({
+        sectors: summaryBySector,
+        total: inspections.length,
+        totalWithProblems: inspectionsWithProblemsTotal,
+      });
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -263,6 +352,89 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumo por Setor</CardTitle>
+          <CardDescription>
+            Total de checklists e quantos apresentaram problemas em cada setor
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sectorSummary.sectors.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhuma inspeção registrada até o momento.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="pb-2">Setor</th>
+                    <th className="pb-2 text-center">Checklists</th>
+                    <th className="pb-2 text-center">Com problemas</th>
+                    <th className="pb-2 text-center">% com problemas</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {sectorSummary.sectors.map((sector) => {
+                    const percentage =
+                      sector.totalInspections === 0
+                        ? 0
+                        : Math.round(
+                            (sector.inspectionsWithProblems /
+                              sector.totalInspections) *
+                              100
+                          );
+                    const problemBadgeClass =
+                      sector.inspectionsWithProblems > 0
+                        ? "bg-red-100 text-red-800"
+                        : "bg-green-100 text-green-800";
+
+                    return (
+                      <tr
+                        key={sector.sector}
+                        className="border-t border-gray-200 last:border-b"
+                      >
+                        <td className="py-3 font-medium text-gray-800">
+                          {sector.sector}
+                        </td>
+                        <td className="py-3 text-center text-gray-700">
+                          {sector.totalInspections.toLocaleString("pt-BR")}
+                        </td>
+                        <td className="py-3 text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${problemBadgeClass}`}
+                          >
+                            {sector.inspectionsWithProblems.toLocaleString("pt-BR")}
+                          </span>
+                        </td>
+                        <td className="py-3 text-center text-xs text-muted-foreground">
+                          {percentage}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+        {sectorSummary.sectors.length > 0 && (
+          <CardFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-muted-foreground">
+            <span>
+              Total de inspeções:{" "}
+              <strong>{sectorSummary.total.toLocaleString("pt-BR")}</strong>
+            </span>
+            <span>
+              Inspeções com problemas:{" "}
+              <strong>
+                {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+              </strong>
+            </span>
+          </CardFooter>
+        )}
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="col-span-1">
