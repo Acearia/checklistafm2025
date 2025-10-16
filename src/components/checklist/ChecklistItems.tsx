@@ -22,14 +22,14 @@ const ChecklistItems: React.FC<ChecklistItemsProps> = ({
 }) => {
   return (
     <div className="mt-6 space-y-4">
-      {checklist.map((item) => {
+      {checklist.map((item, index) => {
         const isUnanswered = item.answer === null || item.answer === "Selecione";
         const cardClasses = [
           "p-3",
           "bg-white",
           "rounded-md",
           "shadow-sm",
-          "border",
+          "border-2",
           isUnanswered && highlightUnanswered ? "border-red-300 bg-red-50" : "border-gray-200",
         ]
           .filter(Boolean)
@@ -39,6 +39,7 @@ const ChecklistItems: React.FC<ChecklistItemsProps> = ({
           <div key={item.id} className={cardClasses}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="text-sm sm:text-base font-medium flex-grow">
+                <span className="font-semibold text-gray-900 mr-2">{index + 1} -</span>
                 {item.question}
               </div>
               <div className="w-full sm:w-36">
