@@ -959,16 +959,6 @@ const AdminChecklistsOverview = () => {
                   </CardContent>
                 </Card>
 
-                <div className="flex justify-center">
-                  <Button
-                    variant="outline"
-                    className="flex items-center gap-2"
-                    onClick={handleAddQuestion}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar pergunta
-                  </Button>
-                </div>
               </div>
             </TabsContent>
 
