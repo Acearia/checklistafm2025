@@ -110,10 +110,11 @@ const ChecklistItems = () => {
           </div>
 
           <div className="space-y-4">
-            {checklist.map(item => (
+            {checklist.map((item, index) => (
               <div key={item.id} className="p-3 bg-white rounded-md shadow-sm border border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="text-sm sm:text-base font-medium flex-grow">
+                    <span className="text-gray-500 mr-2">{index + 1}.</span>
                     {item.question}
                   </div>
                   <div className="w-full sm:w-36">
