@@ -169,6 +169,7 @@ const LeaderDashboard = () => {
           questionId: answer.question || String(index),
           question: answer.question || `Pergunta ${index + 1}`,
           answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
+          inspectionId: inspection.id,
           operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
           operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
           equipmentName: inspection.equipment.name,
@@ -531,10 +532,76 @@ const LeaderDashboard = () => {
   };
 
   const leaderId = currentLeader?.id ?? "";
-  const pendingAlertsCount = checklistAlerts.filter(
-    (alert) => !alert.seenByLeaders?.includes(leaderId)
+
+  const alertsByInspection = useMemo(() => {
+    if (!checklistAlerts.length) {
+      return [];
+    }
+
+    const grouped = new Map<
+      string,
+      {
+        inspectionId: string;
+        alerts: ChecklistAlert[];
+        latestCreatedAt: string;
+        equipmentName?: string;
+        operatorName?: string;
+        operatorMatricula?: string;
+      }
+    >();
+
+    checklistAlerts.forEach((alert) => {
+      const inspectionId =
+        alert.inspectionId ||
+        (alert.id.includes("-") ? alert.id.split("-")[0] : alert.id);
+      const createdAt =
+        alert.createdAt ?? new Date().toISOString();
+
+      const existing = grouped.get(inspectionId);
+      if (existing) {
+        existing.alerts.push(alert);
+        if (!existing.equipmentName && alert.equipmentName) {
+          existing.equipmentName = alert.equipmentName;
+        }
+        if (!existing.operatorName && alert.operatorName) {
+          existing.operatorName = alert.operatorName;
+        }
+        if (!existing.operatorMatricula && alert.operatorMatricula) {
+          existing.operatorMatricula = alert.operatorMatricula;
+        }
+        if (
+          new Date(createdAt).getTime() >
+          new Date(existing.latestCreatedAt).getTime()
+        ) {
+          existing.latestCreatedAt = createdAt;
+        }
+        grouped.set(inspectionId, existing);
+      } else {
+        grouped.set(inspectionId, {
+          inspectionId,
+          alerts: [alert],
+          latestCreatedAt: createdAt,
+          equipmentName: alert.equipmentName,
+          operatorName: alert.operatorName,
+          operatorMatricula: alert.operatorMatricula,
+        });
+      }
+    });
+
+    return Array.from(grouped.values()).sort(
+      (a, b) =>
+        new Date(b.latestCreatedAt).getTime() -
+        new Date(a.latestCreatedAt).getTime()
+    );
+  }, [checklistAlerts]);
+
+  const pendingAlertsCount = alertsByInspection.filter((entry) =>
+    entry.alerts.some(
+      (alert) => !alert.seenByLeaders?.includes(leaderId)
+    )
   ).length;
-  const alertsToShow = checklistAlerts.slice(0, 5);
+
+  const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
     if (!currentLeader) return [];
     return supabaseEquipment.filter(
@@ -715,55 +782,107 @@ const LeaderDashboard = () => {
               Nenhum alerta crítico registrado para o seu setor.
             </p>
           ) : (
-            alertsToShow.map((alert) => {
-              const alreadySeen = alert.seenByLeaders?.includes(leaderId);
+            alertsToShow.map((inspectionAlerts) => {
+              const totalAlerts = inspectionAlerts.alerts.length;
+              const equipmentName =
+                inspectionAlerts.equipmentName ||
+                inspectionAlerts.alerts[0]?.equipmentName ||
+                "Não informado";
+              const operatorName =
+                inspectionAlerts.operatorName ||
+                inspectionAlerts.alerts[0]?.operatorName ||
+                "N/A";
+              const operatorMatricula =
+                inspectionAlerts.operatorMatricula ||
+                inspectionAlerts.alerts[0]?.operatorMatricula;
+              const latestDate = inspectionAlerts.latestCreatedAt;
+              const hasPending = inspectionAlerts.alerts.some(
+                (alert) => !alert.seenByLeaders?.includes(leaderId)
+              );
+
               return (
                 <div
-                  key={alert.id}
-                  className="bg-white border border-red-100 rounded-md p-3 shadow-sm"
+                  key={inspectionAlerts.inspectionId}
+                  className="bg-white border border-red-100 rounded-md p-3 shadow-sm space-y-3"
                 >
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                    <div className="space-y-1">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 border-b border-red-100 pb-2">
+                    <div className="space-y-1 text-sm">
                       <p className="text-sm font-semibold text-gray-900">
-                        {alert.question}
+                        Inspeção {inspectionAlerts.inspectionId}
                       </p>
                       <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                        <span>Equipamento: {equipmentName}</span>
                         <span>
-                          Resposta:{" "}
-                          <span className="text-red-600 font-medium">{alert.answer}</span>
+                          Operador: {operatorName}
+                          {operatorMatricula ? ` (${operatorMatricula})` : ""}
                         </span>
-                        {alert.operatorName && (
-                          <span>
-                            Operador: {alert.operatorName}
-                            {alert.operatorMatricula ? ` (${alert.operatorMatricula})` : ""}
-                          </span>
-                        )}
-                        {alert.equipmentName && (
-                          <span>Equipamento: {alert.equipmentName}</span>
-                        )}
+                        <span>Alertas: {totalAlerts}</span>
                         <span>
-                          Registrado em:{" "}
-                          {format(new Date(alert.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          Último registro:{" "}
+                          {format(new Date(latestDate), "dd/MM/yyyy HH:mm", {
+                            locale: ptBR,
+                          })}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-start gap-2">
                       <Badge
-                        variant={alreadySeen ? "secondary" : "destructive"}
+                        variant={hasPending ? "destructive" : "secondary"}
                         className="px-2 py-0 text-xs"
                       >
-                        {alreadySeen ? "Acompanhando" : "Pendente"}
+                        {hasPending ? "Pendência" : "Acompanhando"}
                       </Badge>
-                      {!alreadySeen && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAcknowledgeAlert(alert.id)}
-                        >
-                          Marcar como recebido
-                        </Button>
-                      )}
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    {inspectionAlerts.alerts.map((alert) => {
+                      const alreadySeen = alert.seenByLeaders?.includes(leaderId);
+                      return (
+                        <div
+                          key={alert.id}
+                          className="rounded-md border border-red-100 bg-red-50/60 px-3 py-2"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-gray-900">
+                                {alert.question}
+                              </p>
+                              <div className="flex flex-wrap gap-2 text-xs text-gray-700">
+                                <span>
+                                  Resposta:{" "}
+                                  <span className="text-red-600 font-semibold">
+                                    {alert.answer}
+                                  </span>
+                                </span>
+                                <span>
+                                  Registrado em:{" "}
+                                  {format(new Date(alert.createdAt), "dd/MM/yyyy HH:mm", {
+                                    locale: ptBR,
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <Badge
+                                variant={alreadySeen ? "secondary" : "destructive"}
+                                className="px-2 py-0 text-xs"
+                              >
+                                {alreadySeen ? "Acompanhando" : "Pendente"}
+                              </Badge>
+                              {!alreadySeen && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleAcknowledgeAlert(alert.id)}
+                                >
+                                  Marcar como recebido
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

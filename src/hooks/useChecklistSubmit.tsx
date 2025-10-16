@@ -61,6 +61,7 @@ export const useChecklistSubmit = () => {
         questionId: item.id,
         question: item.question,
         answer: answer as "Sim" | "Não",
+        inspectionId,
         operatorName: currentState.operator?.name,
         operatorMatricula: currentState.operator?.matricula,
         equipmentId: currentState.equipment?.id,
