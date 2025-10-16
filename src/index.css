@@ -91,9 +91,19 @@
 
   body {
     min-height: 100vh;
-    background-color: #000;
-    color: #f5f5f5;
+    background: url('/afm-background.jpeg') center/cover fixed no-repeat;
+    color: hsl(var(--foreground));
     position: relative;
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.6);
+    pointer-events: none;
+    z-index: -1;
   }
 }
 
@@ -103,8 +113,6 @@
   }
 
   body {
-    @apply text-foreground;
-    background-color: #000;
-    color: #f5f5f5;
+    @apply bg-background text-foreground;
   }
 }
