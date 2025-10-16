@@ -548,8 +548,8 @@ const LeaderDashboard = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-center sm:text-left">
           <h1 className="text-2xl font-bold text-gray-900">
             Dashboard de Líderes
           </h1>
@@ -557,7 +557,7 @@ const LeaderDashboard = () => {
             {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : 'Dashboard'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-center gap-2 sm:justify-end">
           <Button 
             onClick={handleSendEmailNotification} 
             variant="outline" 
