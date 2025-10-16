@@ -91,19 +91,9 @@
 
   body {
     min-height: 100vh;
-    background: url('/afm-background.jpeg') center/cover fixed no-repeat;
+    background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     position: relative;
-    background-attachment: fixed;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    background: rgba(255, 255, 255, 0.05);
-    pointer-events: none;
-    z-index: -1;
   }
 }
 
@@ -115,4 +105,22 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.home-background {
+  position: relative;
+  min-height: 100vh;
+  background: url('/afm-background.jpeg') center/cover fixed no-repeat;
+}
+
+.home-background::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.home-background > * {
+  position: relative;
 }

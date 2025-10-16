@@ -11,6 +11,7 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistState } from "@/lib/checklistState";
 import logoUrl from "@/assets/afm-logo.png";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const { loading, error, operators } = useSupabaseData();
@@ -18,6 +19,7 @@ const Index = () => {
   const [senha, setSenha] = useState("");
   const [validatedOperator, setValidatedOperator] = useState<any>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"home" | "leader" | "admin">("home");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -115,7 +117,12 @@ const Index = () => {
   };
   
   return (
-    <div className="min-h-screen flex flex-col bg-transparent">
+    <div
+      className={cn(
+        "min-h-screen flex flex-col transition-colors duration-300",
+        activeTab === "home" ? "home-background" : "bg-background"
+      )}
+    >
       <header className="bg-red-700 text-white px-4 py-3 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-4">
           <img src={logoUrl} alt="Checklist AFM" className="h-24 w-auto drop-shadow-md" />
@@ -135,8 +142,12 @@ const Index = () => {
 
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-3xl mx-auto space-y-4">
-          
-          <Tabs defaultValue="home" className="w-full">
+
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as "home" | "leader" | "admin")}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-3 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
               <TabsTrigger value="home">Início</TabsTrigger>
               <TabsTrigger value="leader">Líderes</TabsTrigger>
