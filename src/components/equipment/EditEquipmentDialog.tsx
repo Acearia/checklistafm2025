@@ -44,11 +44,13 @@ export function EditEquipmentDialog({
   onOpenChange,
   equipment,
   onEditEquipment,
+  sectors,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   equipment: Equipment;
   onEditEquipment: (data: Equipment) => void;
+  sectors: { id: string; name: string }[];
 }) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -159,15 +161,46 @@ export function EditEquipmentDialog({
             <FormField
               control={form.control}
               name="sector"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Setor</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Setor do equipamento" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const currentValue = field.value ?? "";
+                const normalizedValue = currentValue || undefined;
+                const shouldShowFallbackOption =
+                  Boolean(currentValue) &&
+                  !sectors.some((sector) => sector.name === currentValue);
+
+                return (
+                  <FormItem>
+                    <FormLabel>Setor</FormLabel>
+                    {sectors.length > 0 ? (
+                      <Select
+                        onValueChange={field.onChange}
+                        value={normalizedValue}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o setor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {shouldShowFallbackOption && (
+                            <SelectItem value={currentValue}>{currentValue}</SelectItem>
+                          )}
+                          {sectors.map((sector) => (
+                            <SelectItem key={sector.id} value={sector.name}>
+                              {sector.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <FormControl>
+                        <Input placeholder="Setor do equipamento" {...field} />
+                      </FormControl>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <FormField
               control={form.control}

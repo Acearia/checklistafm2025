@@ -35,7 +35,7 @@ import { loadMaintenanceOrders, upsertMaintenanceOrder } from "@/lib/maintenance
 import type { MaintenanceOrder } from "@/lib/types";
 
 const AdminEquipment = () => {
-  const { equipment: supabaseEquipments, refresh, loading } = useSupabaseData();
+  const { equipment: supabaseEquipments, sectors, refresh, loading } = useSupabaseData();
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [displayedEquipments, setDisplayedEquipments] = useState<Equipment[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -553,6 +553,7 @@ const AdminEquipment = () => {
           onOpenChange={setEditDialogOpen}
           equipment={currentEquipment}
           onEditEquipment={handleEditEquipment}
+          sectors={sectors}
         />
       )}
 
