@@ -5,6 +5,7 @@ import { Save, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { ChecklistItem, Operator, Equipment } from "@/lib/data";
@@ -85,6 +86,7 @@ const Checklist = () => {
   const [highlightUnanswered, setHighlightUnanswered] = useState(false);
   const [hasInteractedWithChecklist, setHasInteractedWithChecklist] = useState(false);
   const [operatorUnlockDialogOpen, setOperatorUnlockDialogOpen] = useState(false);
+  const [operatorUnlockSelection, setOperatorUnlockSelection] = useState<string>("");
   const [operatorUnlockPassword, setOperatorUnlockPassword] = useState("");
   const [operatorUnlockError, setOperatorUnlockError] = useState<string | null>(null);
   
@@ -158,6 +160,7 @@ const Checklist = () => {
 
   const handleUnlockOperator = () => {
     setOperatorUnlockDialogOpen(true);
+    setOperatorUnlockSelection(selectedOperator?.id || "");
     setOperatorUnlockPassword("");
     setOperatorUnlockError(null);
   };
@@ -165,26 +168,32 @@ const Checklist = () => {
   const handleOperatorUnlockDialogChange = (open: boolean) => {
     setOperatorUnlockDialogOpen(open);
     if (!open) {
+      setOperatorUnlockSelection("");
       setOperatorUnlockPassword("");
       setOperatorUnlockError(null);
     }
   };
 
   const confirmOperatorUnlock = () => {
-    if (!selectedOperator) {
-      setOperatorUnlockDialogOpen(false);
+    if (!operatorUnlockSelection) {
+      setOperatorUnlockError("Selecione o novo operador.");
       return;
     }
 
     const trimmedPassword = operatorUnlockPassword.trim();
     if (!trimmedPassword) {
-      setOperatorUnlockError("Informe a senha para trocar o operador.");
+      setOperatorUnlockError("Informe a senha do operador selecionado.");
       return;
     }
 
     const matchingOperator = operators.find(
-      (op) => getOperatorIdentifier(op) === selectedOperator.id,
+      (op) => getOperatorIdentifier(op) === operatorUnlockSelection,
     );
+    if (!matchingOperator) {
+      setOperatorUnlockError("Operador selecionado não encontrado.");
+      return;
+    }
+
     const expectedPassword = matchingOperator?.senha
       ? String(matchingOperator.senha).trim()
       : "";
@@ -199,12 +208,15 @@ const Checklist = () => {
       return;
     }
 
+    const normalizedOperator = normalizeOperator(matchingOperator);
+
     setOperatorUnlockDialogOpen(false);
+    setOperatorUnlockSelection(normalizedOperator.id);
     setOperatorUnlockPassword("");
     setOperatorUnlockError(null);
-    setIsOperatorLocked(false);
-    setSelectedOperator(null);
-    saveChecklistState({ operator: null });
+    setSelectedOperator(normalizedOperator);
+    setIsOperatorLocked(true);
+    saveChecklistState({ operator: normalizedOperator });
   };
 
   const handleEquipmentSelect = (equipmentId: string) => {
@@ -532,10 +544,28 @@ const Checklist = () => {
           <DialogHeader>
             <DialogTitle>Trocar operador</DialogTitle>
             <DialogDescription>
-              Informe a senha do operador atual para liberar a troca.
+              Escolha o novo operador e informe a senha correspondente.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
+            <Select
+              value={operatorUnlockSelection}
+              onValueChange={(value) => setOperatorUnlockSelection(value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o operador" />
+              </SelectTrigger>
+              <SelectContent>
+                {operators.map((op) => {
+                  const id = getOperatorIdentifier(op);
+                  return (
+                    <SelectItem key={id} value={id}>
+                      {op.name || id}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
             <Input
               type="password"
               placeholder="Senha do operador"
