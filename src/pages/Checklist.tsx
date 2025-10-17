@@ -351,7 +351,9 @@ const Checklist = () => {
         checklist_answers: checklist.map(item => ({
           id: item.id,
           question: item.question,
-          answer: item.answer
+          answer: item.answer,
+          alertOnYes: item.alertOnYes ?? false,
+          alertOnNo: item.alertOnNo ?? false,
         }))
       };
 

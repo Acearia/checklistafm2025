@@ -14,30 +14,41 @@ import ChecklistHeader from "@/components/checklist/ChecklistHeader";
 import { ChecklistStepIndicator } from "@/components/checklist/ChecklistProgressBar";
 import type { ChecklistItem } from "@/lib/data";
 import { getChecklistState, saveChecklistState } from "@/lib/checklistStore";
-import { loadChecklistTemplate } from "@/lib/checklistTemplate";
+import { useChecklistData } from "@/hooks/useChecklistData";
+import { checklistItems as defaultChecklistItems } from "@/lib/data";
 
 const ChecklistItems = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [currentState, setCurrentState] = useState(getChecklistState());
+  const { checklistItems: supabaseChecklistItems } = useChecklistData();
 
   const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
 
   useEffect(() => {
+    const state = getChecklistState();
+    setCurrentState(state);
+
     // Verificar se as etapas anteriores foram concluídas
-    if (!currentState.operator || !currentState.equipment) {
+    if (!state.operator || !state.equipment) {
       navigate('/checklist-steps/operator');
       return;
     }
 
-    const templateItems = loadChecklistTemplate().map((item) => ({
-      ...item,
-      answer: item.answer ?? null,
+    const sourceItems =
+      supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
+
+    const templateItems = sourceItems.map((item) => ({
+      id: item.id,
+      question: item.question,
+      answer: null,
+      alertOnYes: item.alertOnYes ?? false,
+      alertOnNo: item.alertOnNo ?? false,
     }));
 
-    if (currentState.checklist && currentState.checklist.length > 0) {
-      const checklistMap = new Map(currentState.checklist.map(item => [item.id, item]));
+    if (state.checklist && state.checklist.length > 0) {
+      const checklistMap = new Map(state.checklist.map(item => [item.id, item]));
       const mergedChecklist = templateItems.map(item => {
         const saved = checklistMap.get(item.id);
         if (saved) {
@@ -55,7 +66,7 @@ const ChecklistItems = () => {
     } else {
       setChecklist(templateItems);
     }
-  }, [navigate, currentState.operator, currentState.equipment, currentState.checklist]);
+  }, [navigate, supabaseChecklistItems]);
 
   const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => {
     setChecklist(prevChecklist => 

@@ -137,6 +137,14 @@ export const useChecklistSubmit = () => {
 
         if (operatorMatch && equipmentMatch) {
           const operatorMatricula = operatorMatch.matricula || operatorMatch.id;
+          const sanitizedChecklistAnswers = (currentState.checklist || []).map((item) => ({
+            id: item.id,
+            question: item.question,
+            answer: item.answer,
+            alertOnYes: item.alertOnYes ?? false,
+            alertOnNo: item.alertOnNo ?? false,
+          }));
+
           await inspectionService.create({
             operator_matricula: operatorMatricula,
             equipment_id: equipmentMatch.id,
@@ -145,7 +153,7 @@ export const useChecklistSubmit = () => {
             comments: currentState.comments || '',
             signature,
             photos: currentState.photos || [],
-            checklist_answers: JSON.parse(JSON.stringify(currentState.checklist || []))
+            checklist_answers: sanitizedChecklistAnswers
           });
 
           toast({

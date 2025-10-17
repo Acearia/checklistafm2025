@@ -159,6 +159,13 @@ export const equipmentService = {
 };
 
 // Checklist Items
+const isUuid = (value: unknown): boolean => {
+  if (typeof value !== "string") return false;
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(
+    value,
+  );
+};
+
 export const checklistService = {
   async getAll() {
     const { data, error } = await supabase
@@ -168,7 +175,46 @@ export const checklistService = {
     
     if (error) throw error;
     return data || [];
-  }
+  },
+
+  async replaceAll(items: Array<{ id?: string; question: string; alertOnYes?: boolean; alertOnNo?: boolean }>) {
+    const formattedItems = items
+      .map((item, index) => {
+        const payload: Record<string, any> = {
+          question: item.question.trim(),
+          order_number: index + 1,
+          alert_on_yes: Boolean(item.alertOnYes),
+          alert_on_no: Boolean(item.alertOnNo),
+        };
+
+        if (isUuid(item.id)) {
+          payload.id = item.id;
+        }
+
+        return payload;
+      })
+      .filter((item) => item.question.length > 0);
+
+    const { error: deleteError } = await supabase
+      .from("checklist_items")
+      .delete()
+      .neq("id", "");
+    
+    if (deleteError) throw deleteError;
+
+    if (formattedItems.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from("checklist_items")
+      .insert(formattedItems)
+      .select()
+      .order("order_number");
+    
+    if (error) throw error;
+    return data || [];
+  },
 };
 
 // Inspections

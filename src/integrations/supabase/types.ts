@@ -85,6 +85,8 @@ export type Database = {
       }
       checklist_items: {
         Row: {
+          alert_on_no: boolean
+          alert_on_yes: boolean
           created_at: string
           id: string
           order_number: number
@@ -92,6 +94,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_on_no?: boolean
+          alert_on_yes?: boolean
           created_at?: string
           id?: string
           order_number?: number
@@ -99,6 +103,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_on_no?: boolean
+          alert_on_yes?: boolean
           created_at?: string
           id?: string
           order_number?: number

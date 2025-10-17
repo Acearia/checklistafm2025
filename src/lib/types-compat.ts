@@ -48,6 +48,6 @@ export const convertSupabaseChecklistItemToLegacy = (supabaseItem: Tables<"check
   id: supabaseItem.id,
   question: supabaseItem.question,
   answer: null, // Default answer state
-  alertOnYes: (supabaseItem as any).alert_on_yes ?? false,
-  alertOnNo: (supabaseItem as any).alert_on_no ?? false,
+  alertOnYes: Boolean(supabaseItem.alert_on_yes),
+  alertOnNo: Boolean(supabaseItem.alert_on_no),
 });

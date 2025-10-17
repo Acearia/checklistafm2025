@@ -11,6 +11,7 @@ import {
   convertSupabaseEquipmentToLegacy,
   convertSupabaseChecklistItemToLegacy
 } from "@/lib/types-compat";
+import { saveChecklistTemplate } from "@/lib/checklistTemplate";
 
 export const useChecklistData = () => {
   const { toast } = useToast();
@@ -46,7 +47,9 @@ export const useChecklistData = () => {
 
   useEffect(() => {
     if (supabaseChecklistItems.length > 0) {
-      setChecklistItems(supabaseChecklistItems.map(convertSupabaseChecklistItemToLegacy));
+      const legacyItems = supabaseChecklistItems.map(convertSupabaseChecklistItemToLegacy);
+      setChecklistItems(legacyItems);
+      saveChecklistTemplate(legacyItems);
     }
   }, [supabaseChecklistItems]);
 

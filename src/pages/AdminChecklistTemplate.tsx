@@ -3,16 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import {
-  loadChecklistTemplate,
-  saveChecklistTemplate,
-  resetChecklistTemplate,
-} from "@/lib/checklistTemplate";
+import { saveChecklistTemplate } from "@/lib/checklistTemplate";
 import type { ChecklistItem } from "@/lib/data";
 import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { useChecklistData } from "@/hooks/useChecklistData";
+import { checklistService } from "@/lib/supabase-service";
+import { checklistItems as defaultChecklistItems } from "@/lib/data";
+import { convertSupabaseChecklistItemToLegacy } from "@/lib/types-compat";
 
 const createEmptyItem = (nextIndex: number): ChecklistItem => ({
-  id: `item-${Date.now()}-${nextIndex}`,
+  id:
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   question: "",
   answer: null,
   alertOnYes: false,
@@ -23,13 +26,38 @@ const AdminChecklistTemplate: React.FC = () => {
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const { checklistItems: supabaseChecklistItems, refresh, isLoadingData } = useChecklistData();
+
+  const normalizeItems = (sourceItems: ChecklistItem[]): ChecklistItem[] =>
+    sourceItems.map((item) => ({
+      id: item.id,
+      question: item.question,
+      answer: null,
+      alertOnYes: Boolean(item.alertOnYes),
+      alertOnNo: Boolean(item.alertOnNo),
+    }));
 
   useEffect(() => {
-    const template = loadChecklistTemplate();
-    setItems(template);
-    setLoading(false);
-  }, []);
+    if (isLoadingData) {
+      return;
+    }
+
+    if (supabaseChecklistItems.length > 0) {
+      const normalized = normalizeItems(supabaseChecklistItems);
+      setItems(normalized);
+      setIsDirty(false);
+      setLoading(false);
+      saveChecklistTemplate(normalized);
+    } else if (loading) {
+      const normalizedDefaults = normalizeItems(defaultChecklistItems);
+      setItems(normalizedDefaults);
+      setIsDirty(false);
+      setLoading(false);
+      saveChecklistTemplate(normalizedDefaults);
+    }
+  }, [supabaseChecklistItems, isLoadingData, loading]);
 
   const totalQuestions = useMemo(() => items.length, [items]);
 
@@ -59,29 +87,80 @@ const AdminChecklistTemplate: React.FC = () => {
     setIsDirty(true);
   };
 
-  const handleSave = () => {
-    saveChecklistTemplate(items);
-    setIsDirty(false);
-    toast({
-      title: "Template atualizado",
-      description: "As perguntas do checklist foram salvas com sucesso.",
-    });
+  const handleSave = async () => {
+    const sanitizedItems = items
+      .map((item) => ({
+        ...item,
+        question: item.question.trim(),
+      }))
+      .filter((item) => item.question.length > 0);
+
+    if (sanitizedItems.length === 0) {
+      toast({
+        title: "Nada para salvar",
+        description: "Adicione pelo menos uma pergunta antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      const updatedRows = await checklistService.replaceAll(sanitizedItems);
+      const normalized = normalizeItems(
+        updatedRows.map(convertSupabaseChecklistItemToLegacy),
+      );
+      setItems(normalized);
+      setIsDirty(false);
+      saveChecklistTemplate(normalized);
+      toast({
+        title: "Template atualizado",
+        description: "As perguntas do checklist foram salvas no banco de dados.",
+      });
+      refresh();
+    } catch (error) {
+      console.error("Erro ao salvar checklist template:", error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível atualizar as perguntas. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     const confirmed = window.confirm(
       "Tem certeza que deseja restaurar o checklist para o padrão? Todas as personalizações serão perdidas.",
     );
     if (!confirmed) return;
 
-    resetChecklistTemplate();
-    const template = loadChecklistTemplate();
-    setItems(template);
-    setIsDirty(false);
-    toast({
-      title: "Template restaurado",
-      description: "O checklist voltou para o padrão original.",
-    });
+    try {
+      setIsSaving(true);
+      const normalizedDefaults = normalizeItems(defaultChecklistItems);
+      const updatedRows = await checklistService.replaceAll(normalizedDefaults);
+      const normalized = normalizeItems(
+        updatedRows.map(convertSupabaseChecklistItemToLegacy),
+      );
+      setItems(normalized);
+      setIsDirty(false);
+      saveChecklistTemplate(normalized);
+      toast({
+        title: "Template restaurado",
+        description: "O checklist voltou para o padrão original.",
+      });
+      refresh();
+    } catch (error) {
+      console.error("Erro ao restaurar checklist template:", error);
+      toast({
+        title: "Erro ao restaurar",
+        description: "Não foi possível restaurar o checklist. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading) {
@@ -115,11 +194,11 @@ const AdminChecklistTemplate: React.FC = () => {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!isDirty}
+            disabled={!isDirty || isSaving}
             className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
           >
             <Save size={16} />
-            Salvar alterações
+            {isSaving ? "Salvando..." : "Salvar alterações"}
           </Button>
         </div>
       </div>
