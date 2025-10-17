@@ -45,6 +45,11 @@ const AdminInspections = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filterEquipment, setFilterEquipment] = useState<string>("all");
   const [filterOperator, setFilterOperator] = useState<string>("all");
+  const [sectorFilter, setSectorFilter] = useState<string>("all");
+
+  const equipmentById = useMemo(() => {
+    return new Map((equipment || []).map((item: any) => [item.id, item]));
+  }, [equipment]);
 
 
   const handleViewDetails = (inspection: any) => {
@@ -61,9 +66,22 @@ const AdminInspections = () => {
   };
 
   const filteredInspections = inspections.filter((inspection) => {
-    let matchesEquipment = filterEquipment === "all" || inspection.equipment_id === filterEquipment;
-    let matchesOperator = filterOperator === "all" || inspection.operator_matricula === filterOperator;
-    return matchesEquipment && matchesOperator;
+    const matchesEquipment =
+      filterEquipment === "all" || inspection.equipment_id === filterEquipment;
+
+    const matchesOperator =
+      filterOperator === "all" ||
+      inspection.operator_matricula === filterOperator ||
+      inspection.operator_id === filterOperator;
+
+    const equipmentItem =
+      inspection.equipment && inspection.equipment.sector
+        ? inspection.equipment
+        : equipmentById.get(inspection.equipment_id);
+    const inspectionSector = equipmentItem?.sector || "Sem setor";
+    const matchesSector = sectorFilter === "all" || inspectionSector === sectorFilter;
+
+    return matchesEquipment && matchesOperator && matchesSector;
   });
 
   const sectorSummary = useMemo(() => {
@@ -74,10 +92,6 @@ const AdminInspections = () => {
         totalWithProblems: 0,
       };
     }
-
-    const equipmentById = new Map(
-      (equipment || []).map((item: any) => [item.id, item])
-    );
 
     const summaryMap = new Map<
       string,
@@ -205,11 +219,23 @@ const AdminInspections = () => {
                       sector.inspectionsWithProblems > 0
                         ? "bg-red-100 text-red-800"
                         : "bg-green-100 text-green-800";
+                    const isActive = sectorFilter === sector.sector;
 
                     return (
-                      <TableRow key={sector.sector}>
+                      <TableRow
+                        key={sector.sector}
+                        className={`cursor-pointer transition-colors ${
+                          isActive ? "bg-red-50/70" : "hover:bg-gray-50"
+                        }`}
+                        onClick={() => setSectorFilter(sector.sector)}
+                      >
                         <TableCell className="font-medium">
                           {sector.sector}
+                          {isActive && (
+                            <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+                              filtrando
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-center">
                           {sector.totalInspections.toLocaleString("pt-BR")}
@@ -234,16 +260,27 @@ const AdminInspections = () => {
         </CardContent>
         {sectorSummary.sectors.length > 0 && (
           <CardFooter className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-muted-foreground">
-            <span>
-              Total de inspeções:{" "}
-              <strong>{sectorSummary.total.toLocaleString("pt-BR")}</strong>
-            </span>
-            <span>
-              Inspeções com problemas:{" "}
-              <strong>
-                {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
-              </strong>
-            </span>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+              <span>
+                Total de inspeções:{" "}
+                <strong>{sectorSummary.total.toLocaleString("pt-BR")}</strong>
+              </span>
+              <span>
+                Com problemas:{" "}
+                <strong>
+                  {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+                </strong>
+              </span>
+            </div>
+            {sectorFilter !== "all" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSectorFilter("all")}
+              >
+                Remover filtro de setor
+              </Button>
+            )}
           </CardFooter>
         )}
       </Card>
