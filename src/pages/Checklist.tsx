@@ -25,6 +25,7 @@ const Checklist = () => {
   const {
     operators,
     equipments,
+    checklistItems: supabaseChecklistItems,
     sectors,
     refresh
   } = useChecklistData();
@@ -44,37 +45,7 @@ const Checklist = () => {
   const [isOperatorLocked, setIsOperatorLocked] = useState(false);
   const [hasInitializedOperator, setHasInitializedOperator] = useState(false);
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: "1", question: "O cabo de aço possui fios amassados?", answer: null },
-    { id: "2", question: "O cabo de aço possui fios partidos?", answer: null },
-    { id: "3", question: "O cabo de aço possui fios com dobras?", answer: null },
-    { id: "4", question: "O sistema de freio do guincho está funcionando?", answer: null },
-    { id: "5", question: "O sistema de freio do Troller está funcionando?", answer: null },
-    { id: "6", question: "As travas de segurança do guincho estão funcionando?", answer: null },
-    { id: "7", question: "O gancho está girando sem dificuldades?", answer: null },
-    { id: "8", question: "O sinal sonoro está funcionando?", answer: null },
-    { id: "9", question: "As polias estão girando sem dificuldades?", answer: null },
-    { id: "10", question: "Existem grandes danos estruturais no equipamento?", answer: null },
-    { id: "11", question: "O equipamento está fazendo algum barulho estranho?", answer: null },
-    { id: "12", question: "O fim de curso inferior está funcionando?", answer: null },
-    { id: "13", question: "O fim de curso superior está funcionando?", answer: null },
-    { id: "14", question: "O fim de curso esquerdo está funcionando?", answer: null },
-    { id: "15", question: "O fim de curso direito está funcionando?", answer: null },
-    { id: "16", question: "O botão de emergência do controle está funcionando?", answer: null },
-    { id: "17", question: "O controle possui botões danificados?", answer: null },
-    { id: "18", question: "A corrente possui elos com desgaste?", answer: null },
-    { id: "19", question: "A corrente possui elos alongados?", answer: null },
-    { id: "20", question: "A corrente possui elos alargados?", answer: null },
-    { id: "21", question: "O(s) gancho(s) da corrente possui sinais de desgaste?", answer: null },
-    { id: "22", question: "O(s) gancho(s) da corrente possui elos com sinais de alongamento?", answer: null },
-    { id: "23", question: "O(s) gancho(s) da corrente possui travas de segurança funcionando?", answer: null },
-    { id: "24", question: "A corrente possui plaqueta de identificação fixada?", answer: null },
-    { id: "25", question: "O saco recolhedor da corrente, possui furos ou rasgos?", answer: null },
-    { id: "26", question: "O batente de giro, está em boas condições de uso?", answer: null },
-    { id: "27", question: "Os trilhos do pórtico estão desobstruídos?", answer: null },
-    { id: "28", question: "O freio do pórtico está funcionando?", answer: null },
-    { id: "29", question: "Os sensores contra esmagamento, estão funcionando?", answer: null }
-  ]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [signature, setSignature] = useState<string | null>(null);
   const [inspectionDate, setInspectionDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -106,6 +77,28 @@ const Checklist = () => {
     console.log("Operators updated in Checklist:", operators.length);
     console.log("Operators data:", operators);
   }, [operators]);
+
+  useEffect(() => {
+    if (supabaseChecklistItems.length > 0) {
+      const needsUpdate =
+        checklist.length !== supabaseChecklistItems.length ||
+        checklist.some((item, index) => {
+          const supabaseItem = supabaseChecklistItems[index];
+          return !supabaseItem || item.id !== supabaseItem.id;
+        });
+
+      if (needsUpdate && !hasInteractedWithChecklist) {
+        const normalizedChecklist = supabaseChecklistItems.map((item) => ({
+          id: item.id,
+          question: item.question,
+          answer: null,
+          alertOnYes: item.alertOnYes,
+          alertOnNo: item.alertOnNo,
+        }));
+        setChecklist(normalizedChecklist);
+      }
+    }
+  }, [supabaseChecklistItems, hasInteractedWithChecklist, checklist]);
 
   useEffect(() => {
     if (hasInitializedOperator || operators.length === 0) {
