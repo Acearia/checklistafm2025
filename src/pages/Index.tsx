@@ -356,11 +356,10 @@ const Index = () => {
                   </div>
                   
                   <Link to="/admin/login">
-                    <Button 
-                      variant="outline" 
-                      className="w-full py-4 text-base flex justify-center items-center"
+                    <Button
+                      className="w-full py-8 bg-red-700 hover:bg-red-800 text-white text-lg flex flex-col items-center gap-2"
                     >
-                      <span>Login Administrativo</span>
+                      <span>Acessar Área Administrativa</span>
                     </Button>
                   </Link>
                 </CardContent>
