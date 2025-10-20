@@ -26,9 +26,25 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Eye, Download } from "lucide-react";
+import { Eye, Download, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { Badge } from "@/components/ui/badge";
+
+const normalizeAnswer = (value: unknown) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
+const doesAnswerTriggerAlert = (answer: any): boolean => {
+  if (!answer) return false;
+  const normalizedAnswer = normalizeAnswer(answer.answer);
+  const alertOnYes = Boolean(answer.alertOnYes);
+  const alertOnNo = Boolean(answer.alertOnNo);
+
+  if (alertOnYes && normalizedAnswer === "sim") return true;
+  if (alertOnNo && normalizedAnswer === "não") return true;
+
+  return false;
+};
 
 const AdminInspections = () => {
   const { toast } = useToast();
@@ -65,7 +81,27 @@ const AdminInspections = () => {
     });
   };
 
-  const filteredInspections = inspections.filter((inspection) => {
+  const processedInspections = useMemo(() => {
+    return inspections.map((inspection: any) => {
+      const rawAnswers = Array.isArray(inspection.checklist_answers)
+        ? inspection.checklist_answers
+        : [];
+      const answersWithFlags = rawAnswers.map((answer) => ({
+        ...answer,
+        triggersAlert: doesAnswerTriggerAlert(answer),
+      }));
+      const problemItems = answersWithFlags.filter((answer) => answer.triggersAlert);
+
+      return {
+        ...inspection,
+        checklist_answers: answersWithFlags,
+        problemItems,
+        problemCount: problemItems.length,
+      };
+    });
+  }, [inspections]);
+
+  const filteredInspections = processedInspections.filter((inspection: any) => {
     const matchesEquipment =
       filterEquipment === "all" || inspection.equipment_id === filterEquipment;
 
@@ -85,7 +121,7 @@ const AdminInspections = () => {
   });
 
   const sectorSummary = useMemo(() => {
-    if (!inspections || inspections.length === 0) {
+    if (!processedInspections || processedInspections.length === 0) {
       return {
         sectors: [],
         total: 0,
@@ -104,33 +140,24 @@ const AdminInspections = () => {
 
     const isProblematicAnswer = (answer: any): boolean => {
       if (!answer) return false;
-      const normalizedAnswer =
-        typeof answer.answer === "string"
-          ? answer.answer.trim().toLowerCase()
-          : "";
-
-      const triggersYes = Boolean(answer.alertOnYes);
-      const triggersNo = Boolean(answer.alertOnNo);
-
-      if (triggersYes || triggersNo) {
-        if (triggersYes && normalizedAnswer === "sim") return true;
-        if (triggersNo && normalizedAnswer === "não") return true;
-        return false;
-      }
-
-      return normalizedAnswer === "não";
+      if (doesAnswerTriggerAlert(answer)) return true;
+      const normalized = normalizeAnswer(answer.answer);
+      const hasExplicitRules =
+        Boolean(answer.alertOnYes) || Boolean(answer.alertOnNo);
+      return !hasExplicitRules && normalized === "não";
     };
 
     let inspectionsWithProblemsTotal = 0;
 
-    inspections.forEach((inspection: any) => {
+    processedInspections.forEach((inspection: any) => {
       const equipmentItem = equipmentById.get(inspection.equipment_id);
       const sectorName = equipmentItem?.sector || "Sem setor";
       const answers = Array.isArray(inspection.checklist_answers)
         ? (inspection.checklist_answers as any[])
         : [];
 
-      const hasProblems = answers.some(isProblematicAnswer);
+      const hasProblems =
+        inspection.problemCount > 0 || answers.some(isProblematicAnswer);
       if (hasProblems) {
         inspectionsWithProblemsTotal += 1;
       }
@@ -156,10 +183,10 @@ const AdminInspections = () => {
 
     return {
       sectors,
-      total: inspections.length,
+      total: processedInspections.length,
       totalWithProblems: inspectionsWithProblemsTotal,
     };
-  }, [inspections, equipment]);
+  }, [processedInspections, equipment]);
 
   if (loading) {
     return (
@@ -367,6 +394,13 @@ const AdminInspections = () => {
                     // Find operator and equipment by IDs for display
                     const inspectionOperator = operators.find(op => op.matricula === inspection.operator_matricula);
                     const inspectionEquipment = equipment.find(eq => eq.id === inspection.equipment_id);
+                    const hasProblems = (inspection as any).problemCount > 0;
+                    const statusLabel = hasProblems
+                      ? `${(inspection as any).problemCount} alerta(s)`
+                      : "Sem alertas";
+                    const statusClasses = hasProblems
+                      ? "bg-red-100 text-red-800"
+                      : "bg-green-100 text-green-800";
                     
                     return (
                       <TableRow key={index}>
@@ -377,8 +411,8 @@ const AdminInspections = () => {
                         <TableCell>{inspectionEquipment?.kp || "N/A"}</TableCell>
                         <TableCell>{inspectionOperator?.name || "N/A"}</TableCell>
                         <TableCell>
-                          <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                            Concluído
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses}`}>
+                            {statusLabel}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
@@ -410,14 +444,20 @@ const AdminInspections = () => {
               {selectedInspection && (
                 <div className="text-sm">
                   {(() => {
-                    const inspectionOperator = operators.find(op => op.id === selectedInspection.operator_id);
+                    const inspectionOperator = operators.find(
+                      (op) =>
+                        op.matricula === selectedInspection.operator_matricula ||
+                        op.id === selectedInspection.operator_id
+                    );
                     const inspectionEquipment = equipment.find(eq => eq.id === selectedInspection.equipment_id);
+                    const problemCount = selectedInspection.problemCount || 0;
                     
                     return (
                       <>
                         Data: {new Date(selectedInspection.submission_date || selectedInspection.created_at).toLocaleDateString()} | 
                         Equipamento: {inspectionEquipment?.name || selectedInspection.equipment?.name || "N/A"} | 
-                        Operador: {inspectionOperator?.name || selectedInspection.operator?.name || "N/A"}
+                        Operador: {inspectionOperator?.name || selectedInspection.operator?.name || "N/A"} | 
+                        Alertas: {problemCount}
                       </>
                     );
                   })()}
@@ -427,11 +467,39 @@ const AdminInspections = () => {
           </DialogHeader>
           
           {selectedInspection && (() => {
-            const inspectionOperator = operators.find(op => op.id === selectedInspection.operator_id);
+            const inspectionOperator = operators.find(
+              (op) =>
+                op.matricula === selectedInspection.operator_matricula ||
+                op.id === selectedInspection.operator_id
+            );
             const inspectionEquipment = equipment.find(eq => eq.id === selectedInspection.equipment_id);
             
+            const problemItems = Array.isArray(selectedInspection.problemItems)
+              ? selectedInspection.problemItems
+              : [];
+            const hasProblems = problemItems.length > 0;
+
             return (
               <div className="space-y-4">
+                {hasProblems && (
+                  <div className="rounded border border-red-200 bg-red-50 p-3">
+                    <div className="flex items-center gap-2 text-red-800 font-semibold">
+                      <AlertTriangle className="h-4 w-4" />
+                      {problemItems.length} alerta(s) identificado(s) nesta inspeção
+                    </div>
+                    <ul className="mt-2 space-y-2 text-sm text-red-700">
+                      {problemItems.map((item: any, index: number) => (
+                        <li key={item.id || item.question || index}>
+                          <span className="font-medium">
+                            {item.question || `Item ${index + 1}`}
+                          </span>{" "}
+                          — resposta: <span className="uppercase">{item.answer || "N/A"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="border rounded p-3">
                     <h3 className="font-medium text-sm mb-1">Equipamento</h3>
@@ -458,20 +526,40 @@ const AdminInspections = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedInspection.checklist_answers && selectedInspection.checklist_answers.map((item: any, index: number) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.question || `Item ${index + 1}`}</TableCell>
-                          <TableCell className="text-right">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              item.answer === 'Sim' ? 'bg-green-100 text-green-800' : 
-                              item.answer === 'Não' ? 'bg-red-100 text-red-800' : 
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {item.answer || 'N/A'}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedInspection.checklist_answers &&
+                        selectedInspection.checklist_answers.map((item: any, index: number) => {
+                          const triggersAlert = Boolean(item.triggersAlert);
+                          const answer = item.answer || "N/A";
+                          const highlightClasses = triggersAlert
+                            ? "bg-red-50"
+                            : "";
+                          const answerClasses = triggersAlert
+                            ? "bg-red-100 text-red-800 border border-red-200"
+                            : answer === "Sim"
+                            ? "bg-green-100 text-green-800"
+                            : answer === "Não"
+                            ? "bg-gray-200 text-gray-800"
+                            : "bg-gray-100 text-gray-800";
+                          return (
+                            <TableRow key={index} className={highlightClasses}>
+                              <TableCell className="flex flex-col gap-1">
+                                <span>{item.question || `Item ${index + 1}`}</span>
+                                {triggersAlert && (
+                                  <Badge variant="destructive" className="w-fit">
+                                    Alerta
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${answerClasses}`}
+                                >
+                                  {answer}
+                                </span>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </div>
