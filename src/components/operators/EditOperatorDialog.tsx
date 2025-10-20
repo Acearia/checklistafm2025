@@ -284,14 +284,6 @@ export function EditOperatorDialog({
                     </FormItem>
                   )}
                 />
-                <div className="space-y-1">
-                  <FormLabel>Setor do líder</FormLabel>
-                  <FormDescription>Será o mesmo setor selecionado para o operador.</FormDescription>
-                  <Input
-                    readOnly
-                    value={(operadorSetor && operadorSetor !== NONE_SECTOR_VALUE ? operadorSetor : "Selecione um setor para o operador") || ""}
-                  />
-                </div>
                 <FormField
                   control={form.control}
                   name="leaderPassword"
