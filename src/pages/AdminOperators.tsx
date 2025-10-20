@@ -41,8 +41,6 @@ const AdminOperators = () => {
   const itemsPerPage = 10;
   const { toast } = useToast();
   
-  console.log("AdminOperators component rendering");
-  
   // Convert Supabase operators e combinar com informação de líderes
   useEffect(() => {
     if (supabaseOperators.length > 0) {
@@ -236,8 +234,6 @@ const AdminOperators = () => {
   
   // Filter operators based on search term
   useEffect(() => {
-    console.log(`Filtering operators with search term: "${searchTerm}"`);
-
     if (operators.length === 0) {
       setDisplayedOperators([]);
       setCurrentPage(1);
@@ -437,7 +433,6 @@ const AdminOperators = () => {
   };
 
   const openEditDialog = (operator: Operator) => {
-    console.log("Opening edit dialog for operator:", operator);
     setCurrentOperator(operator);
     setEditDialogOpen(true);
   };
@@ -448,8 +443,6 @@ const AdminOperators = () => {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
-  console.log(`Displaying ${paginatedOperators.length} operators out of ${displayedOperators.length} (filtered from ${operators.length} total)`);
 
   return (
     <div>
