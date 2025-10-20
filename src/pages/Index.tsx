@@ -6,6 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import SupabaseStatus from "@/components/SupabaseStatus";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +22,7 @@ import logoUrl from "@/assets/afm-logo.png";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
-  const { loading, error, operators } = useSupabaseData();
+  const { loading, error, operators, refresh } = useSupabaseData();
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
   const [validatedOperator, setValidatedOperator] = useState<any>(null);
@@ -22,6 +30,12 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<"home" | "leader" | "admin">("home");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [passwordSetupDialogOpen, setPasswordSetupDialogOpen] = useState(false);
+  const [passwordSetupOperator, setPasswordSetupOperator] = useState<any>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSetupError, setPasswordSetupError] = useState<string | null>(null);
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
 
   const handleValidateMatricula = () => {
     if (!matricula.trim()) {
@@ -33,70 +47,15 @@ const Index = () => {
       return;
     }
 
-    if (!senha.trim() || senha.length !== 4) {
-      toast({
-        title: "Erro",
-        description: "Digite uma senha de 4 dígitos",
-        variant: "destructive",
-      });
-      return;
-    }
-
     console.log(`[LOG] Validando matrícula: ${matricula} com senha`);
-    
+
     const normalizedMatricula = matricula.trim();
-    const operator = operators.find(op => {
+    const operator = operators.find((op) => {
       const opMatricula = (op as any).matricula ?? op.id;
       return opMatricula === normalizedMatricula || op.id === normalizedMatricula;
     });
-    
-    if (operator) {
-      // Verificar se a senha está correta
-      const operatorSenhaRaw = (operator as any).senha;
-      const operatorSenha =
-        operatorSenhaRaw === null || operatorSenhaRaw === undefined
-          ? ""
-          : String(operatorSenhaRaw).trim();
-      const senhaInformada = senha.trim();
 
-      if (!operatorSenha) {
-        console.log(`[LOG] Operador sem senha cadastrada: ${matricula}`);
-        setValidatedOperator(null);
-        setPasswordError("Operador sem senha cadastrada. Peça ao administrador para definir uma senha.");
-        toast({
-          title: "Senha não cadastrada",
-          description: "Entre em contato com o administrador para definir uma senha.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (operatorSenha !== senhaInformada) {
-        console.log(`[LOG] Senha incorreta para matrícula: ${matricula}`);
-        setValidatedOperator(null);
-        setPasswordError("Senha incorreta. Verifique e tente novamente.");
-        toast({
-          title: "Senha incorreta",
-          description: "Verifique a senha e tente novamente",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      const operatorMatricula = (operator as any).matricula || operator.id;
-      console.log(`[LOG] Operador encontrado: ${operator.name} (Matrícula: ${operatorMatricula})`);
-      const normalizedOperator = {
-        ...operator,
-        id: operatorMatricula,
-        matricula: operatorMatricula,
-      };
-      setValidatedOperator(normalizedOperator);
-      setPasswordError(null);
-      toast({
-        title: "Matrícula validada",
-        description: `Bem-vindo, ${operator.name}!`,
-      });
-    } else {
+    if (!operator) {
       console.log(`[LOG] Matrícula não encontrada: ${matricula}`);
       setValidatedOperator(null);
       setPasswordError("Matrícula não encontrada. Verifique o número informado.");
@@ -105,6 +64,127 @@ const Index = () => {
         description: "Verifique o número e tente novamente",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Verificar senha cadastrada
+    const operatorSenhaRaw = (operator as any).senha;
+    const operatorSenha =
+      operatorSenhaRaw === null || operatorSenhaRaw === undefined
+        ? ""
+        : String(operatorSenhaRaw).trim();
+    const senhaInformada = senha.trim();
+
+    if (!operatorSenha) {
+      console.log(`[LOG] Operador sem senha cadastrada, solicitando criação: ${matricula}`);
+      setValidatedOperator(null);
+      setPasswordError(null);
+      setPasswordSetupOperator(operator);
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSetupError(null);
+      setPasswordSetupDialogOpen(true);
+      toast({
+        title: "Defina uma senha",
+        description: "Crie uma senha de 4 dígitos para continuar.",
+      });
+      return;
+    }
+
+    if (!senhaInformada || senhaInformada.length !== 4) {
+      setValidatedOperator(null);
+      setPasswordError("Informe a senha de 4 dígitos para continuar.");
+      toast({
+        title: "Senha obrigatória",
+        description: "Digite a senha de 4 dígitos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (operatorSenha !== senhaInformada) {
+      console.log(`[LOG] Senha incorreta para matrícula: ${matricula}`);
+      setValidatedOperator(null);
+      setPasswordError("Senha incorreta. Verifique e tente novamente.");
+      toast({
+        title: "Senha incorreta",
+        description: "Verifique a senha e tente novamente",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const operatorMatricula = (operator as any).matricula || operator.id;
+    console.log(`[LOG] Operador encontrado: ${operator.name} (Matrícula: ${operatorMatricula})`);
+    const normalizedOperator = {
+      ...operator,
+      id: operatorMatricula,
+      matricula: operatorMatricula,
+    };
+    setValidatedOperator(normalizedOperator);
+    setPasswordError(null);
+    toast({
+      title: "Matrícula validada",
+      description: `Bem-vindo, ${operator.name}!`,
+    });
+  };
+
+  const handlePasswordSetupDialogChange = (open: boolean) => {
+    setPasswordSetupDialogOpen(open);
+    if (!open) {
+      setPasswordSetupOperator(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSetupError(null);
+      setIsSettingPassword(false);
+    }
+  };
+
+  const handlePasswordSetupSubmit = async () => {
+    if (!passwordSetupOperator) {
+      setPasswordSetupError("Operador não encontrado.");
+      return;
+    }
+
+    if (!newPassword || newPassword.length !== 4) {
+      setPasswordSetupError("A senha deve ter 4 dígitos.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordSetupError("As senhas informadas não coincidem.");
+      return;
+    }
+
+    try {
+      setIsSettingPassword(true);
+      const { operatorService } = await import("@/lib/supabase-service");
+      const operatorMatricula = (passwordSetupOperator as any).matricula ?? passwordSetupOperator.id;
+
+      await operatorService.update(operatorMatricula, { senha: newPassword });
+      await refresh();
+
+      toast({
+        title: "Senha definida",
+        description: "Senha criada com sucesso. Você já pode iniciar o checklist.",
+      });
+
+      const updatedOperator = {
+        ...passwordSetupOperator,
+        senha: newPassword,
+        matricula: operatorMatricula,
+        id: operatorMatricula,
+      };
+
+      setSenha(newPassword);
+      setValidatedOperator(updatedOperator);
+      setPasswordError(null);
+      handlePasswordSetupDialogChange(false);
+    } catch (error) {
+      console.error("Erro ao definir senha do operador:", error);
+      setPasswordSetupError("Não foi possível salvar a senha. Tente novamente.");
+    } finally {
+      setIsSettingPassword(false);
     }
   };
 
@@ -214,7 +294,7 @@ const Index = () => {
                       <Button 
                         onClick={handleValidateMatricula}
                         variant="outline"
-                        disabled={loading || !matricula.trim() || senha.length !== 4}
+                        disabled={loading || !matricula.trim()}
                         className="w-full"
                       >
                         <Search className="h-4 w-4 mr-2" />
@@ -289,6 +369,56 @@ const Index = () => {
           </Tabs>
         </div>
       </div>
+
+      <Dialog open={passwordSetupDialogOpen} onOpenChange={handlePasswordSetupDialogChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Definir senha de acesso</DialogTitle>
+            <DialogDescription>
+              Crie uma senha de 4 dígitos para o operador {passwordSetupOperator?.name || ""}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              type="password"
+              placeholder="Nova senha (4 dígitos)"
+              maxLength={4}
+              value={newPassword}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                setNewPassword(value);
+                setPasswordSetupError(null);
+              }}
+            />
+            <Input
+              type="password"
+              placeholder="Confirmar senha"
+              maxLength={4}
+              value={confirmPassword}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                setConfirmPassword(value);
+                setPasswordSetupError(null);
+              }}
+            />
+            {passwordSetupError && (
+              <p className="text-sm text-red-600">{passwordSetupError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handlePasswordSetupDialogChange(false)}
+              disabled={isSettingPassword}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handlePasswordSetupSubmit} disabled={isSettingPassword}>
+              {isSettingPassword ? "Salvando..." : "Salvar senha"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
