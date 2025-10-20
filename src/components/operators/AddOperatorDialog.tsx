@@ -45,7 +45,6 @@ const formSchema = z.object({
     .or(z.literal(""))
     .optional(),
   isLeader: z.boolean().default(false),
-  leaderSector: z.string().optional(),
   leaderEmail: z.string().email({ message: "Informe um email válido" }).optional(),
   leaderPassword: z.string().min(4, { message: "Senha deve ter pelo menos 4 caracteres" }).optional(),
 }).superRefine((data, ctx) => {
@@ -55,6 +54,13 @@ const formSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ["leaderEmail"],
         message: "Informe o email do líder.",
+      });
+    }
+    if (!data.setor || data.setor === NONE_SECTOR_VALUE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["setor"],
+        message: "Defina o setor do operador (será o mesmo do líder).",
       });
     }
     if (!data.leaderPassword) {
@@ -96,7 +102,6 @@ export function AddOperatorDialog({
       setor: NONE_SECTOR_VALUE,
       senha: "",
       isLeader: false,
-      leaderSector: NONE_SECTOR_VALUE,
       leaderEmail: "",
       leaderPassword: "",
     },
@@ -104,19 +109,6 @@ export function AddOperatorDialog({
 
   const isLeader = form.watch("isLeader");
   const operadorSetor = form.watch("setor");
-
-  useEffect(() => {
-    if (isLeader) {
-      const currentLeaderSector = form.getValues("leaderSector");
-      if (
-        (!currentLeaderSector || currentLeaderSector === NONE_SECTOR_VALUE) &&
-        operadorSetor &&
-        operadorSetor !== NONE_SECTOR_VALUE
-      ) {
-        form.setValue("leaderSector", operadorSetor);
-      }
-    }
-  }, [isLeader, operadorSetor, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name and id are required and not empty
@@ -131,8 +123,8 @@ export function AddOperatorDialog({
       senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
       isLeader: values.isLeader,
       leaderSector:
-        values.leaderSector && values.leaderSector !== NONE_SECTOR_VALUE
-          ? values.leaderSector
+        values.setor && values.setor !== NONE_SECTOR_VALUE
+          ? values.setor
           : undefined,
       leaderEmail: values.leaderEmail || undefined,
       leaderPassword: values.leaderPassword || undefined,
@@ -281,27 +273,14 @@ export function AddOperatorDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="leaderSector"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Setor do líder</FormLabel>
-                      <FormDescription>Será o mesmo setor do operador.</FormDescription>
-                      <FormControl>
-                        <Input
-                          readOnly
-                          value={
-                            (operadorSetor && operadorSetor !== NONE_SECTOR_VALUE
-                              ? operadorSetor
-                              : "Selecione um setor para o operador") || ""
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-1">
+                  <FormLabel>Setor do líder</FormLabel>
+                  <FormDescription>Será o mesmo setor selecionado para o operador.</FormDescription>
+                  <Input
+                    readOnly
+                    value={(operadorSetor && operadorSetor !== NONE_SECTOR_VALUE ? operadorSetor : "Selecione um setor para o operador") || ""}
+                  />
+                </div>
                 <FormField
                   control={form.control}
                   name="leaderPassword"

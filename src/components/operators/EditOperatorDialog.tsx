@@ -46,7 +46,6 @@ const formSchema = z
       }),
     isLeader: z.boolean().default(false),
     leaderEmail: z.string().email({ message: "Informe um email válido" }).optional(),
-    leaderSector: z.string().optional(),
     leaderPassword: z.string().min(4, { message: "Senha deve ter pelo menos 4 caracteres" }).optional(),
   })
   .superRefine((data, ctx) => {
@@ -106,7 +105,6 @@ export function EditOperatorDialog({
       senha: operatorData.senha || "",
       isLeader: Boolean(operatorData.isLeader),
       leaderEmail: operatorData.leaderEmail || "",
-      leaderSector: operatorData.leaderSector || (operatorData.setor || NONE_SECTOR_VALUE),
       leaderPassword: "",
     },
   });
@@ -122,7 +120,6 @@ export function EditOperatorDialog({
         senha: operator.senha || "",
         isLeader: Boolean(operator.isLeader),
         leaderEmail: operator.leaderEmail || "",
-        leaderSector: operator.leaderSector || (operator.setor || NONE_SECTOR_VALUE),
         leaderPassword: "",
       });
     }
@@ -130,19 +127,6 @@ export function EditOperatorDialog({
 
   const isLeader = form.watch("isLeader");
   const operadorSetor = form.watch("setor");
-
-  useEffect(() => {
-    if (isLeader) {
-      const current = form.getValues("leaderSector");
-      if (
-        (!current || current === NONE_SECTOR_VALUE) &&
-        operadorSetor &&
-        operadorSetor !== NONE_SECTOR_VALUE
-      ) {
-        form.setValue("leaderSector", operadorSetor);
-      }
-    }
-  }, [isLeader, operadorSetor, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name is required and not empty
@@ -157,8 +141,8 @@ export function EditOperatorDialog({
       isLeader: values.isLeader,
       leaderEmail: values.leaderEmail || undefined,
       leaderSector:
-        values.leaderSector && values.leaderSector !== NONE_SECTOR_VALUE
-          ? values.leaderSector
+        values.setor && values.setor !== NONE_SECTOR_VALUE
+          ? values.setor
           : undefined,
       leaderPassword: values.leaderPassword || undefined,
     });
@@ -300,31 +284,14 @@ export function EditOperatorDialog({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="leaderSector"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Setor do líder*</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || NONE_SECTOR_VALUE}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o setor do líder" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NONE_SECTOR_VALUE}>Selecione</SelectItem>
-                          {sectors.map((sector) => (
-                            <SelectItem key={sector.id} value={sector.name}>
-                              {sector.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="space-y-1">
+                  <FormLabel>Setor do líder</FormLabel>
+                  <FormDescription>Será o mesmo setor selecionado para o operador.</FormDescription>
+                  <Input
+                    readOnly
+                    value={(operadorSetor && operadorSetor !== NONE_SECTOR_VALUE ? operadorSetor : "Selecione um setor para o operador") || ""}
+                  />
+                </div>
                 <FormField
                   control={form.control}
                   name="leaderPassword"
