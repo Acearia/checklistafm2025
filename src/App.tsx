@@ -10,7 +10,6 @@ import AdminOperators from "./pages/AdminOperators";
 import AdminEquipment from "./pages/AdminEquipment";
 import AdminInspections from "./pages/AdminInspections";
 import AdminChecklistsOverview from "./pages/AdminChecklistsOverview";
-import AdminChecklistTemplate from "./pages/AdminChecklistTemplate";
 import AdminLeaderDashboard from "./pages/AdminLeaderDashboard";
 import AdminLeaders from "./pages/AdminLeaders";
 import AdminSectors from "./pages/AdminSectors";
@@ -50,7 +49,6 @@ function App() {
           <Route path="equipment" element={<AdminEquipment />} />
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
-          <Route path="checklists/template" element={<AdminChecklistTemplate />} />
           <Route path="leaders" element={<AdminLeaders />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
           <Route path="sectors" element={<AdminSectors />} />
