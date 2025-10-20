@@ -28,15 +28,6 @@ import {
   PaginationNext,
   PaginationPrevious
 } from "@/components/ui/pagination";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 
 const AdminOperators = () => {
   const { operators: supabaseOperators, sectors: supabaseSectors, refresh, loading } = useSupabaseData();
@@ -49,9 +40,6 @@ const AdminOperators = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { toast } = useToast();
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkImportText, setBulkImportText] = useState("");
-  const [isBulkImporting, setIsBulkImporting] = useState(false);
   
   console.log("AdminOperators component rendering");
   
@@ -306,28 +294,6 @@ const AdminOperators = () => {
     }
   };
 
-  const handleBulkImport = async () => {
-    if (!bulkImportText.trim()) {
-      toast({
-        title: "Informe a lista",
-        description: "Cole os dados dos operadores antes de importar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsBulkImporting(true);
-    try {
-      const result = await processOperatorText(bulkImportText);
-      if (result && (result.created > 0 || result.updated > 0)) {
-        setBulkImportText("");
-        setBulkDialogOpen(false);
-      }
-    } finally {
-      setIsBulkImporting(false);
-    }
-  };
-
   const handleRemoveOperator = async (matricula: string) => {
     const operatorToRemove = operators.find(op => op.id === matricula);
     if (!operatorToRemove) return;
@@ -371,21 +337,13 @@ const AdminOperators = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Gerenciar Operadores - Checklist AFM</h1>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setBulkDialogOpen(true)}
-          >
-            Importar lista
-          </Button>
-          <Button 
-            className="bg-red-700 hover:bg-red-800"
-            onClick={() => setAddDialogOpen(true)}
-          >
-            <PlusCircle size={16} className="mr-2" />
-            Novo Operador
-          </Button>
-        </div>
+        <Button 
+          className="bg-red-700 hover:bg-red-800"
+          onClick={() => setAddDialogOpen(true)}
+        >
+          <PlusCircle size={16} className="mr-2" />
+          Novo Operador
+        </Button>
       </div>
 
       <div className="mb-6">
@@ -560,31 +518,6 @@ const AdminOperators = () => {
       />
     )}
 
-      <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Importar operadores em massa</DialogTitle>
-            <DialogDescription>
-              Cole os dados com colunas <strong>Nome</strong>, <strong>Matrícula</strong> e <strong>Setor</strong>.
-              Cada linha deve representar um operador.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            value={bulkImportText}
-            onChange={(e) => setBulkImportText(e.target.value)}
-            placeholder={"Exemplo:\\nAlanio Costa Batista\\t1567\\tFusão"}
-            rows={12}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={isBulkImporting}>
-              Cancelar
-            </Button>
-            <Button onClick={handleBulkImport} disabled={isBulkImporting}>
-              {isBulkImporting ? "Importando..." : "Importar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
