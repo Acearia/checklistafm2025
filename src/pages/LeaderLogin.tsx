@@ -10,6 +10,7 @@ const LeaderLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { leaders, loading: leadersLoading } = useSupabaseData();
@@ -31,6 +32,7 @@ const LeaderLogin = () => {
         description: "Por favor, informe email e senha",
         variant: "destructive",
       });
+      setErrorMessage("Informe email e senha para continuar.");
       return;
     }
 
@@ -47,13 +49,9 @@ const LeaderLogin = () => {
         return;
       }
       
-      console.log("Available leaders:", leaders);
-      console.log("Looking for email:", email.toLowerCase());
-      
       // Find leader by email and validate password
       const leader = leaders.find(l => l.email.toLowerCase() === email.toLowerCase());
-      console.log("Found leader:", leader);
-      
+
       // Simple password validation (in production, use proper hashing)
       const passwordHash = btoa(password); // Base64 encoding for simplicity
       
@@ -70,17 +68,20 @@ const LeaderLogin = () => {
           title: "Login realizado com sucesso",
           description: `Bem-vindo(a), ${leader.name}`,
         });
-        
+        setErrorMessage(null);
         navigate("/leader/dashboard");
       } else {
+        const message = leader ? "Senha incorreta. Verifique e tente novamente." : "Email não encontrado. Verifique suas credenciais.";
+        setErrorMessage(message);
         toast({
           title: "Erro",
-          description: leader ? "Senha incorreta" : "Email não encontrado. Verifique suas credenciais.",
+          description: message,
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error during login:", error);
+      console.error("Erro ao realizar login:", error);
+      setErrorMessage("Erro ao realizar login. Tente novamente.");
       toast({
         title: "Erro",
         description: "Erro ao realizar login",
@@ -131,6 +132,9 @@ const LeaderLogin = () => {
                   autoComplete="current-password"
                   required
                 />
+                {errorMessage && (
+                  <p className="text-sm text-red-600">{errorMessage}</p>
+                )}
               </div>
 
                <Button
