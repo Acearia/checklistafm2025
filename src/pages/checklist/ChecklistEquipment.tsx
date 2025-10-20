@@ -27,22 +27,9 @@ const ChecklistEquipment = () => {
   } = useEquipmentSelection();
   
   const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
-  const [operatorSector] = useState<string | null>(() => {
-    const state = getChecklistState();
     return state.operator?.setor?.trim() ?? null;
   });
 
-  const normalizedOperatorSector = useMemo(() => {
-    return operatorSector ? operatorSector.trim() : null;
-  }, [operatorSector]);
-
-  const filteredEquipments = useMemo(() => {
-    if (!normalizedOperatorSector) return [] as typeof equipments;
-    return equipments.filter(
-      (equipment) =>
-        equipment.sector &&
-        equipment.sector.trim().toLowerCase() === normalizedOperatorSector.toLowerCase(),
-    );
   }, [equipments, normalizedOperatorSector]);
 
   useEffect(() => {
@@ -98,39 +85,7 @@ const ChecklistEquipment = () => {
     // Navegar para a próxima etapa
     navigate('/checklist-steps/items');
   };
-
-  const handleRestrictedEquipmentSelect = (equipmentId: string) => {
-    if (!normalizedOperatorSector) {
-      toast({
-        title: "Selecione o operador",
-        description: "Defina um operador com setor cadastrado para liberar os equipamentos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const allowedEquipment = filteredEquipments.find((equipment) => equipment.id === equipmentId);
-    if (!allowedEquipment) {
-      toast({
-        title: "Equipamento não permitido",
-        description: `Somente equipamentos do setor ${normalizedOperatorSector} podem ser selecionados.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    handleEquipmentSelect(equipmentId);
-  };
-
-  const restrictionMessage = useMemo(() => {
-    if (!normalizedOperatorSector) {
-      return "O operador selecionado não possui setor cadastrado. Solicite ao administrativo a atualização do cadastro.";
-    }
-    if (filteredEquipments.length === 0) {
-      return `Nenhum equipamento cadastrado para o setor ${normalizedOperatorSector}.`;
-    }
-    return null;
-  }, [normalizedOperatorSector, filteredEquipments.length]);
+  const handleEquipmentSelect = handleEquipmentSelect;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -143,9 +98,9 @@ const ChecklistEquipment = () => {
           <h2 className="text-xl font-bold mb-4">Selecione o equipamento</h2>
 
           <ChecklistEquipmentSearchSelect
-            equipments={normalizedOperatorSector ? filteredEquipments : []}
+            equipments={equipments}
             selectedEquipment={selectedEquipment}
-            onEquipmentSelect={handleRestrictedEquipmentSelect}
+            onEquipmentSelect={handleEquipmentSelect}
           />
           
           {restrictionMessage && (
@@ -172,7 +127,7 @@ const ChecklistEquipment = () => {
           )}
           
           <EquipmentDebugButton 
-            equipments={normalizedOperatorSector ? filteredEquipments : equipments}
+            equipments={equipments}
             onDebugClick={logEquipments}
           />
         </div>

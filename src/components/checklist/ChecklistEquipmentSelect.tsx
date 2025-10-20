@@ -13,16 +13,12 @@ interface ChecklistEquipmentSelectProps {
   equipments: Equipment[];
   selectedEquipment: Equipment | null;
   onEquipmentSelect: (equipmentId: string) => void;
-  disabled?: boolean;
-  emptyMessage?: string | null;
 }
 
 const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({ 
   equipments, 
   selectedEquipment, 
-  onEquipmentSelect,
-  disabled = false,
-  emptyMessage = null,
+  onEquipmentSelect 
 }) => {
   const getEquipmentTypeText = (type: string) => {
     switch (type) {
@@ -36,21 +32,9 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
   return (
     <div className="mb-4 grid grid-cols-1 gap-4">
       <div className="w-full">
-        <Select
-          value={selectedEquipment?.id ?? undefined}
-          onValueChange={onEquipmentSelect}
-          disabled={disabled || equipments.length === 0}
-        >
-          <SelectTrigger className="w-full bg-white" disabled={disabled || equipments.length === 0}>
-            <SelectValue
-              placeholder={
-                disabled
-                  ? "Selecione o operador para liberar os equipamentos"
-                  : equipments.length === 0
-                    ? "Nenhum equipamento disponível"
-                    : "Selecione o equipamento"
-              }
-            />
+        <Select onValueChange={onEquipmentSelect}>
+          <SelectTrigger className="w-full bg-white">
+            <SelectValue placeholder="Selecione o equipamento" />
           </SelectTrigger>
           <SelectContent>
             {equipments.map(equipment => (
@@ -61,12 +45,6 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
           </SelectContent>
         </Select>
       </div>
-
-      {emptyMessage && equipments.length === 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          {emptyMessage}
-        </div>
-      )}
 
       {selectedEquipment && (
         <div className="grid grid-cols-2 gap-4">

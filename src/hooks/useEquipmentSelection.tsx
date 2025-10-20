@@ -43,10 +43,6 @@ export const useEquipmentSelection = (initialEquipment: Equipment | null = null)
     }
   };
 
-  const clearSelectedEquipment = () => {
-    setSelectedEquipment(null);
-  };
-
   const initializeEquipments = (initialEquipments: Equipment[]) => {
     console.log("Forcing equipment initialization...");
     localStorage.setItem('checklistafm-equipments', JSON.stringify(initialEquipments));
@@ -63,7 +59,6 @@ export const useEquipmentSelection = (initialEquipment: Equipment | null = null)
     selectedEquipment,
     isLoadingData,
     handleEquipmentSelect,
-    clearSelectedEquipment,
     initializeEquipments
   };
 };

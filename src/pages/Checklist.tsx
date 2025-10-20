@@ -64,40 +64,23 @@ const Checklist = () => {
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
   const [comments, setComments] = useState<string>('');
-
-  const normalizedOperatorSector = useMemo(() => {
     const sector = selectedOperator?.setor;
     return sector ? sector.trim() : null;
   }, [selectedOperator]);
 
-  const filteredEquipments = useMemo(() => {
-    if (!selectedOperator || !normalizedOperatorSector) {
-      return [] as Equipment[];
-    }
-
-    return equipments.filter((equipment) => {
-      if (!equipment?.sector) return false;
-      return equipment.sector.trim().toLowerCase() === normalizedOperatorSector.toLowerCase();
     });
   }, [equipments, selectedOperator, normalizedOperatorSector]);
 
   useEffect(() => {
-    if (!selectedOperator || !normalizedOperatorSector) {
-      if (selectedEquipment) {
-        setSelectedEquipment(null);
-        saveChecklistState({ equipment: null });
-      }
-      return;
-    }
 
     if (
       selectedEquipment &&
-      !filteredEquipments.some((equipment) => equipment.id === selectedEquipment.id)
+      !equipments.some((equipment) => equipment.id === selectedEquipment.id)
     ) {
       setSelectedEquipment(null);
       saveChecklistState({ equipment: null });
     }
-  }, [selectedOperator, normalizedOperatorSector, filteredEquipments, selectedEquipment]);
+  }, [selectedOperator, normalizedOperatorSector, equipments, selectedEquipment]);
 
   const unansweredCount = useMemo(
     () =>
@@ -258,7 +241,7 @@ const Checklist = () => {
     }
 
     const equipment =
-      filteredEquipments.find((eq) => eq.id === equipmentId) || null;
+      equipments.find((eq) => eq.id === equipmentId) || null;
 
     if (!equipment) {
       toast({
@@ -534,16 +517,12 @@ const Checklist = () => {
           )}
 
           <ChecklistEquipmentSelect
-            equipments={filteredEquipments}
+            equipments={equipments}
             selectedEquipment={selectedEquipment}
             onEquipmentSelect={handleEquipmentSelect}
-            disabled={!selectedOperator || !normalizedOperatorSector}
+            disabled={!selectedOperator}
             emptyMessage={
-              selectedOperator
-                ? !normalizedOperatorSector
-                  ? "Este operador não possui setor cadastrado. Solicite ao administrativo a atualização do cadastro."
-                  : "Nenhum equipamento disponível para o setor do operador selecionado."
-                : null
+              selectedOperator ? "Nenhum equipamento disponível para seleção." : null
             }
           />
 
