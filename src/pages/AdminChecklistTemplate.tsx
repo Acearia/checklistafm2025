@@ -5,22 +5,11 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistTemplate } from "@/lib/checklistTemplate";
 import type { ChecklistItem } from "@/lib/data";
-import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { useChecklistData } from "@/hooks/useChecklistData";
 import { checklistService } from "@/lib/supabase-service";
 import { checklistItems as defaultChecklistItems } from "@/lib/data";
 import { convertSupabaseChecklistItemToLegacy } from "@/lib/types-compat";
-
-const createEmptyItem = (nextIndex: number): ChecklistItem => ({
-  id:
-    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : `item-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  question: "",
-  answer: null,
-  alertOnYes: false,
-  alertOnNo: false,
-});
 
 const AdminChecklistTemplate: React.FC = () => {
   const [items, setItems] = useState<ChecklistItem[]>([]);
@@ -66,25 +55,8 @@ const AdminChecklistTemplate: React.FC = () => {
     setIsDirty(true);
   };
 
-  const handleQuestionChange = (id: string, value: string) => {
-    updateItem(id, (item) => ({ ...item, question: value }));
-  };
-
   const handleToggleChange = (id: string, key: "alertOnYes" | "alertOnNo", checked: boolean) => {
     updateItem(id, (item) => ({ ...item, [key]: checked }));
-  };
-
-  const handleAddQuestion = () => {
-    setItems((prev) => {
-      const next = [...prev, createEmptyItem(prev.length + 1)];
-      return next;
-    });
-    setIsDirty(true);
-  };
-
-  const handleRemoveQuestion = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
-    setIsDirty(true);
   };
 
   const handleSave = async () => {
@@ -130,39 +102,6 @@ const AdminChecklistTemplate: React.FC = () => {
     }
   };
 
-  const handleReset = async () => {
-    const confirmed = window.confirm(
-      "Tem certeza que deseja restaurar o checklist para o padrão? Todas as personalizações serão perdidas.",
-    );
-    if (!confirmed) return;
-
-    try {
-      setIsSaving(true);
-      const normalizedDefaults = normalizeItems(defaultChecklistItems);
-      const updatedRows = await checklistService.replaceAll(normalizedDefaults);
-      const normalized = normalizeItems(
-        updatedRows.map(convertSupabaseChecklistItemToLegacy),
-      );
-      setItems(normalized);
-      setIsDirty(false);
-      saveChecklistTemplate(normalized);
-      toast({
-        title: "Template restaurado",
-        description: "O checklist voltou para o padrão original.",
-      });
-      refresh();
-    } catch (error) {
-      console.error("Erro ao restaurar checklist template:", error);
-      toast({
-        title: "Erro ao restaurar",
-        description: "Não foi possível restaurar o checklist. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -184,14 +123,6 @@ const AdminChecklistTemplate: React.FC = () => {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleReset} className="flex items-center gap-2">
-            <RefreshCw size={16} />
-            Restaurar padrão
-          </Button>
-          <Button onClick={handleAddQuestion} className="flex items-center gap-2">
-            <Plus size={16} />
-            Adicionar pergunta
-          </Button>
           <Button
             onClick={handleSave}
             disabled={!isDirty || isSaving}
@@ -205,29 +136,22 @@ const AdminChecklistTemplate: React.FC = () => {
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-gray-500">
-          Nenhuma pergunta cadastrada. Clique em "Adicionar pergunta" para começar.
+          Nenhuma pergunta cadastrada. Cadastre perguntas diretamente no banco de dados.
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="rounded-md border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+            As perguntas são gerenciadas diretamente no banco de dados. Utilize esta tela apenas para definir quando cada resposta deve gerar alertas automáticos.
+          </div>
           {items.map((item, index) => (
             <div key={item.id} className="rounded-lg border-2 border-gray-200 bg-white p-4 shadow-sm space-y-4">
               <div className="flex items-start gap-3">
                 <span className="text-lg font-semibold text-gray-700">{index + 1}.</span>
                 <Input
                   value={item.question}
-                  onChange={(e) => handleQuestionChange(item.id, e.target.value)}
-                  placeholder={`Pergunta ${index + 1}`}
-                  className="flex-1"
+                  readOnly
+                  className="flex-1 bg-gray-50 text-gray-700"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => handleRemoveQuestion(item.id)}
-                  disabled={items.length === 1}
-                >
-                  <Trash2 size={16} />
-                </Button>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
