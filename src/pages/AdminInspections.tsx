@@ -34,7 +34,7 @@ import { Badge } from "@/components/ui/badge";
 const normalizeAnswer = (value: unknown) =>
   typeof value === "string" ? value.trim().toLowerCase() : "";
 
-const doesAnswerTriggerAlert = (answer: any): boolean => {
+const isCriticalAnswer = (answer: any): boolean => {
   if (!answer) return false;
   const normalizedAnswer = normalizeAnswer(answer.answer);
   const alertOnYes = Boolean(answer.alertOnYes);
@@ -42,6 +42,12 @@ const doesAnswerTriggerAlert = (answer: any): boolean => {
 
   if (alertOnYes && normalizedAnswer === "sim") return true;
   if (alertOnNo && normalizedAnswer === "não") return true;
+
+  // Fallback for legacy data without alert flags: treat "não" as problem
+  const hasExplicitRules = alertOnYes || alertOnNo;
+  if (!hasExplicitRules && normalizedAnswer === "não") {
+    return true;
+  }
 
   return false;
 };
@@ -86,10 +92,13 @@ const AdminInspections = () => {
       const rawAnswers = Array.isArray(inspection.checklist_answers)
         ? inspection.checklist_answers
         : [];
-      const answersWithFlags = rawAnswers.map((answer) => ({
-        ...answer,
-        triggersAlert: doesAnswerTriggerAlert(answer),
-      }));
+      const answersWithFlags = rawAnswers.map((answer) => {
+        const triggersAlert = isCriticalAnswer(answer);
+        return {
+          ...answer,
+          triggersAlert,
+        };
+      });
       const problemItems = answersWithFlags.filter((answer) => answer.triggersAlert);
 
       return {
@@ -139,12 +148,7 @@ const AdminInspections = () => {
     >();
 
     const isProblematicAnswer = (answer: any): boolean => {
-      if (!answer) return false;
-      if (doesAnswerTriggerAlert(answer)) return true;
-      const normalized = normalizeAnswer(answer.answer);
-      const hasExplicitRules =
-        Boolean(answer.alertOnYes) || Boolean(answer.alertOnNo);
-      return !hasExplicitRules && normalized === "não";
+      return isCriticalAnswer(answer);
     };
 
     let inspectionsWithProblemsTotal = 0;
