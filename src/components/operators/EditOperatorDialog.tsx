@@ -58,13 +58,6 @@ const formSchema = z
           message: "Informe o email do líder.",
         });
       }
-      if (!data.leaderSector || data.leaderSector === NONE_SECTOR_VALUE) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["leaderSector"],
-          message: "Selecione o setor do líder.",
-        });
-      }
     }
   });
 

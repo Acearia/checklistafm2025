@@ -57,13 +57,6 @@ const formSchema = z.object({
         message: "Informe o email do líder.",
       });
     }
-    if (!data.leaderSector || data.leaderSector === NONE_SECTOR_VALUE) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["leaderSector"],
-        message: "Selecione o setor do líder.",
-      });
-    }
     if (!data.leaderPassword) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -293,25 +286,18 @@ export function AddOperatorDialog({
                   name="leaderSector"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Setor do líder*</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value || NONE_SECTOR_VALUE}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o setor do líder" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={NONE_SECTOR_VALUE}>Selecione</SelectItem>
-                          {sectors.map((sector) => (
-                            <SelectItem key={sector.id} value={sector.name}>
-                              {sector.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Setor do líder</FormLabel>
+                      <FormDescription>Será o mesmo setor do operador.</FormDescription>
+                      <FormControl>
+                        <Input
+                          readOnly
+                          value={
+                            (operadorSetor && operadorSetor !== NONE_SECTOR_VALUE
+                              ? operadorSetor
+                              : "Selecione um setor para o operador") || ""
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
