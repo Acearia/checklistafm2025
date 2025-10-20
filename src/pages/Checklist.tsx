@@ -65,6 +65,40 @@ const Checklist = () => {
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
   const [comments, setComments] = useState<string>('');
 
+  const normalizedOperatorSector = useMemo(() => {
+    const sector = selectedOperator?.setor;
+    return sector ? sector.trim() : null;
+  }, [selectedOperator]);
+
+  const filteredEquipments = useMemo(() => {
+    if (!selectedOperator || !normalizedOperatorSector) {
+      return [] as Equipment[];
+    }
+
+    return equipments.filter((equipment) => {
+      if (!equipment?.sector) return false;
+      return equipment.sector.trim().toLowerCase() === normalizedOperatorSector.toLowerCase();
+    });
+  }, [equipments, selectedOperator, normalizedOperatorSector]);
+
+  useEffect(() => {
+    if (!selectedOperator || !normalizedOperatorSector) {
+      if (selectedEquipment) {
+        setSelectedEquipment(null);
+        saveChecklistState({ equipment: null });
+      }
+      return;
+    }
+
+    if (
+      selectedEquipment &&
+      !filteredEquipments.some((equipment) => equipment.id === selectedEquipment.id)
+    ) {
+      setSelectedEquipment(null);
+      saveChecklistState({ equipment: null });
+    }
+  }, [selectedOperator, normalizedOperatorSector, filteredEquipments, selectedEquipment]);
+
   const unansweredCount = useMemo(
     () =>
       checklist.filter((item) => item.answer === null || item.answer === "Selecione")
@@ -140,7 +174,8 @@ const Checklist = () => {
       console.log("Operator found and normalized:", normalizedOperator);
       setSelectedOperator(normalizedOperator);
       setIsOperatorLocked(true);
-      saveChecklistState({ operator: normalizedOperator });
+      setSelectedEquipment(null);
+      saveChecklistState({ operator: normalizedOperator, equipment: null });
     } else {
       console.warn("Operator not found for id:", operatorId);
       toast({
@@ -213,8 +248,29 @@ const Checklist = () => {
   };
 
   const handleEquipmentSelect = (equipmentId: string) => {
-    const equipment = equipments.find(eq => eq.id === equipmentId) || null;
+    if (!selectedOperator || !normalizedOperatorSector) {
+      toast({
+        title: "Selecione o operador",
+        description: "Escolha primeiro o operador para liberar os equipamentos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const equipment =
+      filteredEquipments.find((eq) => eq.id === equipmentId) || null;
+
+    if (!equipment) {
+      toast({
+        title: "Equipamento não permitido",
+        description: `O operador selecionado só pode inspecionar equipamentos do setor ${normalizedOperatorSector}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setSelectedEquipment(equipment);
+    saveChecklistState({ equipment });
   };
 
   const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => {
@@ -478,9 +534,17 @@ const Checklist = () => {
           )}
 
           <ChecklistEquipmentSelect
-            equipments={equipments}
+            equipments={filteredEquipments}
             selectedEquipment={selectedEquipment}
             onEquipmentSelect={handleEquipmentSelect}
+            disabled={!selectedOperator || !normalizedOperatorSector}
+            emptyMessage={
+              selectedOperator
+                ? !normalizedOperatorSector
+                  ? "Este operador não possui setor cadastrado. Solicite ao administrativo a atualização do cadastro."
+                  : "Nenhum equipamento disponível para o setor do operador selecionado."
+                : null
+            }
           />
 
           {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (

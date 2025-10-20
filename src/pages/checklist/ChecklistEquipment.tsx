@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -22,10 +22,38 @@ const ChecklistEquipment = () => {
     equipments, 
     selectedEquipment, 
     handleEquipmentSelect,
+    clearSelectedEquipment,
     initializeEquipments
   } = useEquipmentSelection();
   
   const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
+  const [operatorSector] = useState<string | null>(() => {
+    const state = getChecklistState();
+    return state.operator?.setor?.trim() ?? null;
+  });
+
+  const normalizedOperatorSector = useMemo(() => {
+    return operatorSector ? operatorSector.trim() : null;
+  }, [operatorSector]);
+
+  const filteredEquipments = useMemo(() => {
+    if (!normalizedOperatorSector) return [] as typeof equipments;
+    return equipments.filter(
+      (equipment) =>
+        equipment.sector &&
+        equipment.sector.trim().toLowerCase() === normalizedOperatorSector.toLowerCase(),
+    );
+  }, [equipments, normalizedOperatorSector]);
+
+  useEffect(() => {
+    if (
+      selectedEquipment &&
+      !filteredEquipments.some((equipment) => equipment.id === selectedEquipment.id)
+    ) {
+      clearSelectedEquipment();
+      saveChecklistState({ equipment: null });
+    }
+  }, [selectedEquipment, filteredEquipments, clearSelectedEquipment]);
 
   useEffect(() => {
     // Verificar se o operador foi selecionado
@@ -71,6 +99,39 @@ const ChecklistEquipment = () => {
     navigate('/checklist-steps/items');
   };
 
+  const handleRestrictedEquipmentSelect = (equipmentId: string) => {
+    if (!normalizedOperatorSector) {
+      toast({
+        title: "Selecione o operador",
+        description: "Defina um operador com setor cadastrado para liberar os equipamentos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const allowedEquipment = filteredEquipments.find((equipment) => equipment.id === equipmentId);
+    if (!allowedEquipment) {
+      toast({
+        title: "Equipamento não permitido",
+        description: `Somente equipamentos do setor ${normalizedOperatorSector} podem ser selecionados.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    handleEquipmentSelect(equipmentId);
+  };
+
+  const restrictionMessage = useMemo(() => {
+    if (!normalizedOperatorSector) {
+      return "O operador selecionado não possui setor cadastrado. Solicite ao administrativo a atualização do cadastro.";
+    }
+    if (filteredEquipments.length === 0) {
+      return `Nenhum equipamento cadastrado para o setor ${normalizedOperatorSector}.`;
+    }
+    return null;
+  }, [normalizedOperatorSector, filteredEquipments.length]);
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
       <ChecklistHeader backUrl="/checklist-steps/operator" />
@@ -82,12 +143,18 @@ const ChecklistEquipment = () => {
           <h2 className="text-xl font-bold mb-4">Selecione o equipamento</h2>
 
           <ChecklistEquipmentSearchSelect
-            equipments={equipments}
+            equipments={normalizedOperatorSector ? filteredEquipments : []}
             selectedEquipment={selectedEquipment}
-            onEquipmentSelect={handleEquipmentSelect}
+            onEquipmentSelect={handleRestrictedEquipmentSelect}
           />
           
-          {equipments.length === 0 && (
+          {restrictionMessage && (
+            <div className="mt-2 text-sm text-red-500">
+              {restrictionMessage}
+            </div>
+          )}
+
+          {!restrictionMessage && equipments.length === 0 && (
             <div className="mt-2 text-sm text-red-500">
               Nenhum equipamento disponível para seleção.
               <Button 
@@ -105,7 +172,7 @@ const ChecklistEquipment = () => {
           )}
           
           <EquipmentDebugButton 
-            equipments={equipments}
+            equipments={normalizedOperatorSector ? filteredEquipments : equipments}
             onDebugClick={logEquipments}
           />
         </div>
