@@ -14,8 +14,7 @@ import {
   Menu, 
   X,
   ArrowLeft,
-  Database,
-  Briefcase
+  Database
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -127,7 +126,6 @@ const AdminLayout = () => {
           <nav className="p-4 flex flex-col h-full">
             <div className="space-y-1 flex-1">
               <SidebarLink to="/admin" icon={<Home size={20} />} label="Dashboard" />
-              <SidebarLink to="/admin/leaders" icon={<Briefcase size={20} />} label="Gerenciar Líderes" />
               <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
               <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
               <SidebarLink to="/admin/operators" icon={<User size={20} />} label="Operadores" />

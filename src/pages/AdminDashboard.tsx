@@ -282,10 +282,10 @@ const AdminDashboard = () => {
               Gerenciar Setores
             </Button>
           </Link>
-          <Link to="/admin/leaders">
+          <Link to="/admin/operators">
             <Button variant="outline" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Gerenciar Líderes
+              Definir Líderes
             </Button>
           </Link>
         </div>

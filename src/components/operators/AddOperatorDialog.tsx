@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -27,8 +26,10 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormDescription,
   FormMessage,
 } from "@/components/ui/form";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
   id: z
@@ -43,6 +44,34 @@ const formSchema = z.object({
     .regex(/^\d{4}$/, { message: "Senha deve ter exatamente 4 dígitos numéricos" })
     .or(z.literal(""))
     .optional(),
+  isLeader: z.boolean().default(false),
+  leaderSector: z.string().optional(),
+  leaderEmail: z.string().email({ message: "Informe um email válido" }).optional(),
+  leaderPassword: z.string().min(4, { message: "Senha deve ter pelo menos 4 caracteres" }).optional(),
+}).superRefine((data, ctx) => {
+  if (data.isLeader) {
+    if (!data.leaderEmail) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["leaderEmail"],
+        message: "Informe o email do líder.",
+      });
+    }
+    if (!data.leaderSector || data.leaderSector === NONE_SECTOR_VALUE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["leaderSector"],
+        message: "Selecione o setor do líder.",
+      });
+    }
+    if (!data.leaderPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["leaderPassword"],
+        message: "Defina uma senha para o líder.",
+      });
+    }
+  }
 });
 
 const NONE_SECTOR_VALUE = "__none";
@@ -55,7 +84,7 @@ type SectorOption = {
 interface AddOperatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string }) => void;
+  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string; isLeader?: boolean; leaderSector?: string; leaderEmail?: string; leaderPassword?: string }) => void;
   sectors?: SectorOption[];
 }
 
@@ -73,8 +102,28 @@ export function AddOperatorDialog({
       cargo: "",
       setor: NONE_SECTOR_VALUE,
       senha: "",
+      isLeader: false,
+      leaderSector: NONE_SECTOR_VALUE,
+      leaderEmail: "",
+      leaderPassword: "",
     },
   });
+
+  const isLeader = form.watch("isLeader");
+  const operadorSetor = form.watch("setor");
+
+  useEffect(() => {
+    if (isLeader) {
+      const currentLeaderSector = form.getValues("leaderSector");
+      if (
+        (!currentLeaderSector || currentLeaderSector === NONE_SECTOR_VALUE) &&
+        operadorSetor &&
+        operadorSetor !== NONE_SECTOR_VALUE
+      ) {
+        form.setValue("leaderSector", operadorSetor);
+      }
+    }
+  }, [isLeader, operadorSetor, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name and id are required and not empty
@@ -87,6 +136,13 @@ export function AddOperatorDialog({
       cargo: values.cargo,
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
       senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
+      isLeader: values.isLeader,
+      leaderSector:
+        values.leaderSector && values.leaderSector !== NONE_SECTOR_VALUE
+          ? values.leaderSector
+          : undefined,
+      leaderEmail: values.leaderEmail || undefined,
+      leaderPassword: values.leaderPassword || undefined,
     });
     
     form.reset();
@@ -197,6 +253,89 @@ export function AddOperatorDialog({
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="isLeader"
+              render={({ field }) => (
+                <FormItem className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <FormLabel>Este operador é líder?</FormLabel>
+                      <FormDescription>
+                        Ative para definir acesso ao painel de líderes.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {isLeader && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="leaderEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email do líder*</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="email@empresa.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="leaderSector"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Setor do líder*</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || NONE_SECTOR_VALUE}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o setor do líder" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NONE_SECTOR_VALUE}>Selecione</SelectItem>
+                          {sectors.map((sector) => (
+                            <SelectItem key={sector.id} value={sector.name}>
+                              {sector.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="leaderPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Senha do líder*</FormLabel>
+                      <FormDescription>Mínimo de 4 caracteres.</FormDescription>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          placeholder="Defina a senha de acesso"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
             <DialogFooter>
               <Button type="submit">Adicionar Operador</Button>
             </DialogFooter>

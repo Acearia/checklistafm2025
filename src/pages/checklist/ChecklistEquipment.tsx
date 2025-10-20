@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -22,25 +22,10 @@ const ChecklistEquipment = () => {
     equipments, 
     selectedEquipment, 
     handleEquipmentSelect,
-    clearSelectedEquipment,
     initializeEquipments
   } = useEquipmentSelection();
   
   const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
-    return state.operator?.setor?.trim() ?? null;
-  });
-
-  }, [equipments, normalizedOperatorSector]);
-
-  useEffect(() => {
-    if (
-      selectedEquipment &&
-      !filteredEquipments.some((equipment) => equipment.id === selectedEquipment.id)
-    ) {
-      clearSelectedEquipment();
-      saveChecklistState({ equipment: null });
-    }
-  }, [selectedEquipment, filteredEquipments, clearSelectedEquipment]);
 
   useEffect(() => {
     // Verificar se o operador foi selecionado
@@ -85,7 +70,6 @@ const ChecklistEquipment = () => {
     // Navegar para a próxima etapa
     navigate('/checklist-steps/items');
   };
-  const handleEquipmentSelect = handleEquipmentSelect;
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
@@ -103,13 +87,7 @@ const ChecklistEquipment = () => {
             onEquipmentSelect={handleEquipmentSelect}
           />
           
-          {restrictionMessage && (
-            <div className="mt-2 text-sm text-red-500">
-              {restrictionMessage}
-            </div>
-          )}
-
-          {!restrictionMessage && equipments.length === 0 && (
+          {equipments.length === 0 && (
             <div className="mt-2 text-sm text-red-500">
               Nenhum equipamento disponível para seleção.
               <Button 

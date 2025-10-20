@@ -64,23 +64,6 @@ const Checklist = () => {
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
   const [comments, setComments] = useState<string>('');
-    const sector = selectedOperator?.setor;
-    return sector ? sector.trim() : null;
-  }, [selectedOperator]);
-
-    });
-  }, [equipments, selectedOperator, normalizedOperatorSector]);
-
-  useEffect(() => {
-
-    if (
-      selectedEquipment &&
-      !equipments.some((equipment) => equipment.id === selectedEquipment.id)
-    ) {
-      setSelectedEquipment(null);
-      saveChecklistState({ equipment: null });
-    }
-  }, [selectedOperator, normalizedOperatorSector, equipments, selectedEquipment]);
 
   const unansweredCount = useMemo(
     () =>
@@ -157,8 +140,7 @@ const Checklist = () => {
       console.log("Operator found and normalized:", normalizedOperator);
       setSelectedOperator(normalizedOperator);
       setIsOperatorLocked(true);
-      setSelectedEquipment(null);
-      saveChecklistState({ operator: normalizedOperator, equipment: null });
+      saveChecklistState({ operator: normalizedOperator });
     } else {
       console.warn("Operator not found for id:", operatorId);
       toast({
@@ -231,29 +213,8 @@ const Checklist = () => {
   };
 
   const handleEquipmentSelect = (equipmentId: string) => {
-    if (!selectedOperator || !normalizedOperatorSector) {
-      toast({
-        title: "Selecione o operador",
-        description: "Escolha primeiro o operador para liberar os equipamentos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const equipment =
-      equipments.find((eq) => eq.id === equipmentId) || null;
-
-    if (!equipment) {
-      toast({
-        title: "Equipamento não permitido",
-        description: `O operador selecionado só pode inspecionar equipamentos do setor ${normalizedOperatorSector}.`,
-        variant: "destructive",
-      });
-      return;
-    }
-
+    const equipment = equipments.find(eq => eq.id === equipmentId) || null;
     setSelectedEquipment(equipment);
-    saveChecklistState({ equipment });
   };
 
   const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => {
@@ -520,10 +481,6 @@ const Checklist = () => {
             equipments={equipments}
             selectedEquipment={selectedEquipment}
             onEquipmentSelect={handleEquipmentSelect}
-            disabled={!selectedOperator}
-            emptyMessage={
-              selectedOperator ? "Nenhum equipamento disponível para seleção." : null
-            }
           />
 
           {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (

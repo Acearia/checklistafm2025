@@ -5,6 +5,10 @@ export interface Operator {
   cargo?: string;
   setor?: string;
   senha?: string;
+  isLeader?: boolean;
+  leaderEmail?: string;
+  leaderSector?: string;
+  leaderId?: string;
 }
 
 export interface Equipment {

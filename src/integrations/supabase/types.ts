@@ -209,6 +209,7 @@ export type Database = {
           email: string
           id: string
           name: string
+          operator_matricula: string | null
           password_hash: string
           sector: string
           updated_at: string
@@ -218,6 +219,7 @@ export type Database = {
           email: string
           id?: string
           name: string
+          operator_matricula?: string | null
           password_hash: string
           sector: string
           updated_at?: string
@@ -227,6 +229,7 @@ export type Database = {
           email?: string
           id?: string
           name?: string
+          operator_matricula?: string | null
           password_hash?: string
           sector?: string
           updated_at?: string

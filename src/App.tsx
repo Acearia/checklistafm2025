@@ -49,7 +49,6 @@ function App() {
           <Route path="equipment" element={<AdminEquipment />} />
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
-          <Route path="leaders" element={<AdminLeaders />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
           <Route path="sectors" element={<AdminSectors />} />
           <Route path="checklists/:id" element={<ChecklistDetail />} />
