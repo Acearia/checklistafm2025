@@ -28,6 +28,15 @@ import {
   PaginationNext,
   PaginationPrevious
 } from "@/components/ui/pagination";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 const AdminOperators = () => {
   const { operators: supabaseOperators, sectors: supabaseSectors, refresh, loading } = useSupabaseData();
@@ -40,6 +49,9 @@ const AdminOperators = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { toast } = useToast();
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkImportText, setBulkImportText] = useState("");
+  const [isBulkImporting, setIsBulkImporting] = useState(false);
   
   console.log("AdminOperators component rendering");
   
@@ -66,41 +78,136 @@ const AdminOperators = () => {
   const processOperatorText = async (operatorText: string) => {
     try {
       // Dividimos o texto em linhas
-      const lines = operatorText.split('\n').filter(line => line.trim() !== '');
+      const lines = operatorText
+        .split('\n')
+        .map((line) => line.replace(/\r/g, '').trim())
+        .filter((line) => line.length > 0);
       
       // Para cada linha, criamos um operador
-      const parsedOperators = lines.map(line => {
-        const parts = line.split('\t');
-        if (parts.length >= 3) {
-          const sectorRaw = parts.length > 3 ? parts[3].trim() : undefined;
-          const matchedSector = sectorRaw
+      const parsedOperators = lines
+        .map((line, index) => {
+          // Ignore header rows
+          if (/nome/i.test(line) && /setor/i.test(line)) {
+            return null;
+          }
+
+          let parts = line.split('\t').map((part) => part.trim());
+          if (parts.length < 3) {
+            // fallback: split by 2+ spaces
+            parts = line.split(/\s{2,}/).map((part) => part.trim());
+          }
+
+          if (parts.length < 2) {
+            console.warn(`Linha ${index + 1} ignorada: formato inválido`, line);
+            return null;
+          }
+
+          const [name, matricula, setorRaw = "", cargoRaw = ""] = parts;
+          if (!matricula) {
+            console.warn(`Linha ${index + 1} ignorada: matrícula vazia`, line);
+            return null;
+          }
+
+          const matchedSector = setorRaw
             ? sectorOptions.find(
-                (opt) => opt.name.toLowerCase() === sectorRaw.toLowerCase()
+                (opt) => opt.name.toLowerCase() === setorRaw.toLowerCase(),
               )
             : undefined;
 
           return {
-            matricula: parts[0].trim(),
-            name: parts[1].trim().toUpperCase(),
-            cargo: parts[2].trim(),
-            setor: matchedSector?.name,
+            matricula: matricula.trim(),
+            name: name.trim().toUpperCase(),
+            cargo: cargoRaw ? cargoRaw.trim().toUpperCase() : null,
+            setor: matchedSector?.name || (setorRaw ? setorRaw.trim() : null),
+            rawSector: setorRaw.trim(),
+            matchedSector: matchedSector?.name ?? null,
           };
-        }
-        return null;
-      }).filter(op => op !== null);
+        })
+        .filter((op): op is NonNullable<typeof op> => op !== null);
+
+      if (parsedOperators.length === 0) {
+        toast({
+          title: "Nenhum operador válido",
+          description: "Verifique o formato da lista e tente novamente.",
+          variant: "destructive",
+        });
+        return { created: 0, updated: 0, invalid: lines.length };
+      }
+
+      let createdCount = 0;
+      let updatedCount = 0;
+      let failedCount = 0;
+      const unmatchedSectors = new Set<string>();
       
       // Salvar no Supabase
       for (const operator of parsedOperators) {
-        await operatorService.create(operator);
+        if (!operator.matchedSector && operator.rawSector) {
+          unmatchedSectors.add(operator.rawSector);
+        }
+
+        try {
+          await operatorService.create({
+            matricula: operator.matricula,
+            name: operator.name,
+            cargo: operator.cargo ?? null,
+            setor: operator.matchedSector ?? operator.setor ?? null,
+            senha: null,
+          });
+          createdCount += 1;
+        } catch (error: any) {
+          const message = String(error?.message ?? "");
+          if (message.includes("duplicate key value") || message.includes("already exists")) {
+            try {
+              await operatorService.update(operator.matricula, {
+                name: operator.name,
+                cargo: operator.cargo ?? null,
+                setor: operator.matchedSector ?? operator.setor ?? null,
+              });
+              updatedCount += 1;
+            } catch (updateError) {
+              console.error("Erro ao atualizar operador existente:", updateError);
+              failedCount += 1;
+            }
+          } else {
+            console.error("Erro ao criar operador:", error);
+            failedCount += 1;
+          }
+        }
       }
       
-      if (parsedOperators.length > 0) {
+      const totalProcessed = createdCount + updatedCount;
+      if (totalProcessed > 0) {
+        const parts = [];
+        if (createdCount) parts.push(`${createdCount} novo(s)`);
+        if (updatedCount) parts.push(`${updatedCount} atualizado(s)`);
         toast({
-          title: "Operadores importados",
-          description: `${parsedOperators.length} operadores foram importados com sucesso.`,
+          title: "Importação concluída",
+          description: `Processados ${totalProcessed} operadores (${parts.join(", ")}).`,
         });
-        refresh(); // Refresh data from Supabase
       }
+
+      if (failedCount > 0) {
+        toast({
+          title: "Operadores não processados",
+          description: `${failedCount} linha(s) não puderam ser importadas.`,
+          variant: "destructive",
+        });
+      }
+
+      if (unmatchedSectors.size > 0) {
+        toast({
+          title: "Setores não reconhecidos",
+          description: `Ajuste os nomes dos setores: ${Array.from(unmatchedSectors).join(", ")}.`,
+        });
+      }
+
+      refresh(); // Refresh data from Supabase
+      return {
+        created: createdCount,
+        updated: updatedCount,
+        failed: failedCount,
+        unmatchedSectors: Array.from(unmatchedSectors),
+      };
     } catch (e) {
       console.error('Erro ao processar texto de operadores:', e);
       toast({
@@ -108,6 +215,7 @@ const AdminOperators = () => {
         description: "Não foi possível processar o texto de operadores.",
         variant: "destructive",
       });
+      return { created: 0, updated: 0, failed: 0, unmatchedSectors: [] };
     }
   };
   
@@ -198,6 +306,28 @@ const AdminOperators = () => {
     }
   };
 
+  const handleBulkImport = async () => {
+    if (!bulkImportText.trim()) {
+      toast({
+        title: "Informe a lista",
+        description: "Cole os dados dos operadores antes de importar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBulkImporting(true);
+    try {
+      const result = await processOperatorText(bulkImportText);
+      if (result && (result.created > 0 || result.updated > 0)) {
+        setBulkImportText("");
+        setBulkDialogOpen(false);
+      }
+    } finally {
+      setIsBulkImporting(false);
+    }
+  };
+
   const handleRemoveOperator = async (matricula: string) => {
     const operatorToRemove = operators.find(op => op.id === matricula);
     if (!operatorToRemove) return;
@@ -241,13 +371,21 @@ const AdminOperators = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Gerenciar Operadores - Checklist AFM</h1>
-        <Button 
-          className="bg-red-700 hover:bg-red-800"
-          onClick={() => setAddDialogOpen(true)}
-        >
-          <PlusCircle size={16} className="mr-2" />
-          Novo Operador
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setBulkDialogOpen(true)}
+          >
+            Importar lista
+          </Button>
+          <Button 
+            className="bg-red-700 hover:bg-red-800"
+            onClick={() => setAddDialogOpen(true)}
+          >
+            <PlusCircle size={16} className="mr-2" />
+            Novo Operador
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6">
@@ -270,26 +408,26 @@ const AdminOperators = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => {
-                // Verificar se temos operadores no clipboard
-                navigator.clipboard.readText().then(text => {
-                  if (text && text.includes('\t')) {
-                    processOperatorText(text);
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  if (text && text.trim().length > 0) {
+                    await processOperatorText(text);
                   } else {
                     toast({
                       title: "Texto inválido",
-                      description: "Cole uma lista de operadores no formato Matricula\\tNome\\tCargo\\tSetor",
+                      description: "Cole uma lista de operadores com colunas Nome, Matrícula e Setor.",
                       variant: "destructive",
                     });
                   }
-                }).catch(err => {
+                } catch (err) {
                   console.error("Erro ao acessar a área de transferência:", err);
                   toast({
                     title: "Erro",
                     description: "Não foi possível acessar a área de transferência",
                     variant: "destructive",
                   });
-                });
+                }
               }}
             >
               Importar do Clipboard
@@ -413,14 +551,40 @@ const AdminOperators = () => {
 
       {/* Edit Operator Dialog */}
       {currentOperator && (
-        <EditOperatorDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          operator={currentOperator}
-          onEditOperator={handleEditOperator}
-          sectors={sectorOptions}
-        />
-      )}
+      <EditOperatorDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        operator={currentOperator}
+        onEditOperator={handleEditOperator}
+        sectors={sectorOptions}
+      />
+    )}
+
+      <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Importar operadores em massa</DialogTitle>
+            <DialogDescription>
+              Cole os dados com colunas <strong>Nome</strong>, <strong>Matrícula</strong> e <strong>Setor</strong>.
+              Cada linha deve representar um operador.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={bulkImportText}
+            onChange={(e) => setBulkImportText(e.target.value)}
+            placeholder={"Exemplo:\\nAlanio Costa Batista\\t1567\\tFusão"}
+            rows={12}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)} disabled={isBulkImporting}>
+              Cancelar
+            </Button>
+            <Button onClick={handleBulkImport} disabled={isBulkImporting}>
+              {isBulkImporting ? "Importando..." : "Importar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
