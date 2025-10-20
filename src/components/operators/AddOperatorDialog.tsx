@@ -31,11 +31,18 @@ import {
 } from "@/components/ui/form";
 
 const formSchema = z.object({
-  id: z.string().min(4, { message: "Matrícula deve ter pelo menos 4 caracteres" }).max(4, { message: "Matrícula deve ter exatamente 4 caracteres" }),
+  id: z
+    .string()
+    .min(4, { message: "Matrícula deve ter pelo menos 4 caracteres" })
+    .max(4, { message: "Matrícula deve ter exatamente 4 caracteres" }),
   name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
   cargo: z.string().optional(),
   setor: z.string().optional(),
-  senha: z.string().length(4, { message: "Senha deve ter exatamente 4 dígitos" }).regex(/^\d+$/, { message: "Senha deve conter apenas números" }),
+  senha: z
+    .string()
+    .regex(/^\d{4}$/, { message: "Senha deve ter exatamente 4 dígitos numéricos" })
+    .or(z.literal(""))
+    .optional(),
 });
 
 const NONE_SECTOR_VALUE = "__none";
@@ -48,7 +55,7 @@ type SectorOption = {
 interface AddOperatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha: string }) => void;
+  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string }) => void;
   sectors?: SectorOption[];
 }
 
@@ -79,7 +86,7 @@ export function AddOperatorDialog({
       name: values.name,
       cargo: values.cargo,
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
-      senha: values.senha
+      senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
     });
     
     form.reset();
@@ -173,13 +180,13 @@ export function AddOperatorDialog({
               name="senha"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha* (4 dígitos)</FormLabel>
+                  <FormLabel>Senha (4 dígitos, opcional)</FormLabel>
                   <FormControl>
                     <Input 
                       type="password"
                       placeholder="••••"
                       maxLength={4}
-                      {...field}
+                      value={field.value ?? ""}
                       onChange={(e) => {
                         const value = e.target.value.replace(/\D/g, '');
                         field.onChange(value);

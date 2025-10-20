@@ -138,14 +138,14 @@ const AdminOperators = () => {
   
   // Calculate the next available ID - removed as we use Supabase auto-generated IDs
 
-  const handleAddOperator = async (data: { id: string; name: string; cargo?: string; setor?: string; senha: string }) => {
+  const handleAddOperator = async (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string }) => {
     try {
       await operatorService.create({
         matricula: data.id,
         name: data.name.toUpperCase(),
         cargo: data.cargo?.toUpperCase() || null,
         setor: data.setor || null,
-        senha: data.senha.trim(),
+        senha: data.senha ? data.senha.trim() : null,
       });
       
       toast({
