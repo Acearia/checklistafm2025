@@ -357,9 +357,9 @@ const Index = () => {
                   
                   <Link to="/admin/login">
                     <Button
-                      className="w-full py-8 bg-red-700 hover:bg-red-800 text-white text-lg flex flex-col items-center gap-2"
+                      className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
                     >
-                      <span>Acessar Área Administrativa</span>
+                      <span>Dashboard Administrativo</span>
                     </Button>
                   </Link>
                 </CardContent>
