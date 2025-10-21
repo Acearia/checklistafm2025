@@ -200,7 +200,7 @@ const Index = () => {
     <div
       className={cn(
         "min-h-screen flex flex-col transition-colors duration-300",
-        activeTab === "home" ? "home-background" : "bg-background"
+        "home-background"
       )}
     >
       <header className="bg-red-700 text-white px-4 py-3 shadow-md flex justify-between items-center">
