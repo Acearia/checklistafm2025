@@ -163,6 +163,21 @@ const AdminChecklistsOverview = () => {
   const watchFrequency = form.watch("frequency");
 
   useEffect(() => {
+    if (!derivedLeaders || derivedLeaders.length === 0) {
+      setLeadersList([]);
+      return;
+    }
+
+    const normalizedLeaders = derivedLeaders.map((leader: any) => ({
+      id: leader.operator_matricula,
+      name: leader.name || leader.operator_matricula,
+      email: leader.email || undefined,
+    }));
+
+    setLeadersList(normalizedLeaders);
+  }, [derivedLeaders]);
+
+  useEffect(() => {
     setMaintenanceOrders(loadMaintenanceOrders());
     const handleOrdersUpdated = () => {
       setMaintenanceOrders(loadMaintenanceOrders());
@@ -1349,13 +1364,3 @@ const AdminChecklistsOverview = () => {
 };
 
 export default AdminChecklistsOverview;
-
-useEffect(() => {
-  if (derivedLeaders) {
-    setLeadersList(derivedLeaders.map((leader: any) => ({
-      id: leader.operator_matricula,
-      name: leader.name || leader.operator_matricula,
-      email: leader.email || undefined,
-    })));
-  }
-}, [derivedLeaders]);
