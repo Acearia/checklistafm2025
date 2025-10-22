@@ -87,6 +87,17 @@ const AdminOperators = () => {
     [supabaseSectors]
   );
 
+  const findLeaderForOperator = (operatorId: string, leaderEmail?: string) => {
+    const emailLower = leaderEmail?.toLowerCase();
+    return (
+      (supabaseLeaders || []).find((leader: any) => {
+        if (!leader) return false;
+        if (leader.operator_matricula === operatorId) return true;
+        return emailLower ? leader.email?.toLowerCase() === emailLower : false;
+      }) || null
+    );
+  };
+
   // Função para importar operadores do texto
   const processOperatorText = async (operatorText: string) => {
     try {
@@ -256,8 +267,7 @@ const AdminOperators = () => {
   }, [searchTerm, operators]);
   
   // Calculate the next available ID - removed as we use Supabase auto-generated IDs
-
-    const handleAddOperator = async (data: {
+  const handleAddOperator = async (data: {
     id: string;
     name: string;
     cargo?: string;
@@ -280,12 +290,147 @@ const AdminOperators = () => {
         const leaderPayload = {
           name: data.name.toUpperCase(),
           email: data.leaderEmail.trim(),
-          sector: data.setor || "",
+          sector: data.setor || ,
           password_hash: btoa(data.leaderPassword),
           operator_matricula: data.id,
         };
 
-              const existingLeader = (supabaseLeaders || []).find((leader: any) => leader?.operator_matricula === matricula);
+        const existingLeader = findLeaderForOperator(data.id, data.leaderEmail);
+
+        if (existingLeader) {
+          await leaderService.update(existingLeader.id, leaderPayload);
+        } else {
+          await leaderService.create(leaderPayload);
+        }
+      }
+
+      toast({
+        title: "Operador adicionado",
+        description: `${data.name} foi adicionado com sucesso.`,
+      });
+
+      await refresh();
+    } catch (error) {
+      console.error('Erro ao adicionar operador:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível adicionar o operador.",
+        variant: "destructive",
+      });
+    }
+  };
+
+
+      if (data.isLeader && data.leaderEmail && data.leaderPassword) {
+        const leaderPayload = {
+          name: data.name.toUpperCase(),
+          email: data.leaderEmail.trim(),
+          sector: data.data.setor || "",
+          password_hash: btoa(data.leaderPassword),
+          operator_matricula: data.id,
+        };
+
+        const existingLeader = (supabaseLeaders || []).find(
+          (leader: any) => leader?.operator_matricula === data.id,
+        );
+
+        if (existingLeader) {
+          if (
+            existingLeader.email === leaderPayload.email &&
+            existingLeader.operator_matricula === leaderPayload.operator_matricula
+          ) {
+            await leaderService.update(existingLeader.id, leaderPayload);
+          } else {
+            await leaderService.delete(existingLeader.id);
+            await leaderService.create(leaderPayload);
+          }
+        } else if (
+          !(supabaseLeaders || []).some(
+            (leader: any) => leader?.email?.toLowerCase() === leaderPayload.email.toLowerCase(),
+          )
+        ) {
+          await leaderService.update(existingLeader.id, leaderPayload);
+        } else {
+          await leaderService.create(leaderPayload);
+        }
+      }
+      
+      toast({
+        title: "Operador adicionado",
+        description: `${data.name} foi adicionado com sucesso.`,
+      });
+
+      
+      await refresh(); // Refresh data from Supabase
+    } catch (error) {
+      console.error('Erro ao adicionar operador:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível adicionar o operador.",
+        variant: "destructive",
+      });
+    }
+  };
+          }
+        } else {
+          if (!data.leaderPassword) {
+            toast({
+              title: "Senha do líder obrigatória",
+              description: "Defina uma senha para o líder antes de salvar.",
+              variant: "destructive",
+            });
+            return;
+          }
+          const duplicateEmail = (supabaseLeaders || []).find(
+            (leader: any) => leader?.email?.toLowerCase() === data.leaderEmail!.toLowerCase(),
+          );
+          if (duplicateEmail) {
+            await leaderService.update(duplicateEmail.id, {
+              name: data.name.toUpperCase(),
+              email: data.leaderEmail.trim(),
+              sector: data.data.setor || "",
+              password_hash: btoa(data.leaderPassword),
+              operator_matricula: data.id,
+            });
+          } else {
+            await leaderService.create({
+              name: data.name.toUpperCase(),
+              email: data.leaderEmail.trim(),
+              sector: data.data.setor || "",
+              password_hash: btoa(data.leaderPassword),
+              operator_matricula: data.id,
+            });
+          }
+        }
+      } else if (!data.isLeader && existingLeader) {
+        await leaderService.delete(existingLeader.id);
+      }
+      
+      toast({
+        title: "Operador atualizado",
+        description: "Os dados do operador foram atualizados com sucesso.",
+      });
+
+      
+      setEditDialogOpen(false);
+      setCurrentOperator(null);
+      await refresh(); // Refresh data from Supabase
+    } catch (error) {
+      console.error('Erro ao editar operador:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível editar o operador.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveOperator = async (matricula: string) => {
+    const operatorToRemove = operators.find(op => op.id === matricula);
+    if (!operatorToRemove) return;
+    
+    try {
+      const existingLeader = findLeaderForOperator(matricula, operatorToRemove.leaderEmail);
 
       await operatorService.delete(matricula);
 
