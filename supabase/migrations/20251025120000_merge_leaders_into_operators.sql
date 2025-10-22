@@ -25,7 +25,7 @@ BEGIN
 
     UPDATE public.sectors
     SET leader_operator_matricula = rec.operator_matricula
-    WHERE leader_id = rec.id;
+    WHERE leader_id = rec.id::text;
   END LOOP;
 END $$;
 
