@@ -8,7 +8,7 @@ import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
 import { EditOperatorDialog } from "@/components/operators/EditOperatorDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { operatorService, leaderService, sectorService } from "@/lib/supabase-service";
+import { operatorService, leaderService } from "@/lib/supabase-service";
 import { convertSupabaseOperatorToLegacy } from "@/lib/types-compat";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import type { Operator } from "@/lib/types-compat";
@@ -86,212 +86,6 @@ const AdminOperators = () => {
       })),
     [supabaseSectors]
   );
-
-  const findLeaderForOperator = (operatorId: string, leaderEmail?: string) => {
-    const emailLower = leaderEmail?.toLowerCase();
-    return (
-      (supabaseLeaders || []).find((leader: any) => {
-        if (!leader) return false;
-        if (leader.operator_matricula === operatorId) return true;
-        return emailLower ? leader.email?.toLowerCase() === emailLower : false;
-      }) || null
-    );
-  };
-
-  const findSectorByName = (name?: string | null) => {
-    if (!name) return null;
-    const normalized = name.trim().toLowerCase();
-    return (
-      supabaseSectors.find((sector) => sector.name?.trim().toLowerCase() === normalized) || null
-    );
-  };
-
-  const assignLeaderToSector = async (leader: any | null) => {
-    if (!leader?.id) return;
-    const targetSector = findSectorByName(leader.sector);
-    if (!targetSector) return;
-    try {
-      await sectorService.update(targetSector.id, { leader_id: leader.id });
-    } catch (error) {
-      console.error("Erro ao atualizar setor com líder:", error);
-    }
-  };
-
-  const clearLeaderFromSector = async (leader: any | null) => {
-    if (!leader?.id) return;
-    const targetSector =
-      supabaseSectors.find((sector) => sector.leader_id === leader.id) || findSectorByName(leader.sector);
-    if (!targetSector) return;
-    try {
-      await sectorService.update(targetSector.id, { leader_id: null });
-    } catch (error) {
-      console.error("Erro ao remover líder do setor:", error);
-    }
-  };
-
-  const handleAddOperator = async (data: {
-    id: string;
-    name: string;
-    cargo?: string;
-    setor?: string;
-    senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-    leaderPassword?: string;
-  }) => {
-    try {
-      await operatorService.create({
-        matricula: data.id,
-        name: data.name.toUpperCase(),
-        cargo: data.cargo?.toUpperCase() || null,
-        setor: data.setor || null,
-        senha: data.senha ? data.senha.trim() : null,
-      });
-
-      const existingLeader = findLeaderForOperator(data.id, data.leaderEmail);
-
-      if (data.isLeader && data.leaderEmail && data.leaderPassword) {
-        const payload = {
-          name: data.name.toUpperCase(),
-          email: data.leaderEmail.trim(),
-          sector: data.setor || "",
-          password_hash: btoa(data.leaderPassword),
-          operator_matricula: data.id,
-        };
-
-        const savedLeader = existingLeader
-          ? await leaderService.update(existingLeader.id, payload)
-          : await leaderService.create(payload);
-
-        await assignLeaderToSector(savedLeader);
-      } else if (!data.isLeader && existingLeader) {
-        await leaderService.delete(existingLeader.id);
-        await clearLeaderFromSector(existingLeader);
-      }
-
-      toast({
-        title: "Operador adicionado",
-        description: `${data.name} foi adicionado com sucesso.`,
-      });
-
-      await refresh();
-    } catch (error) {
-      console.error("Erro ao adicionar operador:", error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível adicionar o operador.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEditOperator = async (data: {
-    id: string;
-    name: string;
-    cargo?: string;
-    setor?: string;
-    senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-    leaderPassword?: string;
-  }) => {
-    try {
-      const updates: TablesUpdate<"operators"> = {
-        name: data.name.toUpperCase(),
-        cargo: data.cargo?.toUpperCase() || null,
-        setor: data.setor || null,
-      };
-
-      if (data.senha && data.senha.trim().length === 4) {
-        updates.senha = data.senha.trim();
-      }
-
-      await operatorService.update(data.id, updates);
-
-      const existingLeader = findLeaderForOperator(data.id, data.leaderEmail);
-
-      if (data.isLeader && data.leaderEmail) {
-        const payload: { name: string; email: string; sector: string; operator_matricula: string; password_hash?: string } = {
-          name: data.name.toUpperCase(),
-          email: data.leaderEmail.trim(),
-          sector: data.setor || "",
-          operator_matricula: data.id,
-        };
-        if (data.leaderPassword) {
-          payload.password_hash = btoa(data.leaderPassword);
-        }
-
-        let savedLeader;
-        if (existingLeader) {
-          savedLeader = await leaderService.update(existingLeader.id, payload);
-        } else {
-          if (!data.leaderPassword) {
-            toast({
-              title: "Senha do líder obrigatória",
-              description: "Defina uma senha para o líder antes de salvar.",
-              variant: "destructive",
-            });
-            return;
-          }
-          savedLeader = await leaderService.create({
-            ...payload,
-            password_hash: btoa(data.leaderPassword),
-          });
-        }
-
-        await assignLeaderToSector(savedLeader);
-      } else if (!data.isLeader && existingLeader) {
-        await leaderService.delete(existingLeader.id);
-        await clearLeaderFromSector(existingLeader);
-      }
-
-      toast({
-        title: "Operador atualizado",
-        description: "Os dados do operador foram atualizados com sucesso.",
-      });
-
-      setEditDialogOpen(false);
-      setCurrentOperator(null);
-      await refresh();
-    } catch (error) {
-      console.error("Erro ao editar operador:", error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível editar o operador.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRemoveOperator = async (matricula: string) => {
-    const operatorToRemove = operators.find((op) => op.id === matricula);
-    if (!operatorToRemove) return;
-
-    try {
-      const existingLeader = findLeaderForOperator(matricula, operatorToRemove.leaderEmail);
-
-      await operatorService.delete(matricula);
-
-      if (existingLeader) {
-        await clearLeaderFromSector(existingLeader);
-        await leaderService.delete(existingLeader.id);
-      }
-
-      toast({
-        title: "Operador removido",
-        description: `${operatorToRemove.name} foi removido com sucesso.`,
-      });
-
-      await refresh();
-    } catch (error) {
-      console.error("Erro ao remover operador:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível remover o operador.",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Função para importar operadores do texto
   const processOperatorText = async (operatorText: string) => {
@@ -463,6 +257,25 @@ const AdminOperators = () => {
   
   // Calculate the next available ID - removed as we use Supabase auto-generated IDs
 
+    const handleAddOperator = async (data: {
+    id: string;
+    name: string;
+    cargo?: string;
+    setor?: string;
+    senha?: string;
+    isLeader?: boolean;
+    leaderEmail?: string;
+    leaderPassword?: string;
+  }) => {
+    try {
+      await operatorService.create({
+        matricula: data.id,
+        name: data.name.toUpperCase(),
+        cargo: data.cargo?.toUpperCase() || null,
+        setor: data.setor || null,
+        senha: data.senha ? data.senha.trim() : null,
+      });
+
       if (data.isLeader && data.leaderEmail && data.leaderPassword) {
         const leaderPayload = {
           name: data.name.toUpperCase(),
@@ -472,101 +285,30 @@ const AdminOperators = () => {
           operator_matricula: data.id,
         };
 
-        const existingLeader = (supabaseLeaders || []).find(
-          (leader: any) => leader?.operator_matricula === data.id,
-        );
+              const existingLeader = (supabaseLeaders || []).find((leader: any) => leader?.operator_matricula === matricula);
 
-        if (existingLeader) {
-          if (
-            existingLeader.email === leaderPayload.email &&
-            existingLeader.operator_matricula === leaderPayload.operator_matricula
-          ) {
-            await leaderService.update(existingLeader.id, leaderPayload);
-          } else {
-            await leaderService.delete(existingLeader.id);
-            await leaderService.create(leaderPayload);
-          }
-        } else if (
-          !(supabaseLeaders || []).some(
-            (leader: any) => leader?.email?.toLowerCase() === leaderPayload.email.toLowerCase(),
-          )
-        ) {
-          await leaderService.update(existingLeader.id, leaderPayload);
-        } else {
-          await leaderService.create(leaderPayload);
-        }
-      }
-      
-      toast({
-        title: "Operador adicionado",
-        description: `${data.name} foi adicionado com sucesso.`,
-      });
+      await operatorService.delete(matricula);
 
-      
-      await refresh(); // Refresh data from Supabase
-    } catch (error) {
-      console.error('Erro ao adicionar operador:', error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível adicionar o operador.",
-        variant: "destructive",
-      });
-    }
-  };
-          }
-        } else {
-          if (!data.leaderPassword) {
-            toast({
-              title: "Senha do líder obrigatória",
-              description: "Defina uma senha para o líder antes de salvar.",
-              variant: "destructive",
-            });
-            return;
-          }
-          const duplicateEmail = (supabaseLeaders || []).find(
-            (leader: any) => leader?.email?.toLowerCase() === data.leaderEmail!.toLowerCase(),
-          );
-          if (duplicateEmail) {
-            await leaderService.update(duplicateEmail.id, {
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          } else {
-            await leaderService.create({
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          }
-        }
-      } else if (!data.isLeader && existingLeader) {
+      if (existingLeader) {
         await leaderService.delete(existingLeader.id);
       }
       
       toast({
-        title: "Operador atualizado",
-        description: "Os dados do operador foram atualizados com sucesso.",
+        title: "Operador removido",
+        description: `${operatorToRemove.name} foi removido com sucesso.`,
       });
 
       
-      setEditDialogOpen(false);
-      setCurrentOperator(null);
       await refresh(); // Refresh data from Supabase
     } catch (error) {
-      console.error('Erro ao editar operador:', error);
+      console.error('Erro ao remover operador:', error);
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível editar o operador.",
+        description: "Não foi possível remover o operador.",
         variant: "destructive",
       });
     }
   };
-
 
   const openEditDialog = (operator: Operator) => {
     setCurrentOperator(operator);

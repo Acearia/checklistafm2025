@@ -79,7 +79,7 @@ interface EditOperatorDialogProps {
     senha?: string;
     isLeader?: boolean;
     leaderEmail?: string;
-    leaderPassword?: string;
+        leaderPassword?: string;
   }) => void;
   sectors?: SectorOption[];
 }
@@ -125,6 +125,8 @@ export function EditOperatorDialog({
   }, [operator, form]);
 
   const isLeader = form.watch("isLeader");
+  const operadorSetor = form.watch("setor");
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name is required and not empty
     if (!values.name.trim()) return;
