@@ -7,9 +7,6 @@ export type Equipment = Tables<"equipment">;
 export type Inspection = Tables<"inspections">;
 export type ChecklistItem = Tables<"checklist_items">;
 export type Sector = Tables<"sectors">;
-export type Leader = Tables<"leaders">;
-export type InsertLeader = TablesInsert<"leaders">;
-export type UpdateLeader = TablesUpdate<"leaders">;
 
 export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
@@ -40,6 +37,8 @@ export const operatorService = {
     const payload: OperatorInsert = {
       ...operator,
       senha: operator.senha ? operator.senha.trim() : null,
+      leader_email: operator.leader_email ? operator.leader_email.trim() : null,
+      leader_password_hash: operator.leader_password_hash || null,
     };
 
     const { data, error } = await supabase
@@ -74,6 +73,10 @@ export const operatorService = {
 
     if (payload.senha !== undefined) {
       payload.senha = payload.senha ? payload.senha.trim() : null;
+    }
+
+    if (payload.leader_email !== undefined) {
+      payload.leader_email = payload.leader_email ? payload.leader_email.trim() : null;
     }
 
     const { data, error } = await supabase
@@ -302,51 +305,6 @@ export const sectorService = {
   async delete(id: string) {
     const { error } = await supabase
       .from("sectors")
-      .delete()
-      .eq("id", id);
-    
-    if (error) throw error;
-  }
-};
-
-// Leaders
-export const leaderService = {
-  async getAll() {
-    const { data, error } = await supabase
-      .from("leaders")
-      .select("*")
-      .order("name");
-    
-    if (error) throw error;
-    return data || [];
-  },
-
-  async create(leader: InsertLeader) {
-    const { data, error } = await supabase
-      .from("leaders")
-      .insert(leader)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
-  },
-
-  async update(id: string, leader: UpdateLeader) {
-    const { data, error } = await supabase
-      .from("leaders")
-      .update(leader)
-      .eq("id", id)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data;
-  },
-
-  async delete(id: string) {
-    const { error } = await supabase
-      .from("leaders")
       .delete()
       .eq("id", id);
     

@@ -83,7 +83,7 @@ type SectorOption = {
 interface AddOperatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string; isLeader?: boolean; leaderSector?: string; leaderEmail?: string; leaderPassword?: string }) => void;
+  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string; isLeader?: boolean; leaderEmail?: string; leaderPassword?: string }) => void;
   sectors?: SectorOption[];
 }
 
@@ -121,7 +121,7 @@ export function AddOperatorDialog({
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
       senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
       isLeader: values.isLeader,
-            leaderEmail: values.leaderEmail || undefined,
+      leaderEmail: values.leaderEmail || undefined,
       leaderPassword: values.leaderPassword || undefined,
     });
     

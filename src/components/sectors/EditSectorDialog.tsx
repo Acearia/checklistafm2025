@@ -6,14 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { sectorService, type Sector, type Leader } from "@/lib/supabase-service";
+import { sectorService, operatorService, type Sector } from "@/lib/supabase-service";
 
 interface EditSectorDialogProps {
   sector: Sector | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSectorUpdated: () => void;
-  leaders: Leader[];
+  leaders: Array<{ id: string; name: string; email?: string | null; operator_matricula: string; setor?: string | null }>;
 }
 
 const NO_LEADER_VALUE = "none";
@@ -21,7 +21,7 @@ const NO_LEADER_VALUE = "none";
 const EditSectorDialog = ({ sector, open, onOpenChange, onSectorUpdated, leaders }: EditSectorDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [leaderId, setLeaderId] = useState<string>(NO_LEADER_VALUE);
+  const [leaderMatricula, setLeaderMatricula] = useState<string>(NO_LEADER_VALUE);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -29,7 +29,7 @@ const EditSectorDialog = ({ sector, open, onOpenChange, onSectorUpdated, leaders
     if (sector) {
       setName(sector.name || "");
       setDescription(sector.description || "");
-      setLeaderId(sector.leader_id ?? NO_LEADER_VALUE);
+      setLeaderMatricula(sector.leader_operator_matricula ?? NO_LEADER_VALUE);
     }
   }, [sector]);
 
@@ -47,13 +47,17 @@ const EditSectorDialog = ({ sector, open, onOpenChange, onSectorUpdated, leaders
     setLoading(true);
     try {
       const normalizedDescription = description.trim();
-      const normalizedLeader = leaderId === NO_LEADER_VALUE ? null : leaderId;
+      const normalizedLeader = leaderMatricula === NO_LEADER_VALUE ? null : leaderMatricula;
 
       await sectorService.update(sector.id, {
         name: name.trim(),
         description: normalizedDescription ? normalizedDescription : null,
-        leader_id: normalizedLeader,
+        leader_operator_matricula: normalizedLeader,
       });
+
+      if (normalizedLeader) {
+        await operatorService.update(normalizedLeader, { is_leader: true });
+      }
 
       toast({
         title: "Sucesso",
@@ -107,8 +111,8 @@ const EditSectorDialog = ({ sector, open, onOpenChange, onSectorUpdated, leaders
           <div className="space-y-2">
             <Label htmlFor="edit-leader">Líder Responsável</Label>
             <Select
-              value={leaderId}
-              onValueChange={setLeaderId}
+              value={leaderMatricula}
+              onValueChange={setLeaderMatricula}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um líder (opcional)" />
@@ -116,7 +120,7 @@ const EditSectorDialog = ({ sector, open, onOpenChange, onSectorUpdated, leaders
               <SelectContent>
                 <SelectItem value={NO_LEADER_VALUE}>Nenhum líder</SelectItem>
                 {leaders.map((leader) => (
-                  <SelectItem key={leader.id} value={leader.id}>
+                  <SelectItem key={leader.id} value={leader.operator_matricula}>
                     {leader.name} - {leader.email}
                   </SelectItem>
                 ))}

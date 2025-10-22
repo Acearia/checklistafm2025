@@ -5,7 +5,6 @@ import {
   inspectionService,
   checklistService,
   sectorService,
-  leaderService,
 } from "@/lib/supabase-service";
 
 const STALE_TIME_MS = 1000 * 60; // 1 minute
@@ -38,11 +37,6 @@ export const useSupabaseData = () => {
         queryFn: () => sectorService.getAll(),
         staleTime: STALE_TIME_MS * 5,
       },
-      {
-        queryKey: ["leaders"],
-        queryFn: () => leaderService.getAll(),
-        staleTime: STALE_TIME_MS,
-      },
     ],
   });
 
@@ -52,7 +46,6 @@ export const useSupabaseData = () => {
     inspectionsQuery,
     checklistQuery,
     sectorsQuery,
-    leadersQuery,
   ] = queryResults;
 
   const loading = queryResults.some((result) => result.isLoading);
@@ -65,13 +58,26 @@ export const useSupabaseData = () => {
   const refresh = () =>
     Promise.all(queryResults.map((result) => result.refetch()));
 
+  const operators = operatorsQuery.data ?? [];
+  const sectors = sectorsQuery.data ?? [];
+  const derivedLeaders = operators
+    .filter((op: any) => op.is_leader)
+    .map((op: any) => ({
+      id: op.matricula,
+      name: op.name,
+      email: op.leader_email,
+      sector: op.setor,
+      operator_matricula: op.matricula,
+      password_hash: op.leader_password_hash,
+    }));
+
   return {
-    operators: operatorsQuery.data ?? [],
+    operators,
     equipment: equipmentQuery.data ?? [],
     inspections: inspectionsQuery.data ?? [],
     checklistItems: checklistQuery.data ?? [],
-    sectors: sectorsQuery.data ?? [],
-    leaders: leadersQuery.data ?? [],
+    sectors,
+    leaders: derivedLeaders,
     loading,
     error,
     refresh,

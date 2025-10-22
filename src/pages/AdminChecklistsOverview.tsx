@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Clock, Save, User, Calendar as CalendarIcon, Shield, ShieldAlert, BellRing, RefreshCw, Wrench } from "lucide-react";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { 
   Dialog,
   DialogContent,
@@ -128,7 +129,8 @@ const AdminChecklistsOverview = () => {
   const [editSchedule, setEditSchedule] = useState<ScheduledInspection | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [leaderAssignments, setLeaderAssignments] = useState<LeaderAssignment[]>([]);
-  const [leadersList, setLeadersList] = useState<{id: string, name: string, email: string}[]>([]);
+  const [leadersList, setLeadersList] = useState<{id: string, name: string, email?: string | null}[]>([]);
+  const { leaders: derivedLeaders } = useSupabaseData();
   const [assignLeaderDialogOpen, setAssignLeaderDialogOpen] = useState(false);
   const [selectedSector, setSelectedSector] = useState<string>("");
   const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
@@ -350,19 +352,6 @@ const AdminChecklistsOverview = () => {
         }
 
         // Load leaders list
-        const storedLeaders = localStorage.getItem('checklistafm-leaders');
-        if (storedLeaders) {
-          setLeadersList(JSON.parse(storedLeaders));
-        } else {
-          // Create sample leaders if none exist
-          const sampleLeaders = [
-            { id: "leader1", name: "João Silva", email: "joao@example.com" },
-            { id: "leader2", name: "Maria Oliveira", email: "maria@example.com" },
-            { id: "leader3", name: "Carlos Santos", email: "carlos@example.com" },
-          ];
-          localStorage.setItem('checklistafm-leaders', JSON.stringify(sampleLeaders));
-          setLeadersList(sampleLeaders);
-        }
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
         toast({
@@ -1360,3 +1349,13 @@ const AdminChecklistsOverview = () => {
 };
 
 export default AdminChecklistsOverview;
+
+useEffect(() => {
+  if (derivedLeaders) {
+    setLeadersList(derivedLeaders.map((leader: any) => ({
+      id: leader.operator_matricula,
+      name: leader.name || leader.operator_matricula,
+      email: leader.email || undefined,
+    })));
+  }
+}, [derivedLeaders]);

@@ -48,10 +48,9 @@ const SectorManagement = () => {
     }
   };
 
-  const getLeaderName = (leaderId: string | null) => {
-    if (!leaderId) return "Sem líder";
-    const leader = leaders.find(l => l.id === leaderId);
-    return leader ? leader.name : "Líder não encontrado";
+  const getLeaderInfo = (matricula: string | null) => {
+    if (!matricula) return null;
+    return leaders.find((leader) => leader.operator_matricula === matricula) || null;
   };
 
   if (loading) {
@@ -123,11 +122,11 @@ const SectorManagement = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {sector.leader_id ? (
-                        <Badge variant="secondary">
-                          {getLeaderName(sector.leader_id)}
-                        </Badge>
-                      ) : (
+                      {(sector.leader_operator_matricula) ? (() => {
+                        const info = getLeaderInfo(sector.leader_operator_matricula);
+                        if (!info) return <Badge variant="outline">Líder não encontrado</Badge>;
+                        return <Badge variant="secondary">{info.name}</Badge>;
+                      })() : (
                         <Badge variant="outline">Sem líder</Badge>
                       )}
                     </TableCell>

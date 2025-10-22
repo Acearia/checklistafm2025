@@ -7,8 +7,7 @@ export interface Operator {
   senha?: string;
   isLeader?: boolean;
   leaderEmail?: string;
-  leaderSector?: string;
-  leaderId?: string;
+  leaderPasswordHash?: string;
 }
 
 export interface Equipment {
@@ -32,15 +31,7 @@ export interface Sector {
   id: string;
   name: string;
   description?: string;
-  leaderId?: string;
-}
-
-export interface Leader {
-  id: string;
-  name: string;
-  email: string;
-  sector: string;
-  password_hash: string;
+  leaderOperatorMatricula?: string;
 }
 
 export const operators: Operator[] = [
@@ -51,6 +42,7 @@ export const operators: Operator[] = [
     cargo: "Operador",
     setor: "Manutenção",
     senha: "1234",
+    isLeader: false,
   },
 ];
 
@@ -65,23 +57,6 @@ export const sectors: Sector[] = [
   { id: "sector-2", name: "Produção", description: "Setor de produção industrial" },
   { id: "sector-3", name: "Armazém", description: "Setor de armazenamento e logística" },
   { id: "sector-4", name: "Segurança", description: "Setor de segurança do trabalho" },
-];
-
-export const leaders: Leader[] = [
-  {
-    id: "leader-1",
-    name: "Ana Pereira",
-    email: "ana.pereira@checklistafm.com",
-    sector: "Manutenção",
-    password_hash: "bGlkZXIxMjM=", // senha: lider123
-  },
-  {
-    id: "leader-2",
-    name: "Bruno Santos",
-    email: "bruno.santos@checklistafm.com",
-    sector: "Produção",
-    password_hash: "Z3VhcmRhMTIz", // senha: guarda123
-  },
 ];
 
 export const checklistItems: ChecklistItem[] = [

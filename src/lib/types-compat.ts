@@ -9,8 +9,7 @@ export interface Operator {
   senha?: string;
   isLeader?: boolean;
   leaderEmail?: string;
-  leaderSector?: string;
-  leaderId?: string;
+  leaderPasswordHash?: string;
 }
 
 export interface Equipment {
@@ -37,6 +36,9 @@ export const convertSupabaseOperatorToLegacy = (supabaseOperator: any): Operator
   cargo: supabaseOperator.cargo || undefined,
   setor: supabaseOperator.setor || undefined,
   senha: supabaseOperator.senha || undefined,
+  isLeader: Boolean(supabaseOperator.is_leader),
+  leaderEmail: supabaseOperator.leader_email || undefined,
+  leaderPasswordHash: supabaseOperator.leader_password_hash || undefined,
 });
 
 export const convertSupabaseEquipmentToLegacy = (supabaseEquipment: Tables<"equipment">): Equipment => ({
