@@ -278,12 +278,6 @@ const AdminOperators = () => {
       });
 
       if (data.isLeader && data.leaderEmail && data.leaderPassword) {
-        const existingLeader = (supabaseLeaders || []).find(
-          (leader: any) =>
-            leader?.operator_matricula === data.id ||
-            leader?.email?.toLowerCase() === data.leaderEmail.toLowerCase(),
-        );
-
         const leaderPayload = {
           name: data.name.toUpperCase(),
           email: data.leaderEmail.trim(),
@@ -292,7 +286,25 @@ const AdminOperators = () => {
           operator_matricula: data.id,
         };
 
+        const existingLeader = (supabaseLeaders || []).find(
+          (leader: any) => leader?.operator_matricula === data.id,
+        );
+
         if (existingLeader) {
+          if (
+            existingLeader.email === leaderPayload.email &&
+            existingLeader.operator_matricula === leaderPayload.operator_matricula
+          ) {
+            await leaderService.update(existingLeader.id, leaderPayload);
+          } else {
+            await leaderService.delete(existingLeader.id);
+            await leaderService.create(leaderPayload);
+          }
+        } else if (
+          !(supabaseLeaders || []).some(
+            (leader: any) => leader?.email?.toLowerCase() === leaderPayload.email.toLowerCase(),
+          )
+        ) {
           await leaderService.update(existingLeader.id, leaderPayload);
         } else {
           await leaderService.create(leaderPayload);
@@ -341,9 +353,7 @@ const AdminOperators = () => {
       await operatorService.update(data.id, updates);
 
       const existingLeader = (supabaseLeaders || []).find(
-        (leader: any) =>
-          leader?.operator_matricula === data.id ||
-          (data.leaderEmail && leader?.email?.toLowerCase() === data.leaderEmail.toLowerCase()),
+        (leader: any) => leader?.operator_matricula === data.id,
       );
 
       if (data.isLeader && data.leaderEmail) {
@@ -357,7 +367,18 @@ const AdminOperators = () => {
           if (data.leaderPassword) {
             leaderUpdate.password_hash = btoa(data.leaderPassword);
           }
-          await leaderService.update(existingLeader.id, leaderUpdate);
+          if (
+            existingLeader.email === leaderUpdate.email &&
+            existingLeader.operator_matricula === leaderUpdate.operator_matricula
+          ) {
+            await leaderService.update(existingLeader.id, leaderUpdate);
+          } else {
+            await leaderService.delete(existingLeader.id);
+            await leaderService.create({
+              ...leaderUpdate,
+              password_hash: btoa(data.leaderPassword || ""),
+            });
+          }
         } else {
           if (!data.leaderPassword) {
             toast({
@@ -367,13 +388,26 @@ const AdminOperators = () => {
             });
             return;
           }
-          await leaderService.create({
-            name: data.name.toUpperCase(),
-            email: data.leaderEmail.trim(),
-            sector: data.leaderSector || data.setor || "",
-            password_hash: btoa(data.leaderPassword),
-            operator_matricula: data.id,
-          });
+          const duplicateEmail = (supabaseLeaders || []).find(
+            (leader: any) => leader?.email?.toLowerCase() === data.leaderEmail!.toLowerCase(),
+          );
+          if (duplicateEmail) {
+            await leaderService.update(duplicateEmail.id, {
+              name: data.name.toUpperCase(),
+              email: data.leaderEmail.trim(),
+              sector: data.leaderSector || data.setor || "",
+              password_hash: btoa(data.leaderPassword),
+              operator_matricula: data.id,
+            });
+          } else {
+            await leaderService.create({
+              name: data.name.toUpperCase(),
+              email: data.leaderEmail.trim(),
+              sector: data.leaderSector || data.setor || "",
+              password_hash: btoa(data.leaderPassword),
+              operator_matricula: data.id,
+            });
+          }
         }
       } else if (!data.isLeader && existingLeader) {
         await leaderService.delete(existingLeader.id);
