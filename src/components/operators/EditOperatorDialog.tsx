@@ -79,7 +79,7 @@ interface EditOperatorDialogProps {
     senha?: string;
     isLeader?: boolean;
     leaderEmail?: string;
-        leaderPassword?: string;
+    leaderPassword?: string;
   }) => void;
   sectors?: SectorOption[];
 }
@@ -137,10 +137,6 @@ export function EditOperatorDialog({
       senha: values.senha,
       isLeader: values.isLeader,
       leaderEmail: values.leaderEmail || undefined,
-      leaderSector:
-        values.setor && values.setor !== NONE_SECTOR_VALUE
-          ? values.setor
-          : undefined,
       leaderPassword: values.leaderPassword || undefined,
     });
     
