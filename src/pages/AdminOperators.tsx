@@ -265,7 +265,6 @@ const AdminOperators = () => {
     senha?: string;
     isLeader?: boolean;
     leaderEmail?: string;
-    leaderSector?: string;
     leaderPassword?: string;
   }) => {
     try {
@@ -281,7 +280,7 @@ const AdminOperators = () => {
         const leaderPayload = {
           name: data.name.toUpperCase(),
           email: data.leaderEmail.trim(),
-          sector: data.leaderSector || data.setor || "",
+          sector: data.data.setor || "",
           password_hash: btoa(data.leaderPassword),
           operator_matricula: data.id,
         };
@@ -336,7 +335,6 @@ const AdminOperators = () => {
     senha?: string;
     isLeader?: boolean;
     leaderEmail?: string;
-    leaderSector?: string;
     leaderPassword?: string;
   }) => {
     try {
@@ -361,7 +359,7 @@ const AdminOperators = () => {
           const leaderUpdate: any = {
             name: data.name.toUpperCase(),
             email: data.leaderEmail.trim(),
-            sector: data.leaderSector || data.setor || "",
+            sector: data.data.setor || "",
             operator_matricula: data.id,
           };
           if (data.leaderPassword) {
@@ -395,7 +393,7 @@ const AdminOperators = () => {
             await leaderService.update(duplicateEmail.id, {
               name: data.name.toUpperCase(),
               email: data.leaderEmail.trim(),
-              sector: data.leaderSector || data.setor || "",
+              sector: data.data.setor || "",
               password_hash: btoa(data.leaderPassword),
               operator_matricula: data.id,
             });
@@ -403,7 +401,7 @@ const AdminOperators = () => {
             await leaderService.create({
               name: data.name.toUpperCase(),
               email: data.leaderEmail.trim(),
-              sector: data.leaderSector || data.setor || "",
+              sector: data.data.setor || "",
               password_hash: btoa(data.leaderPassword),
               operator_matricula: data.id,
             });

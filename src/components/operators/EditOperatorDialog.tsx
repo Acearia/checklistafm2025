@@ -79,8 +79,7 @@ interface EditOperatorDialogProps {
     senha?: string;
     isLeader?: boolean;
     leaderEmail?: string;
-    leaderSector?: string;
-    leaderPassword?: string;
+        leaderPassword?: string;
   }) => void;
   sectors?: SectorOption[];
 }
