@@ -257,7 +257,7 @@ const AdminOperators = () => {
   
   // Calculate the next available ID - removed as we use Supabase auto-generated IDs
 
-  const handleAddOperator = async (data: {
+    const handleAddOperator = async (data: {
     id: string;
     name: string;
     cargo?: string;
@@ -280,166 +280,12 @@ const AdminOperators = () => {
         const leaderPayload = {
           name: data.name.toUpperCase(),
           email: data.leaderEmail.trim(),
-          sector: data.data.setor || "",
+          sector: data.setor || "",
           password_hash: btoa(data.leaderPassword),
           operator_matricula: data.id,
         };
 
-        const existingLeader = (supabaseLeaders || []).find(
-          (leader: any) => leader?.operator_matricula === data.id,
-        );
-
-        if (existingLeader) {
-          if (
-            existingLeader.email === leaderPayload.email &&
-            existingLeader.operator_matricula === leaderPayload.operator_matricula
-          ) {
-            await leaderService.update(existingLeader.id, leaderPayload);
-          } else {
-            await leaderService.delete(existingLeader.id);
-            await leaderService.create(leaderPayload);
-          }
-        } else if (
-          !(supabaseLeaders || []).some(
-            (leader: any) => leader?.email?.toLowerCase() === leaderPayload.email.toLowerCase(),
-          )
-        ) {
-          await leaderService.update(existingLeader.id, leaderPayload);
-        } else {
-          await leaderService.create(leaderPayload);
-        }
-      }
-      
-      toast({
-        title: "Operador adicionado",
-        description: `${data.name} foi adicionado com sucesso.`,
-      });
-
-      
-      await refresh(); // Refresh data from Supabase
-    } catch (error) {
-      console.error('Erro ao adicionar operador:', error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível adicionar o operador.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEditOperator = async (data: {
-    id: string;
-    name: string;
-    cargo?: string;
-    setor?: string;
-    senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-    leaderPassword?: string;
-  }) => {
-    try {
-      const updates: TablesUpdate<"operators"> = {
-        name: data.name.toUpperCase(),
-        cargo: data.cargo?.toUpperCase() || null,
-        setor: data.setor || null,
-      };
-
-      if (data.senha && data.senha.trim().length === 4) {
-        updates.senha = data.senha.trim();
-      }
-
-      await operatorService.update(data.id, updates);
-
-      const existingLeader = (supabaseLeaders || []).find(
-        (leader: any) => leader?.operator_matricula === data.id,
-      );
-
-      if (data.isLeader && data.leaderEmail) {
-        if (existingLeader) {
-          const leaderUpdate: any = {
-            name: data.name.toUpperCase(),
-            email: data.leaderEmail.trim(),
-            sector: data.data.setor || "",
-            operator_matricula: data.id,
-          };
-          if (data.leaderPassword) {
-            leaderUpdate.password_hash = btoa(data.leaderPassword);
-          }
-          if (
-            existingLeader.email === leaderUpdate.email &&
-            existingLeader.operator_matricula === leaderUpdate.operator_matricula
-          ) {
-            await leaderService.update(existingLeader.id, leaderUpdate);
-          } else {
-            await leaderService.delete(existingLeader.id);
-            await leaderService.create({
-              ...leaderUpdate,
-              password_hash: btoa(data.leaderPassword || ""),
-            });
-          }
-        } else {
-          if (!data.leaderPassword) {
-            toast({
-              title: "Senha do líder obrigatória",
-              description: "Defina uma senha para o líder antes de salvar.",
-              variant: "destructive",
-            });
-            return;
-          }
-          const duplicateEmail = (supabaseLeaders || []).find(
-            (leader: any) => leader?.email?.toLowerCase() === data.leaderEmail!.toLowerCase(),
-          );
-          if (duplicateEmail) {
-            await leaderService.update(duplicateEmail.id, {
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          } else {
-            await leaderService.create({
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          }
-        }
-      } else if (!data.isLeader && existingLeader) {
-        await leaderService.delete(existingLeader.id);
-      }
-      
-      toast({
-        title: "Operador atualizado",
-        description: "Os dados do operador foram atualizados com sucesso.",
-      });
-
-      
-      setEditDialogOpen(false);
-      setCurrentOperator(null);
-      await refresh(); // Refresh data from Supabase
-    } catch (error) {
-      console.error('Erro ao editar operador:', error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível editar o operador.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRemoveOperator = async (matricula: string) => {
-    const operatorToRemove = operators.find(op => op.id === matricula);
-    if (!operatorToRemove) return;
-    
-    try {
-      const existingLeader = (supabaseLeaders || []).find(
-        (leader: any) =>
-          leader?.operator_matricula === matricula ||
-          (operatorToRemove.leaderEmail && leader?.email?.toLowerCase() === operatorToRemove.leaderEmail.toLowerCase()),
-      );
+              const existingLeader = (supabaseLeaders || []).find((leader: any) => leader?.operator_matricula === matricula);
 
       await operatorService.delete(matricula);
 

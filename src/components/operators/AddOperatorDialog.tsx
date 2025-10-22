@@ -108,7 +108,6 @@ export function AddOperatorDialog({
   });
 
   const isLeader = form.watch("isLeader");
-  const operadorSetor = form.watch("setor");
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name and id are required and not empty
@@ -122,11 +121,7 @@ export function AddOperatorDialog({
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
       senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
       isLeader: values.isLeader,
-      leaderSector:
-        values.setor && values.setor !== NONE_SECTOR_VALUE
-          ? values.setor
-          : undefined,
-      leaderEmail: values.leaderEmail || undefined,
+            leaderEmail: values.leaderEmail || undefined,
       leaderPassword: values.leaderPassword || undefined,
     });
     
