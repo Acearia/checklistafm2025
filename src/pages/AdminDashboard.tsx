@@ -282,7 +282,7 @@ const AdminDashboard = () => {
               Gerenciar Setores
             </Button>
           </Link>
-          <Link to="/admin/operators">
+          <Link to="/admin/leaders">
             <Button variant="outline" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Definir Líderes

@@ -50,6 +50,7 @@ function App() {
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
+          <Route path="leaders" element={<AdminLeaders />} />
           <Route path="sectors" element={<AdminSectors />} />
           <Route path="checklists/:id" element={<ChecklistDetail />} />
           <Route path="settings" element={<AdminSettings />} />

@@ -103,7 +103,7 @@ const AdminLeaderDashboard = () => {
             <RefreshCw className="h-4 w-4" />
             Atualizar
           </Button>
-          <Link to="/admin/operators">
+          <Link to="/admin/leaders">
             <Button className="flex items-center gap-2 bg-red-700 hover:bg-red-800">
               <Settings className="h-4 w-4" />
               Definir Líderes
@@ -221,7 +221,7 @@ const AdminLeaderDashboard = () => {
                 
                 <div className="flex flex-col gap-2">
                   {!sectorData.hasLeader && (
-                    <Link to="/admin/operators">
+                    <Link to="/admin/leaders">
                       <Button size="sm" variant="outline" className="text-xs">
                         <Plus className="h-3 w-3 mr-1" />
                         Definir líder
