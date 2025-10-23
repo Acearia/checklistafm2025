@@ -8,7 +8,7 @@ import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
 import { EditOperatorDialog } from "@/components/operators/EditOperatorDialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { operatorService, leaderService } from "@/lib/supabase-service";
+import { operatorService } from "@/lib/supabase-service";
 import { convertSupabaseOperatorToLegacy } from "@/lib/types-compat";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import type { Operator } from "@/lib/types-compat";
@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/pagination";
 
 const AdminOperators = () => {
-  const { operators: supabaseOperators, sectors: supabaseSectors, leaders: supabaseLeaders, refresh, loading } = useSupabaseData();
+  const { operators: supabaseOperators, sectors: supabaseSectors, refresh, loading } = useSupabaseData();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [displayedOperators, setDisplayedOperators] = useState<Operator[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -45,38 +45,11 @@ const AdminOperators = () => {
   useEffect(() => {
     if (supabaseOperators.length > 0) {
       const convertedOperators = supabaseOperators.map(convertSupabaseOperatorToLegacy);
-      const leaderByOperatorId = new Map<string, any>();
-
-      (supabaseLeaders || []).forEach((leader: any) => {
-        if (leader?.operator_matricula) {
-          leaderByOperatorId.set(leader.operator_matricula, leader);
-          return;
-        }
-
-        const matched = convertedOperators.find(
-          (operator) => operator.name?.toUpperCase() === (leader?.name || "").toUpperCase(),
-        );
-        if (matched) {
-          leaderByOperatorId.set(matched.id, leader);
-        }
-      });
-
-      const enrichedOperators = convertedOperators.map((operator) => {
-        const leader = leaderByOperatorId.get(operator.id);
-        return {
-          ...operator,
-          isLeader: Boolean(leader),
-          leaderEmail: leader?.email || undefined,
-          leaderSector: leader?.sector || undefined,
-          leaderId: leader?.id || undefined,
-        };
-      });
-
-      setOperators(enrichedOperators);
+      setOperators(convertedOperators);
     } else {
       setOperators([]);
     }
-  }, [supabaseOperators, supabaseLeaders]);
+  }, [supabaseOperators]);
   
   const sectorOptions = useMemo(
     () =>
@@ -263,10 +236,6 @@ const AdminOperators = () => {
     cargo?: string;
     setor?: string;
     senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-    leaderSector?: string;
-    leaderPassword?: string;
   }) => {
     try {
       await operatorService.create({
@@ -277,40 +246,6 @@ const AdminOperators = () => {
         senha: data.senha ? data.senha.trim() : null,
       });
 
-      if (data.isLeader && data.leaderEmail && data.leaderPassword) {
-        const leaderPayload = {
-          name: data.name.toUpperCase(),
-          email: data.leaderEmail.trim(),
-          sector: data.leaderSector || data.setor || "",
-          password_hash: btoa(data.leaderPassword),
-          operator_matricula: data.id,
-        };
-
-        const existingLeader = (supabaseLeaders || []).find(
-          (leader: any) => leader?.operator_matricula === data.id,
-        );
-
-        if (existingLeader) {
-          if (
-            existingLeader.email === leaderPayload.email &&
-            existingLeader.operator_matricula === leaderPayload.operator_matricula
-          ) {
-            await leaderService.update(existingLeader.id, leaderPayload);
-          } else {
-            await leaderService.delete(existingLeader.id);
-            await leaderService.create(leaderPayload);
-          }
-        } else if (
-          !(supabaseLeaders || []).some(
-            (leader: any) => leader?.email?.toLowerCase() === leaderPayload.email.toLowerCase(),
-          )
-        ) {
-          await leaderService.update(existingLeader.id, leaderPayload);
-        } else {
-          await leaderService.create(leaderPayload);
-        }
-      }
-      
       toast({
         title: "Operador adicionado",
         description: `${data.name} foi adicionado com sucesso.`,
@@ -334,10 +269,6 @@ const AdminOperators = () => {
     cargo?: string;
     setor?: string;
     senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-    leaderSector?: string;
-    leaderPassword?: string;
   }) => {
     try {
       const updates: TablesUpdate<"operators"> = {
@@ -352,67 +283,6 @@ const AdminOperators = () => {
 
       await operatorService.update(data.id, updates);
 
-      const existingLeader = (supabaseLeaders || []).find(
-        (leader: any) => leader?.operator_matricula === data.id,
-      );
-
-      if (data.isLeader && data.leaderEmail) {
-        if (existingLeader) {
-          const leaderUpdate: any = {
-            name: data.name.toUpperCase(),
-            email: data.leaderEmail.trim(),
-            sector: data.leaderSector || data.setor || "",
-            operator_matricula: data.id,
-          };
-          if (data.leaderPassword) {
-            leaderUpdate.password_hash = btoa(data.leaderPassword);
-          }
-          if (
-            existingLeader.email === leaderUpdate.email &&
-            existingLeader.operator_matricula === leaderUpdate.operator_matricula
-          ) {
-            await leaderService.update(existingLeader.id, leaderUpdate);
-          } else {
-            await leaderService.delete(existingLeader.id);
-            await leaderService.create({
-              ...leaderUpdate,
-              password_hash: btoa(data.leaderPassword || ""),
-            });
-          }
-        } else {
-          if (!data.leaderPassword) {
-            toast({
-              title: "Senha do líder obrigatória",
-              description: "Defina uma senha para o líder antes de salvar.",
-              variant: "destructive",
-            });
-            return;
-          }
-          const duplicateEmail = (supabaseLeaders || []).find(
-            (leader: any) => leader?.email?.toLowerCase() === data.leaderEmail!.toLowerCase(),
-          );
-          if (duplicateEmail) {
-            await leaderService.update(duplicateEmail.id, {
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.leaderSector || data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          } else {
-            await leaderService.create({
-              name: data.name.toUpperCase(),
-              email: data.leaderEmail.trim(),
-              sector: data.leaderSector || data.setor || "",
-              password_hash: btoa(data.leaderPassword),
-              operator_matricula: data.id,
-            });
-          }
-        }
-      } else if (!data.isLeader && existingLeader) {
-        await leaderService.delete(existingLeader.id);
-      }
-      
       toast({
         title: "Operador atualizado",
         description: "Os dados do operador foram atualizados com sucesso.",
@@ -437,17 +307,7 @@ const AdminOperators = () => {
     if (!operatorToRemove) return;
     
     try {
-      const existingLeader = (supabaseLeaders || []).find(
-        (leader: any) =>
-          leader?.operator_matricula === matricula ||
-          (operatorToRemove.leaderEmail && leader?.email?.toLowerCase() === operatorToRemove.leaderEmail.toLowerCase()),
-      );
-
       await operatorService.delete(matricula);
-
-      if (existingLeader) {
-        await leaderService.delete(existingLeader.id);
-      }
       
       toast({
         title: "Operador removido",

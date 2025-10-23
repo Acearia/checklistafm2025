@@ -21,16 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormDescription,
-  FormMessage,
-} from "@/components/ui/form";
-import { Switch } from "@/components/ui/switch";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const formSchema = z
   .object({
@@ -44,20 +35,6 @@ const formSchema = z
       .refine((val) => !val || (val.length === 4 && /^\d+$/.test(val)), {
         message: "Senha deve ter exatamente 4 dígitos numéricos",
       }),
-    isLeader: z.boolean().default(false),
-    leaderEmail: z.string().email({ message: "Informe um email válido" }).optional(),
-    leaderPassword: z.string().min(4, { message: "Senha deve ter pelo menos 4 caracteres" }).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.isLeader) {
-      if (!data.leaderEmail) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["leaderEmail"],
-          message: "Informe o email do líder.",
-        });
-      }
-    }
   });
 
 const NONE_SECTOR_VALUE = "__none";
@@ -77,9 +54,6 @@ interface EditOperatorDialogProps {
     cargo?: string;
     setor?: string;
     senha?: string;
-    isLeader?: boolean;
-    leaderEmail?: string;
-        leaderPassword?: string;
   }) => void;
   sectors?: SectorOption[];
 }
@@ -102,9 +76,6 @@ export function EditOperatorDialog({
       cargo: operatorData.cargo || "",
       setor: operatorData.setor || NONE_SECTOR_VALUE,
       senha: operatorData.senha || "",
-      isLeader: Boolean(operatorData.isLeader),
-      leaderEmail: operatorData.leaderEmail || "",
-      leaderPassword: "",
     },
   });
 
@@ -117,15 +88,9 @@ export function EditOperatorDialog({
         cargo: operator.cargo || "",
         setor: operator.setor || NONE_SECTOR_VALUE,
         senha: operator.senha || "",
-        isLeader: Boolean(operator.isLeader),
-        leaderEmail: operator.leaderEmail || "",
-        leaderPassword: "",
       });
     }
   }, [operator, form]);
-
-  const isLeader = form.watch("isLeader");
-  const operadorSetor = form.watch("setor");
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name is required and not empty
@@ -137,9 +102,6 @@ export function EditOperatorDialog({
       cargo: values.cargo,
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
       senha: values.senha,
-      isLeader: values.isLeader,
-      leaderEmail: values.leaderEmail || undefined,
-      leaderPassword: values.leaderPassword || undefined,
     });
     
     form.reset();
@@ -246,55 +208,6 @@ export function EditOperatorDialog({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="isLeader"
-              render={({ field }) => (
-                <FormItem className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <FormLabel>Este operador é líder?</FormLabel>
-                      <FormDescription>Habilite para gerenciar acesso ao painel de líderes.</FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {isLeader && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="leaderEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email do líder*</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="email@empresa.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="leaderPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nova senha do líder (opcional)</FormLabel>
-                      <FormDescription>Preencha para alterar a senha atual.</FormDescription>
-                      <FormControl>
-                        <Input type="password" placeholder="Defina uma nova senha" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar

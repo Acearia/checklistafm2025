@@ -20,16 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormDescription,
-  FormMessage,
-} from "@/components/ui/form";
-import { Switch } from "@/components/ui/switch";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const formSchema = z.object({
   id: z
@@ -44,33 +35,6 @@ const formSchema = z.object({
     .regex(/^\d{4}$/, { message: "Senha deve ter exatamente 4 dígitos numéricos" })
     .or(z.literal(""))
     .optional(),
-  isLeader: z.boolean().default(false),
-  leaderEmail: z.string().email({ message: "Informe um email válido" }).optional(),
-  leaderPassword: z.string().min(4, { message: "Senha deve ter pelo menos 4 caracteres" }).optional(),
-}).superRefine((data, ctx) => {
-  if (data.isLeader) {
-    if (!data.leaderEmail) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["leaderEmail"],
-        message: "Informe o email do líder.",
-      });
-    }
-    if (!data.setor || data.setor === NONE_SECTOR_VALUE) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["setor"],
-        message: "Defina o setor do operador (será o mesmo do líder).",
-      });
-    }
-    if (!data.leaderPassword) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["leaderPassword"],
-        message: "Defina uma senha para o líder.",
-      });
-    }
-  }
 });
 
 const NONE_SECTOR_VALUE = "__none";
@@ -83,7 +47,7 @@ type SectorOption = {
 interface AddOperatorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string; isLeader?: boolean; leaderSector?: string; leaderEmail?: string; leaderPassword?: string }) => void;
+  onAddOperator: (data: { id: string; name: string; cargo?: string; setor?: string; senha?: string }) => void;
   sectors?: SectorOption[];
 }
 
@@ -101,13 +65,8 @@ export function AddOperatorDialog({
       cargo: "",
       setor: NONE_SECTOR_VALUE,
       senha: "",
-      isLeader: false,
-      leaderEmail: "",
-      leaderPassword: "",
     },
   });
-
-  const isLeader = form.watch("isLeader");
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Ensure name and id are required and not empty
@@ -120,9 +79,6 @@ export function AddOperatorDialog({
       cargo: values.cargo,
       setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
       senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
-      isLeader: values.isLeader,
-            leaderEmail: values.leaderEmail || undefined,
-      leaderPassword: values.leaderPassword || undefined,
     });
     
     form.reset();
@@ -233,61 +189,6 @@ export function AddOperatorDialog({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="isLeader"
-              render={({ field }) => (
-                <FormItem className="flex flex-col gap-2 rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <FormLabel>Este operador é líder?</FormLabel>
-                      <FormDescription>
-                        Ative para definir acesso ao painel de líderes.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
-                    </FormControl>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {isLeader && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="leaderEmail"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email do líder*</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="email@empresa.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="leaderPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha do líder*</FormLabel>
-                      <FormDescription>Mínimo de 4 caracteres.</FormDescription>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          placeholder="Defina a senha de acesso"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
             <DialogFooter>
               <Button type="submit">Adicionar Operador</Button>
             </DialogFooter>
