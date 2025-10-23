@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
 import process from "node:process";
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -22,60 +24,19 @@ const HEADERS = {
 const DEFAULT_PASSWORD = "1234";
 const DEFAULT_HASH = Buffer.from(DEFAULT_PASSWORD).toString("base64");
 
-const LEADERS_TO_SEED = [
-  {
-    name: "Fernando Dalabona",
-    email: "fernando.dalabona@afm.com.br",
-    sectors: ["TRATAMENTO TÉRMICO"],
-  },
-  {
-    name: "Renê Simas",
-    email: "rene.simas@afm.com.br",
-    sectors: ["SOLDA"],
-  },
-  {
-    name: "Lucas Queiroz",
-    email: "lucas.queiroz@afm.com.br",
-    sectors: [
-      "REBOLO PENDULAR",
-      "REBARBAÇÃO",
-      "MAÇARICO",
-      "LIXADEIRA MANUAL",
-      "JATEAMENTO",
-      "CORTE",
-      "ACABAMENTO DE PEÇAS",
-    ],
-  },
-  {
-    name: "Vanderson Donato",
-    email: "vanderson.donato@afm.com.br",
-    sectors: [
-      "REBOLO PENDULAR",
-      "REBARBAÇÃO",
-      "MAÇARICO",
-      "LIXADEIRA MANUAL",
-      "JATEAMENTO",
-      "CORTE",
-      "ACABAMENTO DE PEÇAS",
-    ],
-  },
-  {
-    name: "Fabrício Dalabona",
-    email: "fabricio.dalabona@afm.com.br",
-    sectors: [
-      "TRATAMENTO TÉRMICO",
-      "SOLDA",
-      "REBOLO PENDULAR",
-      "REBARBAÇÃO",
-      "MAÇARICO",
-      "LIXADEIRA MANUAL",
-      "JATEAMENTO",
-      "CORTE",
-      "ACABAMENTO DE PEÇAS",
-    ],
-    supervisor: true,
-  },
-];
+const leadersFile = path.resolve(process.cwd(), "leaders.json");
+
+if (!fs.existsSync(leadersFile)) {
+  console.error(`Arquivo leaders.json não encontrado em ${leadersFile}`);
+  process.exit(1);
+}
+
+const rawData = JSON.parse(fs.readFileSync(leadersFile, "utf-8"));
+
+if (!Array.isArray(rawData)) {
+  console.error("leaders.json precisa conter um array de líderes");
+  process.exit(1);
+}
 
 const normalize = (value) => value?.trim().toLowerCase() ?? "";
 
@@ -97,15 +58,15 @@ async function fetchJson(url, options) {
 }
 
 async function getExistingLeaders() {
-  return fetchJson(`${API_BASE}/leaders`, { headers: HEADERS });
+  return (await fetchJson(`${API_BASE}/leaders`, { headers: HEADERS })) ?? [];
 }
 
 async function getExistingAssignments() {
-  return fetchJson(`${API_BASE}/sector_leader_assignments`, { headers: HEADERS });
+  return (await fetchJson(`${API_BASE}/sector_leader_assignments`, { headers: HEADERS })) ?? [];
 }
 
 async function getSectorsMap() {
-  const sectors = await fetchJson(`${API_BASE}/sectors`, { headers: HEADERS });
+  const sectors = (await fetchJson(`${API_BASE}/sectors`, { headers: HEADERS })) ?? [];
   const map = new Map();
   for (const sector of sectors) {
     map.set(normalize(sector.name), sector);
@@ -153,7 +114,8 @@ async function assignLeaderToSector(sectorName, leaderId, shift, sectorMap, assi
     console.warn(`Setor não encontrado: ${sectorName}`);
     return;
   }
-  const normalizedShift = shift ?? "default";
+
+  const normalizedShift = (shift ?? "default").trim();
   const key = `${sector.id}:${leaderId}:${normalizedShift.toLowerCase()}`;
   if (assignmentKeys.has(key)) {
     return;
@@ -181,18 +143,28 @@ async function main() {
     ),
   );
 
-  for (const leader of LEADERS_TO_SEED) {
-    const record = await upsertLeader(leader, existingLeaders);
+  for (const leader of rawData) {
+    const sectors = Array.isArray(leader.sectors)
+      ? leader.sectors
+      : typeof leader.sector === "string"
+        ? leader.sector.split(",").map((item) => item.trim()).filter(Boolean)
+        : [];
 
-    if (!leader.sectors || leader.sectors.length === 0) continue;
-    for (const sectorName of leader.sectors) {
-      await assignLeaderToSector(
-        sectorName,
-        record.id,
-        leader.supervisor ? "Supervisor" : "default",
-        sectorsMap,
-        assignmentKeys,
-      );
+    if (sectors.length === 0) {
+      console.warn(`Nenhum setor informado para o líder ${leader.name}. Pulando.`);
+      continue;
+    }
+
+    const shift = leader.shift ?? (leader.supervisor ? "Supervisor" : "default");
+
+    const record = await upsertLeader({
+      name: leader.name,
+      email: leader.email,
+      sectors,
+    }, existingLeaders);
+
+    for (const sectorName of sectors) {
+      await assignLeaderToSector(sectorName, record.id, shift, sectorsMap, assignmentKeys);
     }
   }
 
