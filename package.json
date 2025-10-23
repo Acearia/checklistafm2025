@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "reset:operators": "node scripts/resetOperators.mjs"
+    "reset:operators": "node scripts/resetOperators.mjs",
+    "seed:leaders": "node scripts/seed-leaders.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

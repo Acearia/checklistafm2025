@@ -20,29 +20,39 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 
 const AdminLeaderDashboard = () => {
   const { toast } = useToast();
-  const { 
-    leaders, 
-    sectors, 
-    operators, 
+  const {
+    leaders,
+    sectors,
+    sectorLeaderAssignments,
+    operators,
     equipment,
     inspections,
-    loading, 
-    error, 
-    refresh 
+    loading,
+    error,
+    refresh,
   } = useSupabaseData();
 
   // Calculate statistics
   const getLeaderStats = () => {
-    const totalLeaders = leaders.length;
+    const uniqueLeaderIds = new Set(sectorLeaderAssignments.map((assignment) => assignment.leader_id));
+    const totalLeaders = uniqueLeaderIds.size;
     const totalSectors = sectors.length;
-    const sectorsWithLeaders = sectors.filter(sector => 
-      leaders.some(leader => leader.sector === sector.name)
+    const sectorsWithLeaders = sectors.filter((sector) =>
+      sectorLeaderAssignments.some((assignment) => assignment.sector_id === sector.id),
     ).length;
     const sectorsWithoutLeaders = totalSectors - sectorsWithLeaders;
 
-    // Group leaders by sector
-    const leadersBySector = sectors.map(sector => {
-      const sectorLeaders = leaders.filter(leader => leader.sector === sector.name);
+    const leadersBySector = sectors.map((sector) => {
+      const assignmentsForSector = sectorLeaderAssignments.filter(
+        (assignment) => assignment.sector_id === sector.id,
+      );
+      const sectorLeaders = assignmentsForSector
+        .map((assignment) => {
+          const leader = leaders.find((item) => item.id === assignment.leader_id);
+          if (!leader) return null;
+          return { leader, shift: assignment.shift };
+        })
+        .filter((value): value is { leader: typeof leaders[number]; shift: string | null } => Boolean(value));
       const sectorOperators = operators.filter(op => op.setor === sector.name);
       const sectorEquipment = equipment.filter(eq => eq.sector === sector.name);
       
@@ -194,18 +204,19 @@ const AdminLeaderDashboard = () => {
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-semibold">{sectorData.sector}</h3>
                     <Badge variant={sectorData.hasLeader ? "default" : "secondary"}>
-                      {sectorData.hasLeader ? "Com Líder" : "Sem Líder"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">{sectorData.description}</p>
+                    {sectorData.hasLeader ? "Com Líder" : "Sem Líder"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{sectorData.description}</p>
                   
                   {sectorData.leaders.length > 0 && (
                     <div className="mb-2">
                       <p className="text-sm font-medium">Líderes:</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {sectorData.leaders.map((leader) => (
-                          <Badge key={leader.id} variant="outline" className="text-xs">
+                        {sectorData.leaders.map(({ leader, shift }) => (
+                          <Badge key={`${leader.id}-${shift}`} variant="outline" className="text-xs">
                             {leader.name}
+                            {shift && shift !== "default" ? ` (${shift})` : ""}
                           </Badge>
                         ))}
                       </div>

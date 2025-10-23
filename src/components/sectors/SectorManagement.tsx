@@ -14,12 +14,13 @@ import EditSectorDialog from "./EditSectorDialog";
 
 const SectorManagement = () => {
   const { toast } = useToast();
-  const { 
-    sectors, 
-    leaders, 
-    loading, 
-    error, 
-    refresh 
+  const {
+    sectors,
+    leaders,
+    sectorLeaderAssignments,
+    loading,
+    error,
+    refresh,
   } = useSupabaseData();
 
   const [editingSector, setEditingSector] = useState<Sector | null>(null);
@@ -48,10 +49,27 @@ const SectorManagement = () => {
     }
   };
 
-  const getLeaderName = (leaderId: string | null) => {
-    if (!leaderId) return "Sem líder";
-    const leader = leaders.find(l => l.id === leaderId);
-    return leader ? leader.name : "Líder não encontrado";
+  const assignmentsBySector = sectorLeaderAssignments.reduce<Record<string, typeof sectorLeaderAssignments>>(
+    (acc, assignment) => {
+      if (!acc[assignment.sector_id]) {
+        acc[assignment.sector_id] = [];
+      }
+      acc[assignment.sector_id].push(assignment);
+      return acc;
+    },
+    {},
+  );
+
+  const getLeadersForSector = (sectorId: string) => {
+    const assignments = assignmentsBySector[sectorId] ?? [];
+    return assignments
+      .map((assignment) => {
+        const leader = leaders.find((item) => item.id === assignment.leader_id);
+        if (!leader) return null;
+        const shiftLabel = assignment.shift && assignment.shift !== "default" ? ` (${assignment.shift})` : "";
+        return `${leader.name}${shiftLabel}`;
+      })
+      .filter((value): value is string => Boolean(value));
   };
 
   if (loading) {
@@ -107,7 +125,7 @@ const SectorManagement = () => {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead>Líder Responsável</TableHead>
+                  <TableHead>Líderes</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -123,13 +141,22 @@ const SectorManagement = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      {sector.leader_id ? (
-                        <Badge variant="secondary">
-                          {getLeaderName(sector.leader_id)}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Sem líder</Badge>
-                      )}
+                      {(() => {
+                        const leadersForSector = getLeadersForSector(sector.id);
+                        if (leadersForSector.length === 0) {
+                          return <Badge variant="outline">Sem líder</Badge>;
+                        }
+
+                        return (
+                          <div className="flex flex-wrap gap-1">
+                            {leadersForSector.map((label) => (
+                              <Badge key={`${sector.id}-${label}`} variant="secondary">
+                                {label}
+                              </Badge>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -179,6 +206,7 @@ const SectorManagement = () => {
         onOpenChange={setEditDialogOpen}
         onSectorUpdated={refresh}
         leaders={leaders}
+        assignments={sectorLeaderAssignments}
       />
     </div>
   );

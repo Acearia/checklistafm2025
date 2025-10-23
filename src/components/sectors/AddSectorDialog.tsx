@@ -7,7 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { sectorService, type Leader } from "@/lib/supabase-service";
+import {
+  sectorService,
+  sectorLeaderAssignmentService,
+  type Leader,
+} from "@/lib/supabase-service";
 
 interface AddSectorDialogProps {
   onSectorAdded: () => void;
@@ -21,6 +25,7 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [leaderId, setLeaderId] = useState<string>(NO_LEADER_VALUE);
+  const [shift, setShift] = useState<string>("default");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -40,11 +45,23 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
       const normalizedDescription = description.trim();
       const normalizedLeader = leaderId === NO_LEADER_VALUE ? null : leaderId;
 
-      await sectorService.create({
+      const createdSector = await sectorService.create({
         name: name.trim(),
         description: normalizedDescription ? normalizedDescription : null,
-        leader_id: normalizedLeader,
+        leader_id: null,
       });
+
+      if (createdSector && normalizedLeader) {
+        try {
+          await sectorLeaderAssignmentService.create({
+            sector_id: createdSector.id,
+            leader_id: normalizedLeader,
+            shift,
+          });
+        } catch (assignmentError) {
+          console.error("Erro ao atribuir líder durante criação de setor:", assignmentError);
+        }
+      }
 
       toast({
         title: "Sucesso",
@@ -55,6 +72,7 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
       setName("");
       setDescription("");
       setLeaderId(NO_LEADER_VALUE);
+      setShift("default");
       setOpen(false);
       onSectorAdded();
     } catch (error) {
@@ -120,6 +138,23 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
               </SelectContent>
             </Select>
           </div>
+
+          {leaderId !== NO_LEADER_VALUE && (
+            <div className="space-y-2">
+              <Label htmlFor="leader-shift">Turno</Label>
+              <Select value={shift} onValueChange={setShift}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o turno" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Padrão</SelectItem>
+                  <SelectItem value="1T">1º Turno</SelectItem>
+                  <SelectItem value="2T">2º Turno</SelectItem>
+                  <SelectItem value="Supervisor">Supervisor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

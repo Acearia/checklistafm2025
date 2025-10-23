@@ -10,6 +10,9 @@ export type Sector = Tables<"sectors">;
 export type Leader = Tables<"leaders">;
 export type InsertLeader = TablesInsert<"leaders">;
 export type UpdateLeader = TablesUpdate<"leaders">;
+export type SectorLeaderAssignment = Tables<"sector_leader_assignments">;
+export type SectorLeaderAssignmentInsert = TablesInsert<"sector_leader_assignments">;
+export type SectorLeaderAssignmentUpdate = TablesUpdate<"sector_leader_assignments">;
 
 export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
@@ -350,6 +353,50 @@ export const leaderService = {
       .delete()
       .eq("id", id);
     
+    if (error) throw error;
+  }
+};
+
+// Sector leader assignments (supports multiple leaders per sector with shift)
+export const sectorLeaderAssignmentService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("sector_leader_assignments")
+      .select("*");
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async create(assignment: SectorLeaderAssignmentInsert) {
+    const { data, error } = await supabase
+      .from("sector_leader_assignments")
+      .insert(assignment)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: SectorLeaderAssignmentUpdate) {
+    const { data, error } = await supabase
+      .from("sector_leader_assignments")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("sector_leader_assignments")
+      .delete()
+      .eq("id", id);
+
     if (error) throw error;
   }
 };

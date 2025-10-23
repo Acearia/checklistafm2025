@@ -6,6 +6,7 @@ import {
   checklistService,
   sectorService,
   leaderService,
+  sectorLeaderAssignmentService,
 } from "@/lib/supabase-service";
 
 const STALE_TIME_MS = 1000 * 60; // 1 minute
@@ -43,6 +44,11 @@ export const useSupabaseData = () => {
         queryFn: () => leaderService.getAll(),
         staleTime: STALE_TIME_MS,
       },
+      {
+        queryKey: ["sector-leader-assignments"],
+        queryFn: () => sectorLeaderAssignmentService.getAll(),
+        staleTime: STALE_TIME_MS,
+      },
     ],
   });
 
@@ -53,6 +59,7 @@ export const useSupabaseData = () => {
     checklistQuery,
     sectorsQuery,
     leadersQuery,
+    sectorLeaderAssignmentsQuery,
   ] = queryResults;
 
   const loading = queryResults.some((result) => result.isLoading);
@@ -72,6 +79,7 @@ export const useSupabaseData = () => {
     checklistItems: checklistQuery.data ?? [],
     sectors: sectorsQuery.data ?? [],
     leaders: leadersQuery.data ?? [],
+    sectorLeaderAssignments: sectorLeaderAssignmentsQuery.data ?? [],
     loading,
     error,
     refresh,

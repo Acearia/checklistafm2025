@@ -236,6 +236,48 @@ export type Database = {
         }
         Relationships: []
       }
+      sector_leader_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          leader_id: string
+          sector_id: string
+          shift: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leader_id: string
+          sector_id: string
+          shift?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leader_id?: string
+          sector_id?: string
+          shift?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sector_leader_assignments_leader_id_fkey"
+            columns: ["leader_id"]
+            isOneToOne: false
+            referencedRelation: "leaders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sector_leader_assignments_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "sectors"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       operators: {
         Row: {
           cargo: string | null

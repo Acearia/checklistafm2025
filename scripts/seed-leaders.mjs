@@ -93,6 +93,10 @@ async function getExistingLeaders() {
   return fetchJson(`${API_BASE}/leaders`, { headers: HEADERS });
 }
 
+async function getExistingAssignments() {
+  return fetchJson(`${API_BASE}/sector_leader_assignments`, { headers: HEADERS });
+}
+
 async function getSectorsMap() {
   const sectors = await fetchJson(`${API_BASE}/sectors`, { headers: HEADERS });
   const map = new Map();
@@ -136,45 +140,52 @@ async function upsertLeader(leader, existingLeaders) {
   return record;
 }
 
-async function assignLeaderToSector(sectorName, leaderId, sectorMap) {
+async function assignLeaderToSector(sectorName, leaderId, shift, sectorMap, assignmentKeys) {
   const sector = sectorMap.get(normalize(sectorName));
   if (!sector) {
     console.warn(`Setor não encontrado: ${sectorName}`);
     return;
   }
-
-  if (sector.leader_id && sector.leader_id !== leaderId) {
-    console.warn(
-      `Setor ${sector.name} já possui líder (${sector.leader_id}). Pular atribuição.`,
-    );
+  const normalizedShift = shift ?? "default";
+  const key = `${sector.id}:${leaderId}:${normalizedShift.toLowerCase()}`;
+  if (assignmentKeys.has(key)) {
     return;
   }
 
-  await fetchJson(`${API_BASE}/sectors?id=eq.${encodeURIComponent(sector.id)}`, {
-    method: "PATCH",
+  await fetchJson(`${API_BASE}/sector_leader_assignments`, {
+    method: "POST",
     headers: HEADERS,
-    body: JSON.stringify({ leader_id: leaderId }),
+    body: JSON.stringify({
+      sector_id: sector.id,
+      leader_id: leaderId,
+      shift: normalizedShift,
+    }),
   });
-  sector.leader_id = leaderId;
+  assignmentKeys.add(key);
 }
 
 async function main() {
   const existingLeaders = await getExistingLeaders();
+  const existingAssignments = await getExistingAssignments();
   const sectorsMap = await getSectorsMap();
+  const assignmentKeys = new Set(
+    existingAssignments.map((assignment) =>
+      `${assignment.sector_id}:${assignment.leader_id}:${(assignment.shift ?? "default").toLowerCase()}`,
+    ),
+  );
 
   for (const leader of LEADERS_TO_SEED) {
     const record = await upsertLeader(leader, existingLeaders);
 
     if (!leader.sectors || leader.sectors.length === 0) continue;
-    if (leader.supervisor) {
-      console.log(
-        `Líder supervisor ${leader.name} cadastrado. Ajuste manual dos setores se necessário.`,
-      );
-      continue;
-    }
-
     for (const sectorName of leader.sectors) {
-      await assignLeaderToSector(sectorName, record.id, sectorsMap);
+      await assignLeaderToSector(
+        sectorName,
+        record.id,
+        leader.supervisor ? "Supervisor" : "default",
+        sectorsMap,
+        assignmentKeys,
+      );
     }
   }
 

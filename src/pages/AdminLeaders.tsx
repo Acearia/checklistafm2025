@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RefreshCw, Plus, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { leaderService, sectorService } from "@/lib/supabase-service";
+import { leaderService } from "@/lib/supabase-service";
 import AddLeaderDialog from "@/components/leaders/AddLeaderDialog";
 import EditLeaderDialog from "@/components/leaders/EditLeaderDialog";
 
@@ -21,12 +22,13 @@ interface Leader {
 
 const AdminLeaders = () => {
   const { toast } = useToast();
-  const { 
-    leaders, 
-    sectors, 
-    loading, 
-    error, 
-    refresh 
+  const {
+    leaders,
+    sectors,
+    sectorLeaderAssignments,
+    loading,
+    error,
+    refresh,
   } = useSupabaseData();
   
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -38,24 +40,12 @@ const AdminLeaders = () => {
     try {
       const passwordHash = btoa(leaderData.password || 'admin123'); // Base64 encoding
       
-      const createdLeader = await leaderService.create({
+      await leaderService.create({
         name: leaderData.name,
         email: leaderData.email,
         sector: leaderData.sector,
         password_hash: passwordHash
       });
-
-      if (createdLeader?.id) {
-        const sectorMatch = sectors.find(
-          (sector) => sector.name?.trim().toLowerCase() === leaderData.sector.trim().toLowerCase(),
-        );
-
-        if (sectorMatch) {
-          await sectorService.update(sectorMatch.id, {
-            leader_id: createdLeader.id,
-          });
-        }
-      }
       
       toast({
         title: "Líder adicionado",
@@ -88,27 +78,7 @@ const AdminLeaders = () => {
         updateData.password_hash = btoa(leaderData.newPassword);
       }
       
-      const previousLeader = leaders.find((leader) => leader.id === leaderData.id);
-
       await leaderService.update(leaderData.id, updateData);
-
-      if (previousLeader?.sector && previousLeader.sector !== leaderData.sector) {
-        const previousSectorMatch = sectors.find(
-          (sector) => sector.name?.trim().toLowerCase() === previousLeader.sector.trim().toLowerCase(),
-        );
-        if (previousSectorMatch) {
-          await sectorService.update(previousSectorMatch.id, { leader_id: null });
-        }
-      }
-
-      if (leaderData.sector) {
-        const newSectorMatch = sectors.find(
-          (sector) => sector.name?.trim().toLowerCase() === leaderData.sector.trim().toLowerCase(),
-        );
-        if (newSectorMatch) {
-          await sectorService.update(newSectorMatch.id, { leader_id: leaderData.id });
-        }
-      }
       
       toast({
         title: "Líder atualizado",
@@ -136,18 +106,7 @@ const AdminLeaders = () => {
 
     setIsDeleting(leaderId);
     try {
-      const leaderToRemove = leaders.find((leader) => leader.id === leaderId);
-
       await leaderService.delete(leaderId);
-
-      if (leaderToRemove?.sector) {
-        const sectorMatch = sectors.find(
-          (sector) => sector.name?.trim().toLowerCase() === leaderToRemove.sector.trim().toLowerCase(),
-        );
-        if (sectorMatch) {
-          await sectorService.update(sectorMatch.id, { leader_id: null });
-        }
-      }
       
       toast({
         title: "Líder removido",
@@ -171,6 +130,29 @@ const AdminLeaders = () => {
   const openEditDialog = (leader: Leader) => {
     setSelectedLeader(leader);
     setShowEditDialog(true);
+  };
+
+  const assignmentsByLeader = sectorLeaderAssignments.reduce<Record<string, typeof sectorLeaderAssignments>>(
+    (acc, assignment) => {
+      if (!acc[assignment.leader_id]) {
+        acc[assignment.leader_id] = [];
+      }
+      acc[assignment.leader_id].push(assignment);
+      return acc;
+    },
+    {},
+  );
+
+  const getLeaderSectors = (leaderId: string) => {
+    const assignments = assignmentsByLeader[leaderId] ?? [];
+    return assignments
+      .map((assignment) => {
+        const sector = sectors.find((item) => item.id === assignment.sector_id);
+        if (!sector) return null;
+        const shiftLabel = assignment.shift && assignment.shift !== "default" ? ` (${assignment.shift})` : "";
+        return `${sector.name}${shiftLabel}`;
+      })
+      .filter((value): value is string => Boolean(value));
   };
 
   if (loading) {
@@ -217,7 +199,9 @@ const AdminLeaders = () => {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {leaders.map((leader) => (
+        {leaders.map((leader) => {
+          const leaderSectors = getLeaderSectors(leader.id);
+          return (
           <Card key={leader.id}>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
@@ -230,7 +214,17 @@ const AdminLeaders = () => {
                 <strong>Email:</strong> {leader.email}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Setor:</strong> {leader.sector}
+                <strong>Setores:</strong> {leaderSectors.length > 0 ? (
+                  <span className="flex flex-wrap gap-1 mt-1">
+                    {leaderSectors.map((sectorLabel) => (
+                      <Badge key={`${leader.id}-${sectorLabel}`} variant="outline" className="text-xs">
+                        {sectorLabel}
+                      </Badge>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Sem vínculo registrado</span>
+                )}
               </p>
               
               <div className="flex gap-2 pt-2">
@@ -256,7 +250,7 @@ const AdminLeaders = () => {
               </div>
             </CardContent>
           </Card>
-        ))}
+        )})}
       </div>
 
       {leaders.length === 0 && !loading && (
