@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Fernando Dalabona",
+    "email": "fernando.dalabona@afm.com.br",
+    "sector": "TRATAMENTO TÉRMICO"
+  },
+  {
+    "name": "Renê Simas",
+    "email": "rene.simas@afm.com.br",
+    "sector": "SOLDA"
+  },
+  {
+    "name": "Lucas Queiroz",
+    "email": "lucas.queiroz@afm.com.br",
+    "sector": "REBOLO PENDULAR, REBARBAÇÃO, MAÇARICO, LIXADEIRA MANUAL, JATEAMENTO, CORTE E ACABAMENTO"
+  },
+  {
+    "name": "Vanderson Donato",
+    "email": "vanderson.donato@afm.com.br",
+    "sector": "REBOLO PENDULAR, REBARBAÇÃO, MAÇARICO, LIXADEIRA MANUAL, JATEAMENTO, CORTE E ACABAMENTO"
+  },
+  {
+    "name": "Fabrício Dalabona",
+    "email": "fabricio.dalabona@afm.com.br",
+    "sector": "SUPERVISÃO GERAL"
+  }
+]

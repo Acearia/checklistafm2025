@@ -5,6 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { leaderService } from "@/lib/supabase-service";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const LeaderLogin = () => {
   const [email, setEmail] = useState("");
@@ -14,6 +23,14 @@ const LeaderLogin = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { leaders, loading: leadersLoading } = useSupabaseData();
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [pendingLeaderId, setPendingLeaderId] = useState<string | null>(null);
+  const [pendingLeaderName, setPendingLeaderName] = useState<string>("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const DEFAULT_PASSWORD_HASH = btoa("1234");
 
   useEffect(() => {
     // Check if already logged in
@@ -56,6 +73,19 @@ const LeaderLogin = () => {
       const passwordHash = btoa(password); // Base64 encoding for simplicity
       
       if (leader && leader.password_hash === passwordHash) {
+        if (leader.password_hash === DEFAULT_PASSWORD_HASH) {
+          setPendingLeaderId(leader.id);
+          setPendingLeaderName(leader.name);
+          setResetDialogOpen(true);
+          setLoading(false);
+          setPassword("");
+          toast({
+            title: "Nova senha necessária",
+            description: "Defina uma nova senha para continuar.",
+          });
+          return;
+        }
+
         // Simulate login delay
         await new Promise(resolve => setTimeout(resolve, 1000));
         
@@ -89,6 +119,62 @@ const LeaderLogin = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingLeaderId) return;
+
+    if (newPassword.trim().length < 4) {
+      toast({
+        title: "Senha inválida",
+        description: "A nova senha deve ter pelo menos 4 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast({
+        title: "Senhas não coincidem",
+        description: "Digite a mesma senha nos dois campos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setResetLoading(true);
+      const newHash = btoa(newPassword.trim());
+      await leaderService.update(pendingLeaderId, {
+        password_hash: newHash,
+      });
+
+      localStorage.setItem("checklistafm-leader-auth", "true");
+      localStorage.setItem("checklistafm-leader-id", pendingLeaderId);
+      const pendingLeader = leaders.find((leader) => leader.id === pendingLeaderId);
+      if (pendingLeader) {
+        localStorage.setItem("checklistafm-leader-sector", pendingLeader.sector);
+      }
+      toast({
+        title: "Senha definida",
+        description: "Senha atualizada com sucesso. Entrando...",
+      });
+      navigate("/leader/dashboard");
+    } catch (error) {
+      console.error("Erro ao atualizar senha do líder:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a senha. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setResetLoading(false);
+      setResetDialogOpen(false);
+      setNewPassword("");
+      setConfirmNewPassword("");
+      setPendingLeaderId(null);
     }
   };
 
@@ -166,6 +252,52 @@ const LeaderLogin = () => {
           </CardFooter>
         </Card>
       </div>
+
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Definir nova senha</DialogTitle>
+            <DialogDescription>
+              Por segurança, defina uma nova senha para continuar o acesso, {pendingLeaderName || "líder"}.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Nova senha"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={4}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Input
+                type="password"
+                placeholder="Confirme a nova senha"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                minLength={4}
+                required
+              />
+            </div>
+            <DialogFooter className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setResetDialogOpen(false)}
+                disabled={resetLoading}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={resetLoading}>
+                {resetLoading ? "Salvando..." : "Salvar nova senha"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
