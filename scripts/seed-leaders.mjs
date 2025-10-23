@@ -86,7 +86,14 @@ async function fetchJson(url, options) {
     throw new Error(`Falha em ${url}: ${res.status} ${res.statusText} - ${body}`);
   }
   if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    console.warn(`Resposta inesperada de ${url}:`, text);
+    return null;
+  }
 }
 
 async function getExistingLeaders() {
