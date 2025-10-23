@@ -1,99 +1,257 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { RefreshCw, Users } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { RefreshCw, Plus, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { leaderService } from "@/lib/supabase-service";
+import AddLeaderDialog from "@/components/leaders/AddLeaderDialog";
+import EditLeaderDialog from "@/components/leaders/EditLeaderDialog";
 
-const AdminLeaders: React.FC = () => {
+interface Leader {
+  id: string;
+  name: string;
+  email: string;
+  sector: string;
+  password?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const AdminLeaders = () => {
   const { toast } = useToast();
-  const { leaders, loading, error, refresh } = useSupabaseData();
+  const { 
+    leaders, 
+    sectors, 
+    loading, 
+    error, 
+    refresh 
+  } = useSupabaseData();
+  
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [selectedLeader, setSelectedLeader] = useState<Leader | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
-  const handleRefresh = async () => {
+  const handleAddLeader = async (leaderData: Omit<Leader, 'id'>) => {
     try {
-      await refresh();
-      toast({
-        title: "Dados atualizados",
-        description: "Lista de líderes sincronizada com os operadores.",
+      const passwordHash = btoa(leaderData.password || 'admin123'); // Base64 encoding
+      
+      await leaderService.create({
+        name: leaderData.name,
+        email: leaderData.email,
+        sector: leaderData.sector,
+        password_hash: passwordHash
       });
-    } catch (err) {
-      console.error("Erro ao atualizar líderes:", err);
+      
+      toast({
+        title: "Líder adicionado",
+        description: "Líder criado com sucesso",
+      });
+
+      
+      setShowAddDialog(false);
+      refresh();
+    } catch (error) {
+      console.error('Error creating leader:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível atualizar a lista de líderes.",
+        description: "Erro ao criar líder",
         variant: "destructive",
       });
     }
+  };
+
+  const handleEditLeader = async (leaderData: Leader & { newPassword?: string }) => {
+    try {
+      const updateData: any = {
+        name: leaderData.name,
+        email: leaderData.email,
+        sector: leaderData.sector,
+      };
+      
+      // Only update password if a new one was provided
+      if (leaderData.newPassword) {
+        updateData.password_hash = btoa(leaderData.newPassword);
+      }
+      
+      await leaderService.update(leaderData.id, updateData);
+      
+      toast({
+        title: "Líder atualizado",
+        description: "Dados do líder atualizados com sucesso",
+      });
+
+      
+      setShowEditDialog(false);
+      setSelectedLeader(null);
+      refresh();
+    } catch (error) {
+      console.error('Error updating leader:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao atualizar líder",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteLeader = async (leaderId: string) => {
+    if (!confirm('Tem certeza que deseja excluir este líder?')) {
+      return;
+    }
+
+    setIsDeleting(leaderId);
+    try {
+      await leaderService.delete(leaderId);
+      
+      toast({
+        title: "Líder removido",
+        description: "Líder excluído com sucesso",
+      });
+
+      
+      refresh();
+    } catch (error) {
+      console.error('Error deleting leader:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir líder",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const openEditDialog = (leader: Leader) => {
+    setSelectedLeader(leader);
+    setShowEditDialog(true);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-700 border-t-transparent" />
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-red-700 border-t-transparent"></div>
           <p className="mt-4 text-gray-600">Carregando líderes...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Erro</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Líderes cadastrados</h1>
-          <p className="text-gray-600">
-            Essa listagem reflete os operadores marcados como líderes. Edite um operador na tela principal
-            para alterar seus dados de liderança.
-          </p>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Gerenciar Líderes</h1>
+        <div className="flex gap-2">
+          <Button 
+            onClick={refresh} 
+            variant="outline" 
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
+          <Button 
+            onClick={() => setShowAddDialog(true)}
+            className="flex items-center gap-2 bg-red-700 hover:bg-red-800"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar Líder
+          </Button>
         </div>
-        <Button onClick={handleRefresh} variant="outline" className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4" /> Atualizar
-        </Button>
+      </div>
+      
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Erro ao carregar dados</AlertTitle>
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {leaders.map((leader) => (
+          <Card key={leader.id}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                {leader.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-gray-600">
+                <strong>Email:</strong> {leader.email}
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Setor:</strong> {leader.sector}
+              </p>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openEditDialog(leader)}
+                  className="flex items-center gap-1"
+                >
+                  <Edit className="h-3 w-3" />
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDeleteLeader(leader.id)}
+                  disabled={isDeleting === leader.id}
+                  className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  {isDeleting === leader.id ? "Excluindo..." : "Excluir"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      {leaders.length === 0 ? (
+      {leaders.length === 0 && !loading && (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-2">
-            <Users className="h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-semibold">Nenhum líder configurado</h3>
-            <p className="text-muted-foreground">
-              Marque um operador como líder na tela de Operadores para que ele apareça aqui.
+          <CardContent className="text-center py-8">
+            <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Nenhum líder encontrado
+            </h3>
+            <p className="text-gray-500 mb-4">
+              Comece adicionando um líder ao sistema.
             </p>
+            <Button 
+              onClick={() => setShowAddDialog(true)}
+              className="bg-red-700 hover:bg-red-800"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Primeiro Líder
+            </Button>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {leaders.map((leader) => (
-            <Card key={leader.operator_matricula}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  {leader.name || leader.operator_matricula}
-                </CardTitle>
-                <CardDescription>{leader.email || "Sem email cadastrado"}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-gray-600">
-                <div>
-                  <strong>Matrícula:</strong> {leader.operator_matricula}
-                </div>
-                <div>
-                  <strong>Setor:</strong> {leader.sector || "Não informado"}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      )}
+
+      <AddLeaderDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onSubmit={handleAddLeader}
+        sectors={sectors}
+      />
+
+      {selectedLeader && (
+        <EditLeaderDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onSubmit={handleEditLeader}
+          leader={selectedLeader}
+          sectors={sectors}
+        />
       )}
     </div>
   );

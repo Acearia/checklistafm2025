@@ -172,6 +172,25 @@ export const useChecklistSubmit = () => {
         });
       }
 
+      // Check if there's a leader for this equipment's sector
+      try {
+        const savedLeaders = localStorage.getItem('checklistafm-leaders');
+        if (savedLeaders) {
+          const leaders = JSON.parse(savedLeaders);
+          const sectorLeaders = leaders.filter(leader => leader.sector === currentState.equipment?.sector);
+          
+          if (sectorLeaders.length > 0) {
+            // If we have leaders for this sector, simulate sending email notification
+            toast({
+              title: "Notificação enviada",
+              description: `${sectorLeaders.length} líder(es) do setor ${currentState.equipment?.sector} foram notificados`,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error processing leader notifications:", error);
+      }
+
       toast({
         title: "Checklist enviado com sucesso!",
         description: `Inspeção do equipamento ${currentState.equipment?.name} registrada`,

@@ -7,11 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { sectorService } from "@/lib/supabase-service";
+import { sectorService, type Leader } from "@/lib/supabase-service";
 
 interface AddSectorDialogProps {
   onSectorAdded: () => void;
-  leaders: Array<{ id: string; name: string; email?: string | null; operator_matricula: string; setor?: string | null }>;
+  leaders: Leader[];
 }
 
 const NO_LEADER_VALUE = "none";
@@ -20,7 +20,7 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [leaderMatricula, setLeaderMatricula] = useState<string>(NO_LEADER_VALUE);
+  const [leaderId, setLeaderId] = useState<string>(NO_LEADER_VALUE);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -38,12 +38,12 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
     setLoading(true);
     try {
       const normalizedDescription = description.trim();
-      const normalizedLeader = leaderMatricula === NO_LEADER_VALUE ? null : leaderMatricula;
+      const normalizedLeader = leaderId === NO_LEADER_VALUE ? null : leaderId;
 
       await sectorService.create({
         name: name.trim(),
         description: normalizedDescription ? normalizedDescription : null,
-        leader_operator_matricula: normalizedLeader,
+        leader_id: normalizedLeader,
       });
 
       toast({
@@ -54,7 +54,7 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
 
       setName("");
       setDescription("");
-      setLeaderMatricula(NO_LEADER_VALUE);
+      setLeaderId(NO_LEADER_VALUE);
       setOpen(false);
       onSectorAdded();
     } catch (error) {
@@ -106,14 +106,14 @@ const AddSectorDialog = ({ onSectorAdded, leaders }: AddSectorDialogProps) => {
 
           <div className="space-y-2">
             <Label htmlFor="leader">Líder Responsável</Label>
-            <Select value={leaderMatricula} onValueChange={setLeaderMatricula}>
+            <Select value={leaderId} onValueChange={setLeaderId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um líder (opcional)" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_LEADER_VALUE}>Nenhum líder</SelectItem>
                 {leaders.map((leader) => (
-                  <SelectItem key={leader.id} value={leader.operator_matricula}>
+                  <SelectItem key={leader.id} value={leader.id}>
                     {leader.name} - {leader.email}
                   </SelectItem>
                 ))}

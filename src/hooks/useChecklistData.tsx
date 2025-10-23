@@ -59,7 +59,7 @@ export const useChecklistData = () => {
         id: sector.id,
         name: sector.name,
         description: sector.description || undefined,
-        leaderId: sector.leader_operator_matricula || undefined,
+        leaderId: sector.leader_id || undefined,
       }))
     );
   }, [supabaseSectors]);

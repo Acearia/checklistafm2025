@@ -203,16 +203,46 @@ export type Database = {
           },
         ]
       }
+      leaders: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          operator_matricula: string | null
+          password_hash: string
+          sector: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          operator_matricula?: string | null
+          password_hash: string
+          sector: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          operator_matricula?: string | null
+          password_hash?: string
+          sector?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       operators: {
         Row: {
           cargo: string | null
           created_at: string
           id: string
-          is_leader: boolean
           matricula: string
           name: string
-          leader_email: string | null
-          leader_password_hash: string | null
           senha: string | null
           setor: string | null
           updated_at: string
@@ -221,11 +251,8 @@ export type Database = {
           cargo?: string | null
           created_at?: string
           id?: string
-          is_leader?: boolean
           matricula: string
           name: string
-          leader_email?: string | null
-          leader_password_hash?: string | null
           senha?: string | null
           setor?: string | null
           updated_at?: string
@@ -234,11 +261,8 @@ export type Database = {
           cargo?: string | null
           created_at?: string
           id?: string
-          is_leader?: boolean
           matricula?: string
           name?: string
-          leader_email?: string | null
-          leader_password_hash?: string | null
           senha?: string | null
           setor?: string | null
           updated_at?: string
@@ -274,7 +298,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
-          leader_operator_matricula: string | null
+          leader_id: string | null
           name: string
           updated_at: string
         }
@@ -282,7 +306,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
-          leader_operator_matricula?: string | null
+          leader_id?: string | null
           name: string
           updated_at?: string
         }
@@ -290,7 +314,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
-          leader_operator_matricula?: string | null
+          leader_id?: string | null
           name?: string
           updated_at?: string
         }
