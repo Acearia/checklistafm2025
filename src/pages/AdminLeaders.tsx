@@ -5,7 +5,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { RefreshCw, Plus, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { leaderService } from "@/lib/supabase-service";
+import { leaderService, sectorService } from "@/lib/supabase-service";
 import AddLeaderDialog from "@/components/leaders/AddLeaderDialog";
 import EditLeaderDialog from "@/components/leaders/EditLeaderDialog";
 
@@ -38,12 +38,24 @@ const AdminLeaders = () => {
     try {
       const passwordHash = btoa(leaderData.password || 'admin123'); // Base64 encoding
       
-      await leaderService.create({
+      const createdLeader = await leaderService.create({
         name: leaderData.name,
         email: leaderData.email,
         sector: leaderData.sector,
         password_hash: passwordHash
       });
+
+      if (createdLeader?.id) {
+        const sectorMatch = sectors.find(
+          (sector) => sector.name?.trim().toLowerCase() === leaderData.sector.trim().toLowerCase(),
+        );
+
+        if (sectorMatch) {
+          await sectorService.update(sectorMatch.id, {
+            leader_id: createdLeader.id,
+          });
+        }
+      }
       
       toast({
         title: "Líder adicionado",
@@ -76,7 +88,27 @@ const AdminLeaders = () => {
         updateData.password_hash = btoa(leaderData.newPassword);
       }
       
+      const previousLeader = leaders.find((leader) => leader.id === leaderData.id);
+
       await leaderService.update(leaderData.id, updateData);
+
+      if (previousLeader?.sector && previousLeader.sector !== leaderData.sector) {
+        const previousSectorMatch = sectors.find(
+          (sector) => sector.name?.trim().toLowerCase() === previousLeader.sector.trim().toLowerCase(),
+        );
+        if (previousSectorMatch) {
+          await sectorService.update(previousSectorMatch.id, { leader_id: null });
+        }
+      }
+
+      if (leaderData.sector) {
+        const newSectorMatch = sectors.find(
+          (sector) => sector.name?.trim().toLowerCase() === leaderData.sector.trim().toLowerCase(),
+        );
+        if (newSectorMatch) {
+          await sectorService.update(newSectorMatch.id, { leader_id: leaderData.id });
+        }
+      }
       
       toast({
         title: "Líder atualizado",
@@ -104,7 +136,18 @@ const AdminLeaders = () => {
 
     setIsDeleting(leaderId);
     try {
+      const leaderToRemove = leaders.find((leader) => leader.id === leaderId);
+
       await leaderService.delete(leaderId);
+
+      if (leaderToRemove?.sector) {
+        const sectorMatch = sectors.find(
+          (sector) => sector.name?.trim().toLowerCase() === leaderToRemove.sector.trim().toLowerCase(),
+        );
+        if (sectorMatch) {
+          await sectorService.update(sectorMatch.id, { leader_id: null });
+        }
+      }
       
       toast({
         title: "Líder removido",
