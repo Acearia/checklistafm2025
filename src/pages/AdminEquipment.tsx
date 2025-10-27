@@ -329,7 +329,6 @@ const AdminEquipment = () => {
       description: `OS #${order.orderNumber} marcada como ${getMaintenanceStatusLabel(order.status)}.`,
     });
   };
-
   const handleDeleteMaintenanceOrders = () => {
     if (!maintenanceEquipment) return;
     const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${maintenanceEquipment.name}"?`;
@@ -352,18 +351,15 @@ const AdminEquipment = () => {
       description: `Todas as OS do equipamento ${maintenanceEquipment.name} foram excluídas.`,
     });
   };
-
   // Pagination
   const totalPages = Math.ceil(displayedEquipments.length / itemsPerPage);
   const paginatedEquipments = displayedEquipments.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
-
   const hasOrdersForSelectedEquipment = maintenanceEquipment
     ? maintenanceOrders.some(order => order.equipmentId === maintenanceEquipment.id)
     : false;
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">

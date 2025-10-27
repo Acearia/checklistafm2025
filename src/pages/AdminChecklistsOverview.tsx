@@ -678,7 +678,6 @@ const AdminChecklistsOverview = () => {
       setMaintenanceOrders(updatedOrders);
       setMaintenanceOrderNumber("");
       setMaintenanceOrderNotes(trimmedNotes);
-      
       const updatedInspection: Inspection = {
         ...selectedInspection,
         hasMaintenanceOrder: false,
