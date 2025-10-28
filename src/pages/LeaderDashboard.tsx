@@ -289,12 +289,9 @@ const LeaderDashboard = () => {
     setLoading(true);
     
     try {
-      const filteredEquipments = supabaseEquipment.filter(
+      const sectorEquipments = supabaseEquipment.filter(
         (eq) => normalizeSector(eq.sector) === leaderSectorKey
       );
-      const sectorEquipments = filteredEquipments.length > 0
-        ? filteredEquipments
-        : supabaseEquipment;
       const operatorsByMatricula = new Map(
         supabaseOperators.map(op => [op.matricula, op])
       );
@@ -772,11 +769,10 @@ const LeaderDashboard = () => {
 
   const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
-    if (!currentLeader) return supabaseEquipment;
-    const filtered = supabaseEquipment.filter(
+    if (!currentLeader) return [];
+    return supabaseEquipment.filter(
       (equipment) => normalizeSector(equipment.sector) === leaderSectorKey
     );
-    return filtered.length > 0 ? filtered : supabaseEquipment;
   }, [supabaseEquipment, currentLeader, leaderSectorKey]);
 
   useEffect(() => {
@@ -796,10 +792,7 @@ const LeaderDashboard = () => {
       .filter((order) => {
         const equipment = equipmentById.get(order.equipmentId);
         if (!equipment) return false;
-        const equipmentSector = normalizeSector(equipment.sector);
-        return leaderSectorKey
-          ? equipmentSector === leaderSectorKey
-          : true;
+        return normalizeSector(equipment.sector) === leaderSectorKey;
       })
       .sort(
         (a, b) =>
