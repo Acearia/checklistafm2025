@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { ChecklistItem, Operator, Equipment } from "@/lib/data";
@@ -18,6 +20,10 @@ import ChecklistPhotoUpload from "@/components/checklist/ChecklistPhotoUpload";
 import ChecklistComments from "@/components/checklist/ChecklistComments";
 import { useChecklistData } from "@/hooks/useChecklistData";
 import { getChecklistState, saveChecklistState } from "@/lib/checklistStore";
+import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
+import type { MaintenanceOrder } from "@/lib/types";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const Checklist = () => {
   const { toast } = useToast();
@@ -60,6 +66,12 @@ const Checklist = () => {
   const [operatorUnlockSelection, setOperatorUnlockSelection] = useState<string>("");
   const [operatorUnlockPassword, setOperatorUnlockPassword] = useState("");
   const [operatorUnlockError, setOperatorUnlockError] = useState<string | null>(null);
+  const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
+  const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+  const [maintenanceOrderId, setMaintenanceOrderId] = useState<string | null>(null);
+  const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
+  const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
+  const [maintenanceNotes, setMaintenanceNotes] = useState("");
   
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
@@ -72,11 +84,33 @@ const Checklist = () => {
     [checklist]
   );
 
+  const ordersForSelectedEquipment = useMemo(() => {
+    if (!selectedEquipment) return [];
+    return maintenanceOrders
+      .filter(order => order.equipmentId === selectedEquipment.id)
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [selectedEquipment, maintenanceOrders]);
+
   // Debug: Log operators when they change
   useEffect(() => {
     console.log("Operators updated in Checklist:", operators.length);
     console.log("Operators data:", operators);
   }, [operators]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateOrders = () => {
+      setMaintenanceOrders(loadMaintenanceOrders());
+    };
+
+    updateOrders();
+    const listener = () => updateOrders();
+    window.addEventListener("checklistafm-maintenance-orders-updated", listener);
+    return () => {
+      window.removeEventListener("checklistafm-maintenance-orders-updated", listener);
+    };
+  }, []);
 
   useEffect(() => {
     if (supabaseChecklistItems.length > 0) {
@@ -148,6 +182,54 @@ const Checklist = () => {
         description: "Não foi possível localizar o operador selecionado.",
         variant: "destructive",
       });
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedEquipment || ordersForSelectedEquipment.length === 0) {
+      setMaintenanceOrderId(null);
+      setMaintenanceOrderNumber("");
+      setMaintenanceStatus("open");
+      setMaintenanceNotes("");
+      return;
+    }
+
+    const activeOrder = ordersForSelectedEquipment.find(order => order.status === "open");
+    const latestOrder = ordersForSelectedEquipment[0];
+
+    setMaintenanceOrderId(activeOrder?.id ?? latestOrder?.id ?? null);
+    setMaintenanceOrderNumber(activeOrder?.orderNumber ?? latestOrder?.orderNumber ?? "");
+    setMaintenanceStatus(activeOrder?.status ?? "open");
+    setMaintenanceNotes(activeOrder?.notes ?? latestOrder?.notes ?? "");
+  }, [selectedEquipment, ordersForSelectedEquipment]);
+
+  const activeMaintenanceOrder = useMemo(() => {
+    return ordersForSelectedEquipment.find(order => order.status === "open") ?? null;
+  }, [ordersForSelectedEquipment]);
+
+  const latestMaintenanceOrder = ordersForSelectedEquipment[0] ?? null;
+  const hasOrdersForSelectedEquipment = ordersForSelectedEquipment.length > 0;
+
+  const getMaintenanceStatusLabel = (status: MaintenanceOrder["status"]) => {
+    switch (status) {
+      case "open":
+        return "Em andamento";
+      case "closed":
+        return "Finalizada";
+      case "cancelled":
+        return "Cancelada";
+      default:
+        return "Indefinida";
+    }
+  };
+
+  const formatOrderDate = (isoDate?: string) => {
+    if (!isoDate) return "-";
+    try {
+      return format(new Date(isoDate), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch (error) {
+      console.warn("Não foi possível formatar data da OS:", error);
+      return "-";
     }
   };
 
@@ -288,6 +370,94 @@ const Checklist = () => {
 
   const handleRemovePhoto = (id: string) => {
     setPhotos(prev => prev.filter(photo => photo.id !== id));
+  };
+
+  const handleOpenMaintenanceDialog = () => {
+    if (!selectedEquipment) {
+      toast({
+        title: "Selecione um equipamento",
+        description: "Escolha o equipamento antes de registrar uma OS.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const activeOrder = ordersForSelectedEquipment.find(order => order.status === "open");
+    const latestOrder = ordersForSelectedEquipment[0];
+
+    setMaintenanceOrderId(activeOrder?.id ?? latestOrder?.id ?? null);
+    setMaintenanceOrderNumber(activeOrder?.orderNumber ?? latestOrder?.orderNumber ?? "");
+    setMaintenanceStatus(activeOrder?.status ?? "open");
+    setMaintenanceNotes(activeOrder?.notes ?? latestOrder?.notes ?? "");
+    setMaintenanceDialogOpen(true);
+  };
+
+  const handleSaveMaintenanceOrder = () => {
+    if (!selectedEquipment) return;
+
+    const trimmedNumber = maintenanceOrderNumber.trim();
+    if (!trimmedNumber) {
+      toast({
+        title: "Número da OS obrigatório",
+        description: "Informe o número da ordem de serviço para continuar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const trimmedNotes = maintenanceNotes.trim();
+    const existingOrder = maintenanceOrders.find(order => order.id === maintenanceOrderId);
+    const inspectionId =
+      existingOrder?.inspectionId ?? `equipment-${selectedEquipment.id}-${Date.now()}`;
+
+    const { order, orders } = upsertMaintenanceOrder({
+      id: maintenanceOrderId,
+      inspectionId,
+      equipmentId: selectedEquipment.id,
+      orderNumber: trimmedNumber,
+      status: maintenanceStatus,
+      notes: trimmedNotes || undefined,
+    });
+
+    setMaintenanceOrders(orders);
+    setMaintenanceOrderId(order.id);
+    setMaintenanceOrderNumber(order.orderNumber);
+    setMaintenanceStatus(order.status);
+    setMaintenanceNotes(order.notes ?? "");
+    setMaintenanceDialogOpen(false);
+
+    toast({
+      title: maintenanceStatus === "closed" ? "OS finalizada" : "OS registrada",
+      description:
+        maintenanceStatus === "closed"
+          ? `A OS ${order.orderNumber} foi marcada como finalizada.`
+          : `A OS ${order.orderNumber} foi registrada como em andamento.`,
+    });
+  };
+
+  const handleDeleteMaintenanceOrders = () => {
+    if (!selectedEquipment) return;
+
+    const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${selectedEquipment.name}"?`;
+    const confirmed =
+      typeof window === "undefined" ? true : window.confirm(confirmationMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    const updatedOrders = deleteMaintenanceOrdersByEquipment(selectedEquipment.id);
+    setMaintenanceOrders(updatedOrders);
+    setMaintenanceOrderId(null);
+    setMaintenanceOrderNumber("");
+    setMaintenanceStatus("open");
+    setMaintenanceNotes("");
+    setMaintenanceDialogOpen(false);
+
+    toast({
+      title: "OS removidas",
+      description: `Todas as OS do equipamento ${selectedEquipment.name} foram excluídas.`,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -483,6 +653,70 @@ const Checklist = () => {
             onEquipmentSelect={handleEquipmentSelect}
           />
 
+          {selectedEquipment && (
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    OS do equipamento {selectedEquipment.name}
+                  </p>
+                  {activeMaintenanceOrder ? (
+                    <div className="mt-2 space-y-1">
+                      <Badge variant="destructive" className="text-xs">
+                        OS #{activeMaintenanceOrder.orderNumber} • Em andamento
+                      </Badge>
+                      <p className="text-xs text-gray-600">
+                        Aberta em {formatOrderDate(activeMaintenanceOrder.createdAt)}
+                      </p>
+                      {activeMaintenanceOrder.notes && (
+                        <p className="text-xs text-gray-500">
+                          Obs.: {activeMaintenanceOrder.notes}
+                        </p>
+                      )}
+                    </div>
+                  ) : latestMaintenanceOrder ? (
+                    <div className="mt-2 space-y-1">
+                      <Badge variant="secondary" className="text-xs">
+                        Última OS #{latestMaintenanceOrder.orderNumber} • {getMaintenanceStatusLabel(latestMaintenanceOrder.status)}
+                      </Badge>
+                      <p className="text-xs text-gray-600">
+                        Atualizada em {formatOrderDate(latestMaintenanceOrder.updatedAt)}
+                      </p>
+                      {latestMaintenanceOrder.notes && (
+                        <p className="text-xs text-gray-500">
+                          Obs.: {latestMaintenanceOrder.notes}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Sem OS registradas para este equipamento.
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleOpenMaintenanceDialog}
+                >
+                  Gerenciar OS
+                </Button>
+              </div>
+              {ordersForSelectedEquipment.length > 1 && (
+                <div className="mt-3 text-xs text-gray-500">
+                  Histórico recente:
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                    {ordersForSelectedEquipment.slice(0, 3).map((order) => (
+                      <span key={order.id}>
+                        #{order.orderNumber} {getMaintenanceStatusLabel(order.status)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (
             <div className="mt-6 rounded-md border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
               {unansweredCount === 1
@@ -533,6 +767,101 @@ const Checklist = () => {
           </div>
         </form>
       </div>
+
+      <Dialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Gerenciar OS do equipamento</DialogTitle>
+            <DialogDescription>
+              Registre ou atualize a OS relacionada ao equipamento selecionado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-gray-600">
+                Equipamento
+              </label>
+              <Input
+                value={selectedEquipment ? `${selectedEquipment.name} (KP ${selectedEquipment.kp})` : ""}
+                disabled
+                readOnly
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-gray-600">
+                Número da OS
+              </label>
+              <Input
+                value={maintenanceOrderNumber}
+                onChange={(event) => setMaintenanceOrderNumber(event.target.value)}
+                placeholder="Informe o número da OS"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-gray-600">
+                Status
+              </label>
+              <Select
+                value={maintenanceStatus}
+                onValueChange={(value) => setMaintenanceStatus(value as MaintenanceOrder["status"])}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Em andamento</SelectItem>
+                  <SelectItem value="closed">Finalizada</SelectItem>
+                  <SelectItem value="cancelled">Cancelada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold uppercase text-gray-600">
+                Observações (opcional)
+              </label>
+              <Textarea
+                value={maintenanceNotes}
+                onChange={(event) => setMaintenanceNotes(event.target.value)}
+                rows={3}
+                placeholder="Descreva detalhes da manutenção ou responsáveis"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex w-full sm:w-auto gap-2">
+              <Button
+                type="button"
+                className="flex-1 sm:flex-none"
+                variant="outline"
+                onClick={() => setMaintenanceDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="flex-1 sm:flex-none"
+                variant="destructive"
+                onClick={handleDeleteMaintenanceOrders}
+                disabled={!selectedEquipment || !hasOrdersForSelectedEquipment}
+              >
+                Excluir OS
+              </Button>
+            </div>
+            <Button
+              type="button"
+              onClick={handleSaveMaintenanceOrder}
+              disabled={!selectedEquipment}
+            >
+              Salvar OS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={operatorUnlockDialogOpen} onOpenChange={handleOperatorUnlockDialogChange}>
         <DialogContent>

@@ -57,7 +57,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import { loadChecklistAlerts, markAlertSeenByLeader } from "@/lib/checklistTemplate";
-import { loadMaintenanceOrders, upsertMaintenanceOrder } from "@/lib/maintenanceOrders";
+import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 
 // Types
@@ -495,22 +495,50 @@ const LeaderDashboard = () => {
     const inspectionId =
       existingOrder?.inspectionId ?? `equipment-${maintenanceEquipmentId}-${Date.now()}`;
 
-  const { order, orders } = upsertMaintenanceOrder({
-    id: maintenanceOrderId,
-    inspectionId,
-    equipmentId: maintenanceEquipmentId,
+    const { order, orders } = upsertMaintenanceOrder({
+      id: maintenanceOrderId,
+      inspectionId,
+      equipmentId: maintenanceEquipmentId,
       orderNumber,
       status: maintenanceStatus,
       notes: notes || undefined,
-  });
+    });
 
-  setMaintenanceOrders(orders);
-  setMaintenanceOrderId(order.id);
-  setMaintenanceDialogOpen(false);
+    setMaintenanceOrders(orders);
+    setMaintenanceOrderId(order.id);
+    setMaintenanceDialogOpen(false);
 
     toast({
       title: maintenanceStatus === "closed" ? "OS finalizada" : "OS atualizada",
       description: `OS #${order.orderNumber} marcada como ${getMaintenanceOrderStatusLabel(order.status)}.`,
+    });
+  };
+
+  const handleDeleteMaintenanceOrders = () => {
+    if (!maintenanceEquipmentId) return;
+
+    const equipmentName =
+      sectorEquipments.find((equipment) => equipment.id === maintenanceEquipmentId)?.name ??
+      "este equipamento";
+    const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${equipmentName}"?`;
+    const confirmed =
+      typeof window === "undefined" ? true : window.confirm(confirmationMessage);
+
+    if (!confirmed) {
+      return;
+    }
+
+    const updatedOrders = deleteMaintenanceOrdersByEquipment(maintenanceEquipmentId);
+    setMaintenanceOrders(updatedOrders);
+    setMaintenanceOrderId(null);
+    setMaintenanceOrderNumber("");
+    setMaintenanceStatus("open");
+    setMaintenanceNotes("");
+    setMaintenanceDialogOpen(false);
+
+    toast({
+      title: "OS removidas",
+      description: "Todas as OS deste equipamento foram excluídas.",
     });
   };
 
@@ -627,6 +655,9 @@ const LeaderDashboard = () => {
     (order) => order.status === "open"
   );
   const latestSectorOrder = sectorMaintenanceOrders[0];
+  const hasOrdersForSelectedEquipment = maintenanceEquipmentId
+    ? maintenanceOrders.some(order => order.equipmentId === maintenanceEquipmentId)
+    : false;
 
   const filteredProblems = problemsList.filter(problem => {
     const matchesOperator = operatorFilter === "all" || problem.operatorMatricula === operatorFilter;
@@ -1049,11 +1080,28 @@ const LeaderDashboard = () => {
         </div>
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={() => setMaintenanceDialogOpen(false)}>
-          Cancelar
-        </Button>
+      <DialogFooter className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex w-full sm:w-auto gap-2">
+          <Button
+            type="button"
+            className="flex-1 sm:flex-none"
+            variant="outline"
+            onClick={() => setMaintenanceDialogOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            className="flex-1 sm:flex-none"
+            variant="destructive"
+            onClick={handleDeleteMaintenanceOrders}
+            disabled={!maintenanceEquipmentId || !hasOrdersForSelectedEquipment}
+          >
+            Excluir OS
+          </Button>
+        </div>
         <Button
+          type="button"
           onClick={handleSaveMaintenanceOrderLeader}
           disabled={!maintenanceEquipmentId}
         >
