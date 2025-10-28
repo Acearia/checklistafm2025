@@ -115,6 +115,7 @@ const LeaderDashboard = () => {
     equipment: supabaseEquipment, 
     operators: supabaseOperators,
     leaders: supabaseLeaders,
+    sectors: supabaseSectors,
     sectorLeaderAssignments: supabaseSectorLeaderAssignments,
     loading: supabaseLoading,
     error: supabaseError,
@@ -155,10 +156,14 @@ const LeaderDashboard = () => {
           .trim()
           .toLowerCase()
       : "";
-  const leaderSectorKey = useMemo(
-    () => normalizeSector(currentLeader?.sector),
-    [currentLeader]
-  );
+
+  const leaderSectorKeys = useMemo(() => {
+    if (!currentLeader?.sector) return [] as string[];
+    return currentLeader.sector
+      .split(",")
+      .map((value) => normalizeSector(value))
+      .filter((value): value is string => Boolean(value));
+  }, [currentLeader]);
 
   const leaderAssignmentEquipmentIds = useMemo<string[]>(() => {
     if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
@@ -169,6 +174,70 @@ const LeaderDashboard = () => {
       .map((assignment) => assignment.equipment_id)
       .filter((id): id is string => Boolean(id));
   }, [supabaseSectorLeaderAssignments, currentLeader]);
+
+  const leaderAssignmentSectorIds = useMemo<string[]>(() => {
+    if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
+      return [];
+    }
+    return supabaseSectorLeaderAssignments
+      .filter((assignment) => assignment.leader_id === currentLeader.id)
+      .map((assignment) => assignment.sector_id)
+      .filter((id): id is string => Boolean(id));
+  }, [supabaseSectorLeaderAssignments, currentLeader]);
+
+  const sectorIdToNormalizedName = useMemo(() => {
+    const map = new Map<string, string>();
+    supabaseSectors.forEach((sector) => {
+      map.set(sector.id, normalizeSector(sector.name));
+    });
+    return map;
+  }, [supabaseSectors]);
+
+  const assignmentSectorNameSet = useMemo(() => {
+    const set = new Set<string>();
+    leaderAssignmentSectorIds.forEach((id) => {
+      const normalized = sectorIdToNormalizedName.get(id);
+      if (normalized) {
+        set.add(normalized);
+      }
+    });
+    return set;
+  }, [leaderAssignmentSectorIds, sectorIdToNormalizedName]);
+
+  const allowedEquipmentIds = useMemo<string[]>(() => {
+    const allowed = new Set<string>();
+
+    supabaseEquipment.forEach((equipment) => {
+      const sectorNormalized = normalizeSector(equipment.sector);
+
+      if (leaderSectorKeys.includes(sectorNormalized)) {
+        allowed.add(equipment.id);
+      }
+
+      if (
+        equipment.sector_id &&
+        leaderAssignmentSectorIds.includes(equipment.sector_id)
+      ) {
+        allowed.add(equipment.id);
+      }
+
+      if (assignmentSectorNameSet.has(sectorNormalized)) {
+        allowed.add(equipment.id);
+      }
+    });
+
+    leaderAssignmentEquipmentIds.forEach((id) => allowed.add(id));
+
+    return Array.from(allowed);
+  }, [
+    supabaseEquipment,
+    leaderSectorKeys,
+    leaderAssignmentSectorIds,
+    assignmentSectorNameSet,
+    leaderAssignmentEquipmentIds,
+  ]);
+
+  const allowedEquipmentSet = useMemo(() => new Set(allowedEquipmentIds), [allowedEquipmentIds]);
 
   const handleMaintenanceDialogOpenChange = (open: boolean) => {
     setMaintenanceDialogOpen(open);
@@ -231,7 +300,8 @@ const LeaderDashboard = () => {
 
     const localAlerts = loadChecklistAlerts().filter((alert) => {
       if (!alert.sector) return true;
-      return normalizeSector(alert.sector) === leaderSectorKey;
+      const normalized = normalizeSector(alert.sector);
+      return leaderSectorKeys.includes(normalized);
     });
 
     const generatedAlerts: ChecklistAlert[] = [];
@@ -292,7 +362,7 @@ const LeaderDashboard = () => {
     );
 
     setChecklistAlerts(sortedAlerts);
-  }, [currentLeader, inspections, leaderSectorKey]);
+  }, [currentLeader, inspections, leaderSectorKeys]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
@@ -300,19 +370,10 @@ const LeaderDashboard = () => {
     setLoading(true);
     
     try {
-      const allowedEquipmentIds = new Set<string>();
-      supabaseEquipment.forEach((equipment) => {
-        if (normalizeSector(equipment.sector) === leaderSectorKey) {
-          allowedEquipmentIds.add(equipment.id);
-        }
-      });
-      leaderAssignmentEquipmentIds.forEach((id) => {
-        allowedEquipmentIds.add(id);
-      });
-
-      const sectorEquipmentIds = Array.from(allowedEquipmentIds);
+      const allowedEquipmentIdsSet = allowedEquipmentSet;
+      const sectorEquipmentIds = Array.from(allowedEquipmentIdsSet);
       const sectorEquipments = supabaseEquipment.filter((equipment) =>
-        allowedEquipmentIds.has(equipment.id)
+        allowedEquipmentIdsSet.has(equipment.id)
       );
 
       const operatorsByMatricula = new Map(
@@ -320,8 +381,8 @@ const LeaderDashboard = () => {
       );
 
       // Filter inspections by allowed equipment ids
-      const sectorInspections = supabaseInspections.filter(inspection => 
-        sectorEquipmentIds.includes(inspection.equipment_id)
+      const sectorInspections = supabaseInspections.filter(
+        (inspection) => allowedEquipmentIdsSet.has(inspection.equipment_id)
       );
 
       // Process inspections to match expected format
@@ -420,7 +481,7 @@ const LeaderDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast, leaderSectorKey, leaderAssignmentEquipmentIds]);
+  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast, allowedEquipmentIds]);
 
   // Authentication and initial setup
   useEffect(() => {
@@ -792,19 +853,10 @@ const LeaderDashboard = () => {
   const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
     if (!currentLeader) return [];
-    const allowedIds = new Set<string>();
-
-    supabaseEquipment.forEach((equipment) => {
-      if (normalizeSector(equipment.sector) === leaderSectorKey) {
-        allowedIds.add(equipment.id);
-      }
-    });
-    leaderAssignmentEquipmentIds.forEach((id) => {
-      allowedIds.add(id);
-    });
-
-    return supabaseEquipment.filter((equipment) => allowedIds.has(equipment.id));
-  }, [supabaseEquipment, currentLeader, leaderSectorKey, leaderAssignmentEquipmentIds]);
+    return supabaseEquipment.filter((equipment) =>
+      allowedEquipmentSet.has(equipment.id)
+    );
+  }, [supabaseEquipment, currentLeader, allowedEquipmentSet]);
 
   useEffect(() => {
     if (
@@ -816,16 +868,13 @@ const LeaderDashboard = () => {
   }, [sectorEquipments, selectedEquipmentFilter]);
   const sectorMaintenanceOrders = useMemo(() => {
     if (!currentLeader) return [];
-    const allowedEquipmentIds = new Set(
-      sectorEquipments.map((equipment) => equipment.id)
-    );
     return maintenanceOrders
-      .filter((order) => allowedEquipmentIds.has(order.equipmentId))
+      .filter((order) => allowedEquipmentSet.has(order.equipmentId))
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
-  }, [maintenanceOrders, currentLeader, sectorEquipments]);
+  }, [maintenanceOrders, currentLeader, allowedEquipmentSet]);
   const activeSectorOrders = sectorMaintenanceOrders.filter(
     (order) => order.status === "open"
   );
@@ -924,14 +973,15 @@ const LeaderDashboard = () => {
   }, [maintenanceOrders]);
 
   const sectorOperatorsList = useMemo(() => {
-    if (!leaderSectorKey) {
-      return supabaseOperators;
-    }
-    const filtered = supabaseOperators.filter((operator) =>
-      normalizeSector(operator.setor) === leaderSectorKey
-    );
-    return filtered;
-  }, [supabaseOperators, leaderSectorKey]);
+    if (!currentLeader) return [];
+    return supabaseOperators.filter((operator) => {
+      const normalizedSector = normalizeSector(operator.setor);
+      if (normalizedSector && leaderSectorKeys.includes(normalizedSector)) {
+        return true;
+      }
+      return false;
+    });
+  }, [supabaseOperators, currentLeader, leaderSectorKeys]);
 
   const exportReportToPDF = () => {
     try {
