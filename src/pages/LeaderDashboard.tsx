@@ -144,6 +144,8 @@ const LeaderDashboard = () => {
   const [operatorToReset, setOperatorToReset] = useState<{ id: string; name: string } | null>(null);
   const [newOperatorPassword, setNewOperatorPassword] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [showEquipmentList, setShowEquipmentList] = useState(false);
+  const [showOperatorList, setShowOperatorList] = useState(false);
   const normalizeSector = (value?: string | null) =>
     value
       ? value
@@ -1170,7 +1172,64 @@ const LeaderDashboard = () => {
           )}
         </CardContent>
       </Card>
-      
+
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <Card>
+          <CardHeader className="pb-2 bg-red-50">
+            <CardTitle className="text-sm font-medium text-red-700">
+              Problemas Identificados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-700">
+              {filteredStats.pendingActions}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Em {filteredStats.problemInspections} inspeções com problemas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2 bg-green-50">
+            <CardTitle className="text-sm font-medium text-green-700">
+              Total de Inspeções
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-700">
+              {filteredStats.totalInspections}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Inspeções realizadas no setor
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2 bg-blue-50">
+            <CardTitle className="text-sm font-medium text-blue-700">
+              Taxa de Problemas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-700">
+              {filteredStats.totalInspections > 0
+                ? Math.round(
+                    (filteredStats.problemInspections /
+                      filteredStats.totalInspections) *
+                      100
+                  )
+                : 0}
+              %
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Inspeções com problemas identificados
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Card className="border border-gray-200 bg-white">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -1255,75 +1314,88 @@ const LeaderDashboard = () => {
     </CardContent>
   </Card>
   
-  <Card className="border border-gray-200 bg-white">
-    <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-      <div>
-        <CardTitle className="text-base font-semibold">Equipamentos do Setor</CardTitle>
-        <CardDescription>
-          Lista completa dos equipamentos sob responsabilidade do seu setor
-        </CardDescription>
-      </div>
-      <Badge variant="outline" className="text-xs px-2 py-0">
-        {sectorEquipments.length} equipamento(s)
-      </Badge>
-    </CardHeader>
-    <CardContent className="space-y-3">
-      {sectorEquipments.length === 0 ? (
-        <p className="text-sm text-gray-600">
-          Nenhum equipamento foi associado ao seu setor até o momento.
-        </p>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {sectorEquipments.map((equipment) => {
-            const lastInspection = lastInspectionByEquipment.get(equipment.id);
-            const hasActiveOrder = activeOrdersByEquipment.has(equipment.id);
-            return (
-              <div
-                key={equipment.id}
-                className="border border-gray-200 rounded-md p-3 bg-white shadow-sm flex flex-col gap-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
-                      {equipment.name}
-                    </p>
-                    <p className="text-xs text-gray-600">KP {equipment.kp}</p>
-                  </div>
-                  {hasActiveOrder && (
-                    <Badge variant="destructive" className="text-[11px]">
-                      OS em andamento
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-gray-600">
-                  Setor: {equipment.sector || "Não informado"}
-                </p>
-                <p className="text-xs text-gray-600">
-                  {lastInspection
-                    ? `Última inspeção: ${format(lastInspection.date, "dd/MM/yyyy HH:mm", { locale: ptBR })} por ${lastInspection.operator}`
-                    : "Ainda sem inspeções registradas"}
-                </p>
-                <div className="flex items-center justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                    onClick={() =>
-                      handleOpenMaintenanceDialog({
-                        equipmentId: equipment.id,
-                      })
-                    }
+      <Card className="border border-gray-200 bg-white">
+        <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-semibold">Equipamentos do Setor</CardTitle>
+            <CardDescription>
+              Lista completa dos equipamentos sob responsabilidade do seu setor
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs px-2 py-0">
+              {sectorEquipments.length} equipamento(s)
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowEquipmentList((previous) => !previous)}
+            >
+              {showEquipmentList ? "Ocultar lista" : "Listar equipamentos"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {sectorEquipments.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhum equipamento foi associado ao seu setor até o momento.
+            </p>
+          ) : showEquipmentList ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              {sectorEquipments.map((equipment) => {
+                const lastInspection = lastInspectionByEquipment.get(equipment.id);
+                const hasActiveOrder = activeOrdersByEquipment.has(equipment.id);
+                return (
+                  <div
+                    key={equipment.id}
+                    className="border border-gray-200 rounded-md p-3 bg-white shadow-sm flex flex-col gap-2"
                   >
-                    Gerenciar OS
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </CardContent>
-  </Card>
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          {equipment.name}
+                        </p>
+                        <p className="text-xs text-gray-600">KP {equipment.kp}</p>
+                      </div>
+                      {hasActiveOrder && (
+                        <Badge variant="destructive" className="text-[11px]">
+                          OS em andamento
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Setor: {equipment.sector || "Não informado"}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {lastInspection
+                        ? `Última inspeção: ${format(lastInspection.date, "dd/MM/yyyy HH:mm", { locale: ptBR })} por ${lastInspection.operator}`
+                        : "Ainda sem inspeções registradas"}
+                    </p>
+                    <div className="flex items-center justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                        onClick={() =>
+                          handleOpenMaintenanceDialog({
+                            equipmentId: equipment.id,
+                          })
+                        }
+                      >
+                        Gerenciar OS
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Utilize o botão "Listar equipamentos" para visualizar os detalhes apenas quando necessário.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
   <Dialog open={maintenanceDialogOpen} onOpenChange={handleMaintenanceDialogOpenChange}>
     <DialogContent className="sm:max-w-[500px]">
@@ -1484,95 +1556,68 @@ const LeaderDashboard = () => {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2 bg-red-50">
-            <CardTitle className="text-sm font-medium text-red-700">Problemas Identificados</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700">{filteredStats.pendingActions}</div>
-            <p className="text-xs text-muted-foreground">
-              Em {filteredStats.problemInspections} inspeções com problemas
+      <Card className="border border-gray-200 bg-white mb-4">
+        <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <CardTitle className="text-base font-semibold">Operadores do Setor</CardTitle>
+            <CardDescription>
+              Gerencie rapidamente as credenciais dos operadores vinculados ao seu setor
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs px-2 py-0">
+              {sectorOperatorsList.length} operador(es)
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowOperatorList((previous) => !previous)}
+            >
+              {showOperatorList ? "Ocultar operadores" : "Listar operadores"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {sectorOperatorsList.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhum operador foi associado ao seu setor ainda.
             </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2 bg-green-50">
-            <CardTitle className="text-sm font-medium text-green-700">Total de Inspeções</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700">{filteredStats.totalInspections}</div>
-            <p className="text-xs text-muted-foreground">
-              Inspeções realizadas no setor
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2 bg-blue-50">
-            <CardTitle className="text-sm font-medium text-blue-700">Taxa de Problemas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-700">
-              {filteredStats.totalInspections > 0 ? Math.round((filteredStats.problemInspections / filteredStats.totalInspections) * 100) : 0}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Inspeções com problemas identificados
-            </p>
-      </CardContent>
-    </Card>
-  </div>
-
-  <Card className="border border-gray-200 bg-white mb-4">
-    <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-      <div>
-        <CardTitle className="text-base font-semibold">Operadores do Setor</CardTitle>
-        <CardDescription>
-          Gerencie rapidamente as credenciais dos operadores vinculados ao seu setor
-        </CardDescription>
-      </div>
-      <Badge variant="outline" className="text-xs px-2 py-0">
-        {sectorOperatorsList.length} operador(es)
-      </Badge>
-    </CardHeader>
-    <CardContent className="space-y-3">
-      {sectorOperatorsList.length === 0 ? (
-        <p className="text-sm text-gray-600">
-          Nenhum operador foi associado ao seu setor ainda.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {sectorOperatorsList.map((operator) => {
-            const displayName = operator.name || operator.matricula;
-            return (
-              <div
-                key={operator.matricula}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-gray-200 rounded-md px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{displayName}</p>
-                  <p className="text-xs text-gray-600">
-                    Matrícula: {operator.matricula}
-                    {operator.cargo ? ` • Cargo: ${operator.cargo}` : ""}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOpenResetPasswordDialog(operator)}
+          ) : showOperatorList ? (
+            <div className="space-y-3">
+              {sectorOperatorsList.map((operator) => {
+                const displayName = operator.name || operator.matricula;
+                return (
+                  <div
+                    key={operator.matricula}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-gray-200 rounded-md px-3 py-2"
                   >
-                    Resetar senha
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </CardContent>
-  </Card>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+                      <p className="text-xs text-gray-600">
+                        Matrícula: {operator.matricula}
+                        {operator.cargo ? ` • Cargo: ${operator.cargo}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenResetPasswordDialog(operator)}
+                      >
+                        Resetar senha
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Clique em "Listar operadores" para visualizar e redefinir senhas quando necessário.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
   <div className="flex flex-wrap items-center gap-4 mb-4">
         <div className="flex items-center gap-2">
