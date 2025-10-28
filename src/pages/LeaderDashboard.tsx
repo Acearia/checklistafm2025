@@ -22,6 +22,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
   DialogContent,
@@ -49,16 +51,19 @@ import {
   Mail,
   RefreshCw,
   AlertTriangle,
-  BellRing
+  BellRing,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { format } from "date-fns";
+import { format, startOfDay, endOfDay, subDays, subMonths, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import { loadChecklistAlerts, markAlertSeenByLeader } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
+import { operatorService, type Operator as SupabaseOperator } from "@/lib/supabase-service";
+import type { DateRange } from "react-day-picker";
 
 // Types
 interface Inspection {
@@ -91,17 +96,13 @@ interface ProblemEntry {
   inspectionId: string;
   equipment: string;
   equipmentKp: string;
+  equipmentId: string;
   operator: string;
   operatorMatricula: string;
   problem: string;
   comments: string;
   date: string;
   status: string;
-}
-
-interface EquipmentProblemSummary {
-  equipment: string;
-  problemas: number;
 }
 
 const LeaderDashboard = () => {
@@ -124,7 +125,6 @@ const LeaderDashboard = () => {
   const [currentLeader, setCurrentLeader] = useState<Leader | null>(null);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [problemsList, setProblemsList] = useState<ProblemEntry[]>([]);
-  const [problemsByEquipment, setProblemsByEquipment] = useState<EquipmentProblemSummary[]>([]);
   const [operatorFilter, setOperatorFilter] = useState<string>("all");
   const [timeRangeFilter, setTimeRangeFilter] = useState<string>("week");
   const [operators, setOperators] = useState<{id: string, name: string}[]>([]);
@@ -137,6 +137,13 @@ const LeaderDashboard = () => {
   const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
   const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
+  const [selectedEquipmentFilter, setSelectedEquipmentFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [operatorToReset, setOperatorToReset] = useState<{ id: string; name: string } | null>(null);
+  const [newOperatorPassword, setNewOperatorPassword] = useState("");
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const normalizeSector = (value?: string | null) =>
     value
       ? value
@@ -150,6 +157,15 @@ const LeaderDashboard = () => {
     [currentLeader]
   );
 
+  useEffect(() => {
+    if (
+      selectedEquipmentFilter !== "all" &&
+      !sectorEquipments.some((equipment) => equipment.id === selectedEquipmentFilter)
+    ) {
+      setSelectedEquipmentFilter("all");
+    }
+  }, [sectorEquipments, selectedEquipmentFilter]);
+
   const handleMaintenanceDialogOpenChange = (open: boolean) => {
     setMaintenanceDialogOpen(open);
     if (!open) {
@@ -160,6 +176,51 @@ const LeaderDashboard = () => {
       setMaintenanceNotes("");
     }
   };
+
+  const handleTimeRangeChange = (value: string) => {
+    setTimeRangeFilter(value);
+    if (value === "custom") {
+      setCalendarOpen(true);
+    }
+  };
+
+  const matchesDateFilter = useCallback(
+    (rawDate: Date | null | undefined) => {
+      if (!rawDate || Number.isNaN(rawDate.getTime())) {
+        return true;
+      }
+
+      const now = new Date();
+      const intervalEnd = endOfDay(now);
+
+      switch (timeRangeFilter) {
+        case "day":
+          return isWithinInterval(rawDate, {
+            start: startOfDay(now),
+            end: intervalEnd,
+          });
+        case "week": {
+          const start = startOfDay(subDays(now, 7));
+          return rawDate >= start && rawDate <= intervalEnd;
+        }
+        case "month": {
+          const start = startOfDay(subMonths(now, 1));
+          return rawDate >= start && rawDate <= intervalEnd;
+        }
+        case "custom":
+          if (dateRange?.from && dateRange?.to) {
+            return isWithinInterval(rawDate, {
+              start: startOfDay(dateRange.from),
+              end: endOfDay(dateRange.to),
+            });
+          }
+          return true;
+        default:
+          return true;
+      }
+    },
+    [timeRangeFilter, dateRange]
+  );
   
   const refreshChecklistAlerts = useCallback(() => {
     if (!currentLeader) return;
@@ -229,14 +290,6 @@ const LeaderDashboard = () => {
     setChecklistAlerts(sortedAlerts);
   }, [currentLeader, inspections, leaderSectorKey]);
   
-  // Statistics
-  const [stats, setStats] = useState({
-    totalProblems: 0,
-    totalInspections: 0,
-    problemInspections: 0,
-    pendingActions: 0
-  });
-
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
 
@@ -327,6 +380,7 @@ const LeaderDashboard = () => {
               inspectionId: inspection.id,
               equipment: inspection.equipment.name,
               equipmentKp: inspection.equipment.kp,
+              equipmentId: resolvedEquipmentId,
               operator: inspection.operator.name,
               operatorMatricula: inspection.operator.matricula,
               problem: answer.question,
@@ -343,23 +397,6 @@ const LeaderDashboard = () => {
       });
 
       setProblemsList(problems);
-
-      // Convert to chart format
-      const chartData = Object.entries(equipmentProblems).map(([equipment, count]) => ({
-        equipment,
-        problemas: count
-      }));
-      setProblemsByEquipment(chartData);
-
-      // Calculate statistics
-      const problemInspectionsCount = new Set(problems.map(p => p.inspectionId)).size;
-
-      setStats({
-        totalProblems: problems.length,
-        totalInspections: processedInspections.length,
-        problemInspections: problemInspectionsCount,
-        pendingActions: problems.length
-      });
 
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -601,6 +638,58 @@ const LeaderDashboard = () => {
     });
   };
 
+  const handleOpenResetPasswordDialog = (operator: SupabaseOperator) => {
+    setOperatorToReset({
+      id: operator.matricula,
+      name: operator.name || operator.matricula,
+    });
+    setNewOperatorPassword("");
+    setResetDialogOpen(true);
+  };
+
+  const handleResetDialogOpenChange = (open: boolean) => {
+    setResetDialogOpen(open);
+    if (!open) {
+      setOperatorToReset(null);
+      setNewOperatorPassword("");
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleResetOperatorPassword = async () => {
+    if (!operatorToReset) return;
+
+    const trimmedPassword = newOperatorPassword.trim();
+    if (!trimmedPassword) {
+      toast({
+        title: "Informe a nova senha",
+        description: "Digite uma nova senha para o operador selecionado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      await operatorService.update(operatorToReset.id, { senha: trimmedPassword });
+      toast({
+        title: "Senha redefinida",
+        description: `A senha de ${operatorToReset.name} foi atualizada com sucesso.`,
+      });
+      handleResetDialogOpenChange(false);
+      refresh();
+    } catch (error) {
+      console.error("Erro ao resetar senha do operador:", error);
+      toast({
+        title: "Erro ao resetar senha",
+        description: "Não foi possível atualizar a senha. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const handleAcknowledgeAlert = (alertId: string) => {
     if (!currentLeader) return;
     markAlertSeenByLeader(alertId, currentLeader.id);
@@ -722,28 +811,105 @@ const LeaderDashboard = () => {
   const hasOrdersForSelectedEquipment = maintenanceEquipmentId
     ? maintenanceOrders.some(order => order.equipmentId === maintenanceEquipmentId)
     : false;
+  const filteredInspections = useMemo(() => {
+    return inspections.filter((inspection) => {
+      const matchesOperatorFilter =
+        operatorFilter === "all" ||
+        inspection.operator.matricula === operatorFilter;
 
-  const filteredProblems = problemsList.filter(problem => {
-    const matchesOperator = operatorFilter === "all" || problem.operatorMatricula === operatorFilter;
-    
-    const problemDate = new Date(problem.date);
-    const today = new Date();
-    let matchesTimeRange = true;
-    
-    if (timeRangeFilter === "day") {
-      matchesTimeRange = problemDate.toDateString() === today.toDateString();
-    } else if (timeRangeFilter === "week") {
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      matchesTimeRange = problemDate >= weekAgo;
-    } else if (timeRangeFilter === "month") {
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      matchesTimeRange = problemDate >= monthAgo;
+      const matchesEquipment =
+        selectedEquipmentFilter === "all" ||
+        inspection.equipmentId === selectedEquipmentFilter;
+
+      const dateValue = inspection.submission_date || inspection.inspection_date;
+      const inspectionDate = dateValue ? new Date(dateValue) : null;
+
+      return (
+        matchesOperatorFilter &&
+        matchesEquipment &&
+        matchesDateFilter(inspectionDate)
+      );
+    });
+  }, [inspections, operatorFilter, selectedEquipmentFilter, matchesDateFilter]);
+
+  const filteredProblems = useMemo(() => {
+    return problemsList.filter((problem) => {
+      const matchesOperatorFilter =
+        operatorFilter === "all" ||
+        problem.operatorMatricula === operatorFilter;
+
+      const matchesEquipment =
+        selectedEquipmentFilter === "all" ||
+        problem.equipmentId === selectedEquipmentFilter;
+
+      const problemDate = problem.date ? new Date(problem.date) : null;
+
+      return (
+        matchesOperatorFilter &&
+        matchesEquipment &&
+        matchesDateFilter(problemDate)
+      );
+    });
+  }, [problemsList, operatorFilter, selectedEquipmentFilter, matchesDateFilter]);
+
+  const filteredStats = useMemo(() => {
+    const problemInspectionsCount = new Set(
+      filteredProblems.map((problem) => problem.inspectionId)
+    ).size;
+
+    return {
+      totalInspections: filteredInspections.length,
+      problemInspections: problemInspectionsCount,
+      pendingActions: filteredProblems.length,
+    };
+  }, [filteredInspections, filteredProblems]);
+
+  const filteredProblemsByEquipment = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredProblems.forEach((problem) => {
+      counts.set(problem.equipment, (counts.get(problem.equipment) || 0) + 1);
+    });
+    return Array.from(counts.entries()).map(([equipment, count]) => ({
+      equipment,
+      problemas: count,
+    }));
+  }, [filteredProblems]);
+
+  const lastInspectionByEquipment = useMemo(() => {
+    const map = new Map<string, { date: Date; operator: string }>();
+    inspections.forEach((inspection) => {
+      const dateValue = inspection.submission_date || inspection.inspection_date;
+      if (!dateValue) return;
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return;
+      const existing = map.get(inspection.equipmentId);
+      if (!existing || date > existing.date) {
+        map.set(inspection.equipmentId, {
+          date,
+          operator: inspection.operator.name,
+        });
+      }
+    });
+    return map;
+  }, [inspections]);
+
+  const activeOrdersByEquipment = useMemo(() => {
+    return new Set(
+      maintenanceOrders
+        .filter((order) => order.status === "open")
+        .map((order) => order.equipmentId)
+    );
+  }, [maintenanceOrders]);
+
+  const sectorOperatorsList = useMemo(() => {
+    if (!leaderSectorKey) {
+      return supabaseOperators;
     }
-    
-    return matchesOperator && matchesTimeRange;
-  });
+    const filtered = supabaseOperators.filter((operator) =>
+      normalizeSector(operator.setor) === leaderSectorKey
+    );
+    return filtered;
+  }, [supabaseOperators, leaderSectorKey]);
 
   const exportReportToPDF = () => {
     try {
@@ -767,9 +933,9 @@ const LeaderDashboard = () => {
       doc.setFontSize(14);
       doc.text("Estatísticas", 20, 64);
       doc.setFontSize(12);
-      doc.text(`Total de inspeções: ${stats.totalInspections}`, 30, 74);
-      doc.text(`Inspeções com problemas: ${stats.problemInspections}`, 30, 82);
-      doc.text(`Total de problemas: ${stats.pendingActions}`, 30, 90);
+      doc.text(`Total de inspeções: ${filteredStats.totalInspections}`, 30, 74);
+      doc.text(`Inspeções com problemas: ${filteredStats.problemInspections}`, 30, 82);
+      doc.text(`Total de problemas: ${filteredStats.pendingActions}`, 30, 90);
       
       // Save PDF
       doc.save(`relatorio-setor-${currentLeader?.sector}-${format(new Date(), "dd-MM-yyyy")}.pdf`);
@@ -1089,6 +1255,76 @@ const LeaderDashboard = () => {
     </CardContent>
   </Card>
   
+  <Card className="border border-gray-200 bg-white">
+    <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div>
+        <CardTitle className="text-base font-semibold">Equipamentos do Setor</CardTitle>
+        <CardDescription>
+          Lista completa dos equipamentos sob responsabilidade do seu setor
+        </CardDescription>
+      </div>
+      <Badge variant="outline" className="text-xs px-2 py-0">
+        {sectorEquipments.length} equipamento(s)
+      </Badge>
+    </CardHeader>
+    <CardContent className="space-y-3">
+      {sectorEquipments.length === 0 ? (
+        <p className="text-sm text-gray-600">
+          Nenhum equipamento foi associado ao seu setor até o momento.
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {sectorEquipments.map((equipment) => {
+            const lastInspection = lastInspectionByEquipment.get(equipment.id);
+            const hasActiveOrder = activeOrdersByEquipment.has(equipment.id);
+            return (
+              <div
+                key={equipment.id}
+                className="border border-gray-200 rounded-md p-3 bg-white shadow-sm flex flex-col gap-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {equipment.name}
+                    </p>
+                    <p className="text-xs text-gray-600">KP {equipment.kp}</p>
+                  </div>
+                  {hasActiveOrder && (
+                    <Badge variant="destructive" className="text-[11px]">
+                      OS em andamento
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-gray-600">
+                  Setor: {equipment.sector || "Não informado"}
+                </p>
+                <p className="text-xs text-gray-600">
+                  {lastInspection
+                    ? `Última inspeção: ${format(lastInspection.date, "dd/MM/yyyy HH:mm", { locale: ptBR })} por ${lastInspection.operator}`
+                    : "Ainda sem inspeções registradas"}
+                </p>
+                <div className="flex items-center justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                    onClick={() =>
+                      handleOpenMaintenanceDialog({
+                        equipmentId: equipment.id,
+                      })
+                    }
+                  >
+                    Gerenciar OS
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+
   <Dialog open={maintenanceDialogOpen} onOpenChange={handleMaintenanceDialogOpenChange}>
     <DialogContent className="sm:max-w-[500px]">
       <DialogHeader>
@@ -1193,6 +1429,50 @@ const LeaderDashboard = () => {
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <Dialog open={resetDialogOpen} onOpenChange={handleResetDialogOpenChange}>
+    <DialogContent className="sm:max-w-[420px]">
+      <DialogHeader>
+        <DialogTitle>Redefinir senha de operador</DialogTitle>
+        <DialogDescription>
+          Informe uma nova senha para o operador selecionado.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-3">
+        <div className="text-sm text-gray-700">
+          Operador: <strong>{operatorToReset?.name ?? "Não selecionado"}</strong>
+        </div>
+        <Input
+          type="password"
+          value={newOperatorPassword}
+          onChange={(event) => setNewOperatorPassword(event.target.value)}
+          placeholder="Nova senha"
+          maxLength={20}
+        />
+        <p className="text-xs text-gray-500">
+          Use ao menos 4 dígitos. Compartilhe a nova senha com o operador após a atualização.
+        </p>
+      </div>
+
+      <DialogFooter>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleResetDialogOpenChange(false)}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          onClick={handleResetOperatorPassword}
+          disabled={isResettingPassword || !operatorToReset}
+        >
+          {isResettingPassword ? "Atualizando..." : "Salvar nova senha"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
   
   {supabaseError && (
     <Alert variant="destructive">
@@ -1210,9 +1490,9 @@ const LeaderDashboard = () => {
             <CardTitle className="text-sm font-medium text-red-700">Problemas Identificados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-700">{stats.pendingActions}</div>
+            <div className="text-2xl font-bold text-red-700">{filteredStats.pendingActions}</div>
             <p className="text-xs text-muted-foreground">
-              Em {stats.problemInspections} inspeções com problemas
+              Em {filteredStats.problemInspections} inspeções com problemas
             </p>
           </CardContent>
         </Card>
@@ -1222,7 +1502,7 @@ const LeaderDashboard = () => {
             <CardTitle className="text-sm font-medium text-green-700">Total de Inspeções</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">{stats.totalInspections}</div>
+            <div className="text-2xl font-bold text-green-700">{filteredStats.totalInspections}</div>
             <p className="text-xs text-muted-foreground">
               Inspeções realizadas no setor
             </p>
@@ -1235,16 +1515,66 @@ const LeaderDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-700">
-              {stats.totalInspections > 0 ? Math.round((stats.problemInspections / stats.totalInspections) * 100) : 0}%
+              {filteredStats.totalInspections > 0 ? Math.round((filteredStats.problemInspections / filteredStats.totalInspections) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">
               Inspeções com problemas identificados
             </p>
-          </CardContent>
-        </Card>
-      </div>
+      </CardContent>
+    </Card>
+  </div>
 
-      <div className="flex gap-4 mb-4">
+  <Card className="border border-gray-200 bg-white mb-4">
+    <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+      <div>
+        <CardTitle className="text-base font-semibold">Operadores do Setor</CardTitle>
+        <CardDescription>
+          Gerencie rapidamente as credenciais dos operadores vinculados ao seu setor
+        </CardDescription>
+      </div>
+      <Badge variant="outline" className="text-xs px-2 py-0">
+        {sectorOperatorsList.length} operador(es)
+      </Badge>
+    </CardHeader>
+    <CardContent className="space-y-3">
+      {sectorOperatorsList.length === 0 ? (
+        <p className="text-sm text-gray-600">
+          Nenhum operador foi associado ao seu setor ainda.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {sectorOperatorsList.map((operator) => {
+            const displayName = operator.name || operator.matricula;
+            return (
+              <div
+                key={operator.matricula}
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-gray-200 rounded-md px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{displayName}</p>
+                  <p className="text-xs text-gray-600">
+                    Matrícula: {operator.matricula}
+                    {operator.cargo ? ` • Cargo: ${operator.cargo}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOpenResetPasswordDialog(operator)}
+                  >
+                    Resetar senha
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+
+  <div className="flex flex-wrap items-center gap-4 mb-4">
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Operador:</label>
           <Select value={operatorFilter} onValueChange={setOperatorFilter}>
@@ -1261,10 +1591,30 @@ const LeaderDashboard = () => {
             </SelectContent>
           </Select>
         </div>
-        
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Equipamento:</label>
+          <Select
+            value={selectedEquipmentFilter}
+            onValueChange={setSelectedEquipmentFilter}
+          >
+            <SelectTrigger className="w-52">
+              <SelectValue placeholder="Todos os equipamentos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os equipamentos</SelectItem>
+              {sectorEquipments.map((equipment) => (
+                <SelectItem key={equipment.id} value={equipment.id}>
+                  {equipment.name} (KP {equipment.kp})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Período:</label>
-          <Select value={timeRangeFilter} onValueChange={setTimeRangeFilter}>
+          <Select value={timeRangeFilter} onValueChange={handleTimeRangeChange}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
@@ -1273,9 +1623,59 @@ const LeaderDashboard = () => {
               <SelectItem value="week">Última semana</SelectItem>
               <SelectItem value="month">Último mês</SelectItem>
               <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="justify-start w-[240px]"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  `${format(dateRange.from, "dd/MM/yyyy")} - ${format(dateRange.to, "dd/MM/yyyy")}`
+                ) : (
+                  format(dateRange.from, "dd/MM/yyyy")
+                )
+              ) : (
+                "Selecionar datas"
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              numberOfMonths={2}
+              selected={dateRange}
+              defaultMonth={dateRange?.from}
+              onSelect={(range) => {
+                setDateRange(range);
+                setTimeRangeFilter("custom");
+                if (range?.from && range?.to) {
+                  setCalendarOpen(false);
+                }
+              }}
+              locale={ptBR}
+            />
+            <div className="flex items-center justify-end gap-2 border-t p-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDateRange(undefined);
+                  setTimeRangeFilter("all");
+                  setCalendarOpen(false);
+                }}
+              >
+                Limpar
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <Tabs defaultValue="problems" className="space-y-4">
@@ -1303,32 +1703,55 @@ const LeaderDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Equipamento</TableHead>
-                    <TableHead>Operador</TableHead>
-                    <TableHead>Problema</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProblems.map((problem) => (
-                    <TableRow key={problem.id}>
-                      <TableCell>{new Date(problem.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{problem.equipment} ({problem.equipmentKp})</TableCell>
-                      <TableCell>{problem.operator}</TableCell>
-                      <TableCell>{problem.problem}</TableCell>
-                      <TableCell>
-                        <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
-                          {problem.status}
-                        </span>
-                      </TableCell>
+              {filteredProblems.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Nenhum problema encontrado para os filtros selecionados.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Equipamento</TableHead>
+                      <TableHead>Operador</TableHead>
+                      <TableHead>Problema</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProblems.map((problem) => {
+                      const problemDateValue = problem.date ? new Date(problem.date) : null;
+                      const problemDateLabel =
+                        problemDateValue && !Number.isNaN(problemDateValue.getTime())
+                          ? format(problemDateValue, "dd/MM/yyyy HH:mm", { locale: ptBR })
+                          : "-";
+                      return (
+                        <TableRow key={problem.id}>
+                          <TableCell>{problemDateLabel}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-900">{problem.equipment}</span>
+                              <span className="text-xs text-gray-500">KP {problem.equipmentKp}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-900">{problem.operator}</span>
+                              <span className="text-xs text-gray-500">Matrícula: {problem.operatorMatricula}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{problem.problem}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded">
+                              {problem.status}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1342,16 +1765,22 @@ const LeaderDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={problemsByEquipment}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="equipment" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="problemas" fill="#ef4444" />
-                </BarChart>
-              </ResponsiveContainer>
+              {filteredProblemsByEquipment.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Não há dados suficientes para montar o gráfico com os filtros aplicados.
+                </p>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={filteredProblemsByEquipment}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="equipment" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="problemas" fill="#ef4444" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -1365,54 +1794,76 @@ const LeaderDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Equipamento</TableHead>
-                    <TableHead>Operador</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {inspections.slice(0, 10).map((inspection) => {
-                    const hasProblems = inspection.checklist_answers.some(answer => answer.answer === 'Não');
-                    return (
-                      <TableRow key={inspection.id}>
-                        <TableCell>{new Date(inspection.inspection_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{inspection.equipment.name} ({inspection.equipment.kp})</TableCell>
-                        <TableCell>{inspection.operator.name}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 text-xs rounded ${
-                            hasProblems 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-green-100 text-green-800'
-                          }`}>
-                            {hasProblems ? 'Com Problemas' : 'OK'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                            disabled={!inspection.equipmentId}
-                            onClick={() =>
-                              handleOpenMaintenanceDialog({
-                                equipmentId: inspection.equipmentId,
-                                inspectionId: inspection.id,
-                              })
-                            }
-                          >
-                            Gerenciar OS
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              {filteredInspections.length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  Nenhuma inspeção encontrada para os filtros selecionados.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data e Hora</TableHead>
+                      <TableHead>Equipamento</TableHead>
+                      <TableHead>Operador</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredInspections.map((inspection) => {
+                      const hasProblems = inspection.checklist_answers.some(answer => answer.answer === 'Não');
+                      const dateValue = inspection.submission_date || inspection.inspection_date;
+                      const inspectionDate = dateValue ? new Date(dateValue) : null;
+                      const inspectionDateLabel =
+                        inspectionDate && !Number.isNaN(inspectionDate.getTime())
+                          ? format(inspectionDate, "dd/MM/yyyy HH:mm", { locale: ptBR })
+                          : "-";
+                      return (
+                        <TableRow key={inspection.id}>
+                          <TableCell>{inspectionDateLabel}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-900">{inspection.equipment.name}</span>
+                              <span className="text-xs text-gray-500">KP {inspection.equipment.kp}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-900">{inspection.operator.name}</span>
+                              <span className="text-xs text-gray-500">Matrícula: {inspection.operator.matricula}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 text-xs rounded ${
+                              hasProblems 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-green-100 text-green-800'
+                            }`}>
+                              {hasProblems ? 'Com Problemas' : 'OK'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                              disabled={!inspection.equipmentId}
+                              onClick={() =>
+                                handleOpenMaintenanceDialog({
+                                  equipmentId: inspection.equipmentId,
+                                  inspectionId: inspection.id,
+                                })
+                              }
+                            >
+                              Gerenciar OS
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
