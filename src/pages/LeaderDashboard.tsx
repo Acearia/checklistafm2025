@@ -68,6 +68,7 @@ interface Inspection {
     kp: string;
     sector: string;
   };
+  equipmentId: string;
   checklist_answers: { question: string; answer: string; comments?: string; alertOnYes?: boolean; alertOnNo?: boolean }[];
   comments: string;
   inspection_date: string;
@@ -131,17 +132,41 @@ const LeaderDashboard = () => {
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
   const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
   const [maintenanceEquipmentId, setMaintenanceEquipmentId] = useState<string>("");
+  const [maintenanceInspectionId, setMaintenanceInspectionId] = useState<string | null>(null);
   const [maintenanceOrderId, setMaintenanceOrderId] = useState<string | null>(null);
   const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
   const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
+  const normalizeSector = (value?: string | null) =>
+    value
+      ? value
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim()
+          .toLowerCase()
+      : "";
+  const leaderSectorKey = useMemo(
+    () => normalizeSector(currentLeader?.sector),
+    [currentLeader]
+  );
+
+  const handleMaintenanceDialogOpenChange = (open: boolean) => {
+    setMaintenanceDialogOpen(open);
+    if (!open) {
+      setMaintenanceInspectionId(null);
+      setMaintenanceOrderId(null);
+      setMaintenanceOrderNumber("");
+      setMaintenanceStatus("open");
+      setMaintenanceNotes("");
+    }
+  };
   
   const refreshChecklistAlerts = useCallback(() => {
     if (!currentLeader) return;
 
     const localAlerts = loadChecklistAlerts().filter((alert) => {
       if (!alert.sector) return true;
-      return alert.sector === currentLeader.sector;
+      return normalizeSector(alert.sector) === leaderSectorKey;
     });
 
     const generatedAlerts: ChecklistAlert[] = [];
@@ -173,7 +198,8 @@ const LeaderDashboard = () => {
           operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
           operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
           equipmentName: inspection.equipment.name,
-          sector: inspection.equipment.sector || currentLeader.sector,
+          sector:
+            inspection.equipment.sector || currentLeader.sector || undefined,
           createdAt: inspection.submission_date || inspection.inspection_date,
           seenByAdmin: false,
           seenByLeaders: [],
@@ -201,7 +227,7 @@ const LeaderDashboard = () => {
     );
 
     setChecklistAlerts(sortedAlerts);
-  }, [currentLeader, inspections]);
+  }, [currentLeader, inspections, leaderSectorKey]);
   
   // Statistics
   const [stats, setStats] = useState({
@@ -217,8 +243,12 @@ const LeaderDashboard = () => {
     setLoading(true);
     
     try {
-      // Filter data by leader's sector
-      const sectorEquipments = supabaseEquipment.filter(eq => eq.sector === currentLeader.sector);
+      const filteredEquipments = supabaseEquipment.filter(
+        (eq) => normalizeSector(eq.sector) === leaderSectorKey
+      );
+      const sectorEquipments = filteredEquipments.length > 0
+        ? filteredEquipments
+        : supabaseEquipment;
       const operatorsByMatricula = new Map(
         supabaseOperators.map(op => [op.matricula, op])
       );
@@ -234,6 +264,7 @@ const LeaderDashboard = () => {
         const equipment =
           inspection.equipment ??
           sectorEquipments.find(eq => eq.id === inspection.equipment_id);
+        const resolvedEquipmentId = equipment?.id ?? inspection.equipment_id ?? "";
         const operatorFromJoin = inspection.operator;
         const operator =
           operatorFromJoin ??
@@ -254,6 +285,7 @@ const LeaderDashboard = () => {
             kp: equipment?.kp || 'N/A',
             sector: equipment?.sector || 'N/A'
           },
+          equipmentId: resolvedEquipmentId,
           checklist_answers: checklistAnswers,
           comments: inspection.comments || '',
           inspection_date: inspection.inspection_date,
@@ -339,7 +371,7 @@ const LeaderDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast]);
+  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast, leaderSectorKey]);
 
   // Authentication and initial setup
   useEffect(() => {
@@ -439,7 +471,12 @@ const LeaderDashboard = () => {
     }
   };
 
-  const handleOpenMaintenanceDialog = (equipmentId?: string) => {
+  const handleOpenMaintenanceDialog = (options?: {
+    equipmentId?: string;
+    inspectionId?: string;
+    suggestedOrderNumber?: string | null;
+    suggestedNotes?: string | null;
+  }) => {
     if (!sectorEquipments.length) {
       toast({
         title: "Sem equipamentos disponíveis",
@@ -449,18 +486,36 @@ const LeaderDashboard = () => {
       return;
     }
 
-    const selectedId = equipmentId ?? sectorEquipments[0]?.id ?? "";
+    const selectedId = options?.equipmentId ?? sectorEquipments[0]?.id ?? "";
+    if (!selectedId) {
+      toast({
+        title: "Equipamento não encontrado",
+        description: "Não foi possível localizar o equipamento para registrar a OS.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const ordersForEquipment = maintenanceOrders
       .filter(order => order.equipmentId === selectedId)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    const inspectionOrder = options?.inspectionId
+      ? ordersForEquipment.find(order => order.inspectionId === options.inspectionId)
+      : undefined;
     const activeOrder = ordersForEquipment.find(order => order.status === "open");
     const latestOrder = ordersForEquipment[0];
+    const orderToUse = inspectionOrder ?? activeOrder ?? latestOrder;
 
     setMaintenanceEquipmentId(selectedId);
-    setMaintenanceOrderId(activeOrder?.id ?? latestOrder?.id ?? null);
-    setMaintenanceOrderNumber(activeOrder?.orderNumber ?? latestOrder?.orderNumber ?? "");
-    setMaintenanceStatus(activeOrder?.status ?? "open");
-    setMaintenanceNotes(activeOrder?.notes ?? latestOrder?.notes ?? "");
+    setMaintenanceInspectionId(options?.inspectionId ?? orderToUse?.inspectionId ?? null);
+    setMaintenanceOrderId(orderToUse?.id ?? null);
+    setMaintenanceOrderNumber(
+      orderToUse?.orderNumber ?? options?.suggestedOrderNumber ?? ""
+    );
+    setMaintenanceStatus(orderToUse?.status ?? "open");
+    setMaintenanceNotes(
+      orderToUse?.notes ?? options?.suggestedNotes ?? ""
+    );
     setMaintenanceDialogOpen(true);
   };
 
@@ -475,6 +530,7 @@ const LeaderDashboard = () => {
     setMaintenanceOrderNumber(activeOrder?.orderNumber ?? latestOrder?.orderNumber ?? "");
     setMaintenanceStatus(activeOrder?.status ?? "open");
     setMaintenanceNotes(activeOrder?.notes ?? latestOrder?.notes ?? "");
+    setMaintenanceInspectionId(null);
   };
 
   const handleSaveMaintenanceOrderLeader = () => {
@@ -493,7 +549,9 @@ const LeaderDashboard = () => {
     const notes = maintenanceNotes.trim();
     const existingOrder = maintenanceOrders.find(order => order.id === maintenanceOrderId);
     const inspectionId =
-      existingOrder?.inspectionId ?? `equipment-${maintenanceEquipmentId}-${Date.now()}`;
+      maintenanceInspectionId ??
+      existingOrder?.inspectionId ??
+      `equipment-${maintenanceEquipmentId}-${Date.now()}`;
 
     const { order, orders } = upsertMaintenanceOrder({
       id: maintenanceOrderId,
@@ -506,7 +564,7 @@ const LeaderDashboard = () => {
 
     setMaintenanceOrders(orders);
     setMaintenanceOrderId(order.id);
-    setMaintenanceDialogOpen(false);
+    handleMaintenanceDialogOpenChange(false);
 
     toast({
       title: maintenanceStatus === "closed" ? "OS finalizada" : "OS atualizada",
@@ -531,10 +589,11 @@ const LeaderDashboard = () => {
     const updatedOrders = deleteMaintenanceOrdersByEquipment(maintenanceEquipmentId);
     setMaintenanceOrders(updatedOrders);
     setMaintenanceOrderId(null);
+    setMaintenanceInspectionId(null);
     setMaintenanceOrderNumber("");
     setMaintenanceStatus("open");
     setMaintenanceNotes("");
-    setMaintenanceDialogOpen(false);
+    handleMaintenanceDialogOpenChange(false);
 
     toast({
       title: "OS removidas",
@@ -631,11 +690,12 @@ const LeaderDashboard = () => {
 
   const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
-    if (!currentLeader) return [];
-    return supabaseEquipment.filter(
-      (equipment) => equipment.sector === currentLeader.sector
+    if (!currentLeader) return supabaseEquipment;
+    const filtered = supabaseEquipment.filter(
+      (equipment) => normalizeSector(equipment.sector) === leaderSectorKey
     );
-  }, [supabaseEquipment, currentLeader]);
+    return filtered.length > 0 ? filtered : supabaseEquipment;
+  }, [supabaseEquipment, currentLeader, leaderSectorKey]);
   const sectorMaintenanceOrders = useMemo(() => {
     if (!currentLeader) return [];
     const equipmentById = new Map(
@@ -644,13 +704,17 @@ const LeaderDashboard = () => {
     return maintenanceOrders
       .filter((order) => {
         const equipment = equipmentById.get(order.equipmentId);
-        return equipment?.sector === currentLeader.sector;
+        if (!equipment) return false;
+        const equipmentSector = normalizeSector(equipment.sector);
+        return leaderSectorKey
+          ? equipmentSector === leaderSectorKey
+          : true;
       })
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
-  }, [maintenanceOrders, currentLeader, supabaseEquipment]);
+  }, [maintenanceOrders, currentLeader, supabaseEquipment, leaderSectorKey]);
   const activeSectorOrders = sectorMaintenanceOrders.filter(
     (order) => order.status === "open"
   );
@@ -830,6 +894,11 @@ const LeaderDashboard = () => {
               const hasPending = inspectionAlerts.alerts.some(
                 (alert) => !alert.seenByLeaders?.includes(leaderId)
               );
+              const equipmentMatch = sectorEquipments.find(
+                (equipment) => equipment.name === equipmentName
+              ) ?? supabaseEquipment.find(
+                (equipment) => equipment.name === equipmentName
+              );
 
               return (
                 <div
@@ -863,6 +932,20 @@ const LeaderDashboard = () => {
                       >
                         {hasPending ? "Pendência" : "Acompanhando"}
                       </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                        disabled={!equipmentMatch}
+                        onClick={() =>
+                          handleOpenMaintenanceDialog({
+                            equipmentId: equipmentMatch?.id,
+                            inspectionId: inspectionAlerts.inspectionId,
+                          })
+                        }
+                      >
+                        Gerenciar OS
+                      </Button>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -1006,7 +1089,7 @@ const LeaderDashboard = () => {
     </CardContent>
   </Card>
   
-  <Dialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
+  <Dialog open={maintenanceDialogOpen} onOpenChange={handleMaintenanceDialogOpenChange}>
     <DialogContent className="sm:max-w-[500px]">
       <DialogHeader>
         <DialogTitle>Registrar ordem de serviço</DialogTitle>
@@ -1086,7 +1169,7 @@ const LeaderDashboard = () => {
             type="button"
             className="flex-1 sm:flex-none"
             variant="outline"
-            onClick={() => setMaintenanceDialogOpen(false)}
+            onClick={() => handleMaintenanceDialogOpenChange(false)}
           >
             Cancelar
           </Button>
@@ -1289,6 +1372,7 @@ const LeaderDashboard = () => {
                     <TableHead>Equipamento</TableHead>
                     <TableHead>Operador</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1307,6 +1391,22 @@ const LeaderDashboard = () => {
                           }`}>
                             {hasProblems ? 'Com Problemas' : 'OK'}
                           </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                            disabled={!inspection.equipmentId}
+                            onClick={() =>
+                              handleOpenMaintenanceDialog({
+                                equipmentId: inspection.equipmentId,
+                                inspectionId: inspection.id,
+                              })
+                            }
+                          >
+                            Gerenciar OS
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
