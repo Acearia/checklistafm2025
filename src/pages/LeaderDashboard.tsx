@@ -115,6 +115,7 @@ const LeaderDashboard = () => {
     equipment: supabaseEquipment, 
     operators: supabaseOperators,
     leaders: supabaseLeaders,
+    sectorLeaderAssignments: supabaseSectorLeaderAssignments,
     loading: supabaseLoading,
     error: supabaseError,
     refresh
@@ -158,6 +159,16 @@ const LeaderDashboard = () => {
     () => normalizeSector(currentLeader?.sector),
     [currentLeader]
   );
+
+  const leaderAssignmentEquipmentIds = useMemo<string[]>(() => {
+    if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
+      return [];
+    }
+    return supabaseSectorLeaderAssignments
+      .filter((assignment) => assignment.leader_id === currentLeader.id)
+      .map((assignment) => assignment.equipment_id)
+      .filter((id): id is string => Boolean(id));
+  }, [supabaseSectorLeaderAssignments, currentLeader]);
 
   const handleMaintenanceDialogOpenChange = (open: boolean) => {
     setMaintenanceDialogOpen(open);
@@ -289,15 +300,26 @@ const LeaderDashboard = () => {
     setLoading(true);
     
     try {
-      const sectorEquipments = supabaseEquipment.filter(
-        (eq) => normalizeSector(eq.sector) === leaderSectorKey
+      const allowedEquipmentIds = new Set<string>();
+      supabaseEquipment.forEach((equipment) => {
+        if (normalizeSector(equipment.sector) === leaderSectorKey) {
+          allowedEquipmentIds.add(equipment.id);
+        }
+      });
+      leaderAssignmentEquipmentIds.forEach((id) => {
+        allowedEquipmentIds.add(id);
+      });
+
+      const sectorEquipmentIds = Array.from(allowedEquipmentIds);
+      const sectorEquipments = supabaseEquipment.filter((equipment) =>
+        allowedEquipmentIds.has(equipment.id)
       );
+
       const operatorsByMatricula = new Map(
         supabaseOperators.map(op => [op.matricula, op])
       );
-      
-      // Filter inspections by sector equipment
-      const sectorEquipmentIds = sectorEquipments.map(eq => eq.id);
+
+      // Filter inspections by allowed equipment ids
       const sectorInspections = supabaseInspections.filter(inspection => 
         sectorEquipmentIds.includes(inspection.equipment_id)
       );
@@ -398,7 +420,7 @@ const LeaderDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast, leaderSectorKey]);
+  }, [currentLeader, supabaseEquipment, supabaseInspections, supabaseOperators, toast, leaderSectorKey, leaderAssignmentEquipmentIds]);
 
   // Authentication and initial setup
   useEffect(() => {
@@ -770,10 +792,19 @@ const LeaderDashboard = () => {
   const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
     if (!currentLeader) return [];
-    return supabaseEquipment.filter(
-      (equipment) => normalizeSector(equipment.sector) === leaderSectorKey
-    );
-  }, [supabaseEquipment, currentLeader, leaderSectorKey]);
+    const allowedIds = new Set<string>();
+
+    supabaseEquipment.forEach((equipment) => {
+      if (normalizeSector(equipment.sector) === leaderSectorKey) {
+        allowedIds.add(equipment.id);
+      }
+    });
+    leaderAssignmentEquipmentIds.forEach((id) => {
+      allowedIds.add(id);
+    });
+
+    return supabaseEquipment.filter((equipment) => allowedIds.has(equipment.id));
+  }, [supabaseEquipment, currentLeader, leaderSectorKey, leaderAssignmentEquipmentIds]);
 
   useEffect(() => {
     if (
@@ -785,20 +816,16 @@ const LeaderDashboard = () => {
   }, [sectorEquipments, selectedEquipmentFilter]);
   const sectorMaintenanceOrders = useMemo(() => {
     if (!currentLeader) return [];
-    const equipmentById = new Map(
-      supabaseEquipment.map((equipment) => [equipment.id, equipment])
+    const allowedEquipmentIds = new Set(
+      sectorEquipments.map((equipment) => equipment.id)
     );
     return maintenanceOrders
-      .filter((order) => {
-        const equipment = equipmentById.get(order.equipmentId);
-        if (!equipment) return false;
-        return normalizeSector(equipment.sector) === leaderSectorKey;
-      })
+      .filter((order) => allowedEquipmentIds.has(order.equipmentId))
       .sort(
         (a, b) =>
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
-  }, [maintenanceOrders, currentLeader, supabaseEquipment, leaderSectorKey]);
+  }, [maintenanceOrders, currentLeader, sectorEquipments]);
   const activeSectorOrders = sectorMaintenanceOrders.filter(
     (order) => order.status === "open"
   );
