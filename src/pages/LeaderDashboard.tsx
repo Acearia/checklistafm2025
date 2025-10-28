@@ -157,15 +157,6 @@ const LeaderDashboard = () => {
     [currentLeader]
   );
 
-  useEffect(() => {
-    if (
-      selectedEquipmentFilter !== "all" &&
-      !sectorEquipments.some((equipment) => equipment.id === selectedEquipmentFilter)
-    ) {
-      setSelectedEquipmentFilter("all");
-    }
-  }, [sectorEquipments, selectedEquipmentFilter]);
-
   const handleMaintenanceDialogOpenChange = (open: boolean) => {
     setMaintenanceDialogOpen(open);
     if (!open) {
@@ -785,6 +776,15 @@ const LeaderDashboard = () => {
     );
     return filtered.length > 0 ? filtered : supabaseEquipment;
   }, [supabaseEquipment, currentLeader, leaderSectorKey]);
+
+  useEffect(() => {
+    if (
+      selectedEquipmentFilter !== "all" &&
+      !sectorEquipments.some((equipment) => equipment.id === selectedEquipmentFilter)
+    ) {
+      setSelectedEquipmentFilter("all");
+    }
+  }, [sectorEquipments, selectedEquipmentFilter]);
   const sectorMaintenanceOrders = useMemo(() => {
     if (!currentLeader) return [];
     const equipmentById = new Map(
