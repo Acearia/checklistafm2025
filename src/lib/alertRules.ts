@@ -128,8 +128,10 @@ export const getAlertRule = (
   const normalized = normalizeQuestion(question);
 
   const explicitRule = QUESTION_ALERT_RULES.get(normalized);
-  if (explicitRule?.onYes) onYes = true;
-  if (explicitRule?.onNo) onNo = true;
+  if (explicitRule) {
+    onYes = Boolean(explicitRule.onYes);
+    onNo = Boolean(explicitRule.onNo);
+  }
 
   if (!onYes && !onNo) {
     if (ALERT_ON_NO_KEYWORDS.some((keyword) => normalized.includes(keyword))) {

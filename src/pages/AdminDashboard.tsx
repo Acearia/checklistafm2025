@@ -12,6 +12,7 @@ import { BarChart, PieChart } from "@/components/ui/charts";
 import { Link } from "react-router-dom";
 import { CheckCircle, RefreshCw, Users, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 
 const AdminDashboard = () => {
@@ -176,24 +177,6 @@ const AdminDashboard = () => {
         }
       >();
 
-      const isProblematicAnswer = (answer: any): boolean => {
-        if (!answer) return false;
-        const normalizedAnswer =
-          typeof answer.answer === "string"
-            ? answer.answer.trim().toLowerCase()
-            : "";
-        const triggersYes = Boolean(answer.alertOnYes);
-        const triggersNo = Boolean(answer.alertOnNo);
-
-        if (triggersYes || triggersNo) {
-          if (triggersYes && normalizedAnswer === "sim") return true;
-          if (triggersNo && normalizedAnswer === "não") return true;
-          return false;
-        }
-
-        return normalizedAnswer === "não";
-      };
-
       let inspectionsWithProblemsTotal = 0;
 
       inspections.forEach((inspection: any) => {
@@ -208,7 +191,24 @@ const AdminDashboard = () => {
           ? (inspection.checklist_answers as any[])
           : [];
 
-        const hasProblems = answers.some(isProblematicAnswer);
+        const hasProblems = answers.some((answer, index) => {
+          const answerWithRules = applyAlertRuleToItem({
+            ...answer,
+            question:
+              answer?.question && String(answer.question).trim().length > 0
+                ? answer.question
+                : `Pergunta ${index + 1}`,
+          });
+
+          return shouldTriggerAlert(
+            answerWithRules.question,
+            answerWithRules.answer,
+            {
+              onYes: answerWithRules.alertOnYes,
+              onNo: answerWithRules.alertOnNo,
+            }
+          );
+        });
         if (hasProblems) {
           inspectionsWithProblemsTotal += 1;
         }

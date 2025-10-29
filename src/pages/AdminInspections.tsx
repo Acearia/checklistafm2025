@@ -30,27 +30,7 @@ import { Eye, Download, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Badge } from "@/components/ui/badge";
-
-const normalizeAnswer = (value: unknown) =>
-  typeof value === "string" ? value.trim().toLowerCase() : "";
-
-const isCriticalAnswer = (answer: any): boolean => {
-  if (!answer) return false;
-  const normalizedAnswer = normalizeAnswer(answer.answer);
-  const alertOnYes = Boolean(answer.alertOnYes);
-  const alertOnNo = Boolean(answer.alertOnNo);
-
-  if (alertOnYes && normalizedAnswer === "sim") return true;
-  if (alertOnNo && normalizedAnswer === "não") return true;
-
-  // Fallback for legacy data without alert flags: treat "não" as problem
-  const hasExplicitRules = alertOnYes || alertOnNo;
-  if (!hasExplicitRules && normalizedAnswer === "não") {
-    return true;
-  }
-
-  return false;
-};
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 
 const AdminInspections = () => {
   const { toast } = useToast();
@@ -92,10 +72,26 @@ const AdminInspections = () => {
       const rawAnswers = Array.isArray(inspection.checklist_answers)
         ? inspection.checklist_answers
         : [];
-      const answersWithFlags = rawAnswers.map((answer) => {
-        const triggersAlert = isCriticalAnswer(answer);
-        return {
+      const answersWithFlags = rawAnswers.map((answer, index) => {
+        const answerWithRules = applyAlertRuleToItem({
           ...answer,
+          question:
+            answer?.question && String(answer.question).trim().length > 0
+              ? answer.question
+              : `Pergunta ${index + 1}`,
+        });
+
+        const triggersAlert = shouldTriggerAlert(
+          answerWithRules.question,
+          answerWithRules.answer,
+          {
+            onYes: answerWithRules.alertOnYes,
+            onNo: answerWithRules.alertOnNo,
+          }
+        );
+
+        return {
+          ...answerWithRules,
           triggersAlert,
         };
       });
@@ -147,10 +143,6 @@ const AdminInspections = () => {
       }
     >();
 
-    const isProblematicAnswer = (answer: any): boolean => {
-      return isCriticalAnswer(answer);
-    };
-
     let inspectionsWithProblemsTotal = 0;
 
     processedInspections.forEach((inspection: any) => {
@@ -161,7 +153,8 @@ const AdminInspections = () => {
         : [];
 
       const hasProblems =
-        inspection.problemCount > 0 || answers.some(isProblematicAnswer);
+        inspection.problemCount > 0 ||
+        answers.some((answer) => Boolean(answer?.triggersAlert));
       if (hasProblems) {
         inspectionsWithProblemsTotal += 1;
       }
