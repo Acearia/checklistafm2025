@@ -62,6 +62,7 @@ import jsPDF from "jspdf";
 import { loadChecklistAlerts, markAlertSeenByLeader } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { operatorService, type Operator as SupabaseOperator } from "@/lib/supabase-service";
 import type { DateRange } from "react-day-picker";
 
@@ -103,6 +104,7 @@ interface ProblemEntry {
   comments: string;
   date: string;
   status: string;
+  answer?: string;
 }
 
 const LeaderDashboard = () => {
@@ -160,20 +162,10 @@ const LeaderDashboard = () => {
   const leaderSectorKeys = useMemo(() => {
     if (!currentLeader?.sector) return [] as string[];
     return currentLeader.sector
-      .split(",")
+      .split(/[,;/]/)
       .map((value) => normalizeSector(value))
       .filter((value): value is string => Boolean(value));
   }, [currentLeader]);
-
-  const leaderAssignmentEquipmentIds = useMemo<string[]>(() => {
-    if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
-      return [];
-    }
-    return supabaseSectorLeaderAssignments
-      .filter((assignment) => assignment.leader_id === currentLeader.id)
-      .map((assignment) => assignment.equipment_id)
-      .filter((id): id is string => Boolean(id));
-  }, [supabaseSectorLeaderAssignments, currentLeader]);
 
   const leaderAssignmentSectorIds = useMemo<string[]>(() => {
     if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
@@ -204,38 +196,25 @@ const LeaderDashboard = () => {
     return set;
   }, [leaderAssignmentSectorIds, sectorIdToNormalizedName]);
 
+  const allowedSectorNames = useMemo(() => {
+    const names = new Set<string>();
+    leaderSectorKeys.forEach((name) => names.add(name));
+    assignmentSectorNameSet.forEach((name) => names.add(name));
+    return names;
+  }, [leaderSectorKeys, assignmentSectorNameSet]);
+
   const allowedEquipmentIds = useMemo<string[]>(() => {
     const allowed = new Set<string>();
 
     supabaseEquipment.forEach((equipment) => {
       const sectorNormalized = normalizeSector(equipment.sector);
-
-      if (leaderSectorKeys.includes(sectorNormalized)) {
-        allowed.add(equipment.id);
-      }
-
-      if (
-        equipment.sector_id &&
-        leaderAssignmentSectorIds.includes(equipment.sector_id)
-      ) {
-        allowed.add(equipment.id);
-      }
-
-      if (assignmentSectorNameSet.has(sectorNormalized)) {
+      if (sectorNormalized && allowedSectorNames.has(sectorNormalized)) {
         allowed.add(equipment.id);
       }
     });
 
-    leaderAssignmentEquipmentIds.forEach((id) => allowed.add(id));
-
     return Array.from(allowed);
-  }, [
-    supabaseEquipment,
-    leaderSectorKeys,
-    leaderAssignmentSectorIds,
-    assignmentSectorNameSet,
-    leaderAssignmentEquipmentIds,
-  ]);
+  }, [supabaseEquipment, allowedSectorNames]);
 
   const allowedEquipmentSet = useMemo(() => new Set(allowedEquipmentIds), [allowedEquipmentIds]);
 
@@ -301,7 +280,7 @@ const LeaderDashboard = () => {
     const localAlerts = loadChecklistAlerts().filter((alert) => {
       if (!alert.sector) return true;
       const normalized = normalizeSector(alert.sector);
-      return leaderSectorKeys.includes(normalized);
+      return !normalized || allowedSectorNames.has(normalized);
     });
 
     const generatedAlerts: ChecklistAlert[] = [];
@@ -312,23 +291,34 @@ const LeaderDashboard = () => {
       }
 
       inspection.checklist_answers.forEach((answer, index) => {
-        const normalizedAnswer = (answer.answer || "").trim();
-        const alertOnYes = Boolean(answer.alertOnYes);
-        const alertOnNo = Boolean(answer.alertOnNo);
-        const triggersOnYes = alertOnYes && normalizedAnswer === "Sim";
-        const triggersOnNo = alertOnNo && normalizedAnswer === "Não";
+        const hasAlert = shouldTriggerAlert(
+          answer.question,
+          answer.answer,
+          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+        );
 
-        if (!triggersOnYes && !triggersOnNo) {
+        if (!hasAlert) {
           return;
         }
 
         const alertId = `${inspection.id}-${answer.question || index}`;
+        const rawAnswer = (answer.answer ?? "").trim();
+        const normalizedLower = rawAnswer
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+        const answerLabel =
+          normalizedLower === "sim"
+            ? "Sim"
+            : normalizedLower === "nao"
+            ? "Não"
+            : rawAnswer || "N/A";
 
         generatedAlerts.push({
           id: alertId,
           questionId: answer.question || String(index),
           question: answer.question || `Pergunta ${index + 1}`,
-          answer: normalizedAnswer === "Sim" ? "Sim" : "Não",
+          answer: answerLabel,
           inspectionId: inspection.id,
           operatorName: inspection.operator.name !== "N/A" ? inspection.operator.name : undefined,
           operatorMatricula: inspection.operator.matricula !== "N/A" ? inspection.operator.matricula : undefined,
@@ -362,7 +352,7 @@ const LeaderDashboard = () => {
     );
 
     setChecklistAlerts(sortedAlerts);
-  }, [currentLeader, inspections, leaderSectorKeys]);
+  }, [currentLeader, inspections, allowedSectorNames]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
@@ -401,7 +391,16 @@ const LeaderDashboard = () => {
         // Ensure checklist_answers is an array
         let checklistAnswers: Inspection["checklist_answers"] = [];
         if (Array.isArray(inspection.checklist_answers)) {
-          checklistAnswers = inspection.checklist_answers as { question: string; answer: string; comments?: string; alertOnYes?: boolean; alertOnNo?: boolean }[];
+          checklistAnswers = (inspection.checklist_answers as Inspection["checklist_answers"]).map(
+            (answerItem, answerIndex) =>
+              applyAlertRuleToItem({
+                ...answerItem,
+                question:
+                  answerItem.question && answerItem.question.trim().length > 0
+                    ? answerItem.question
+                    : `Pergunta ${answerIndex + 1}`,
+              })
+          );
         }
         
         return {
@@ -447,25 +446,46 @@ const LeaderDashboard = () => {
       processedInspections.forEach(inspection => {
         const answers = inspection.checklist_answers || [];
         answers.forEach(answer => {
-          if (answer.answer === 'Não') {
-            problems.push({
-              id: `${inspection.id}-${answer.question}`,
-              inspectionId: inspection.id,
-              equipment: inspection.equipment.name,
-              equipmentKp: inspection.equipment.kp,
-              equipmentId: resolvedEquipmentId,
-              operator: inspection.operator.name,
-              operatorMatricula: inspection.operator.matricula,
-              problem: answer.question,
-              comments: answer.comments || inspection.comments || 'Nenhum comentário',
-              date: inspection.inspection_date,
-              status: 'Identificado'
-            });
+          const triggersAlert = shouldTriggerAlert(
+            answer.question,
+            answer.answer,
+            { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+          );
 
-            // Count problems by equipment
-            const equipmentKey = inspection.equipment.name;
-            equipmentProblems[equipmentKey] = (equipmentProblems[equipmentKey] || 0) + 1;
+          if (!triggersAlert) {
+            return;
           }
+
+          const rawAnswer = (answer.answer ?? "").trim();
+          const normalizedLower = rawAnswer
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase();
+          const answerLabel =
+            normalizedLower === "sim"
+              ? "Sim"
+              : normalizedLower === "nao"
+              ? "Não"
+              : rawAnswer || "N/A";
+
+          problems.push({
+            id: `${inspection.id}-${answer.question}`,
+            inspectionId: inspection.id,
+            equipment: inspection.equipment.name,
+            equipmentKp: inspection.equipment.kp,
+            equipmentId: resolvedEquipmentId,
+            operator: inspection.operator.name,
+            operatorMatricula: inspection.operator.matricula,
+            problem: answer.question,
+            comments: answer.comments || inspection.comments || 'Nenhum comentário',
+            date: inspection.inspection_date,
+            status: 'Identificado',
+            answer: answerLabel,
+          });
+
+          // Count problems by equipment
+          const equipmentKey = inspection.equipment.name;
+          equipmentProblems[equipmentKey] = (equipmentProblems[equipmentKey] || 0) + 1;
         });
       });
 
@@ -975,13 +995,17 @@ const LeaderDashboard = () => {
   const sectorOperatorsList = useMemo(() => {
     if (!currentLeader) return [];
     return supabaseOperators.filter((operator) => {
-      const normalizedSector = normalizeSector(operator.setor);
-      if (normalizedSector && leaderSectorKeys.includes(normalizedSector)) {
-        return true;
-      }
-      return false;
+      if (!operator.setor) return false;
+      const operatorSectorKeys = operator.setor
+        .split(/[,;/]/)
+        .map((value) => normalizeSector(value))
+        .filter((value): value is string => Boolean(value));
+
+      return operatorSectorKeys.some((sector) =>
+        allowedSectorNames.has(sector)
+      );
     });
-  }, [supabaseOperators, currentLeader, leaderSectorKeys]);
+  }, [supabaseOperators, currentLeader, allowedSectorNames]);
 
   const exportReportToPDF = () => {
     try {
@@ -1926,7 +1950,13 @@ const LeaderDashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredInspections.map((inspection) => {
-                      const hasProblems = inspection.checklist_answers.some(answer => answer.answer === 'Não');
+                      const hasProblems = inspection.checklist_answers.some((answer) =>
+                        shouldTriggerAlert(
+                          answer.question,
+                          answer.answer,
+                          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+                        )
+                      );
                       const dateValue = inspection.submission_date || inspection.inspection_date;
                       const inspectionDate = dateValue ? new Date(dateValue) : null;
                       const inspectionDateLabel =
