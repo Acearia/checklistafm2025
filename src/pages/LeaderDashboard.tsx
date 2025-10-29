@@ -59,7 +59,7 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { format, startOfDay, endOfDay, subDays, subMonths, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
-import { loadChecklistAlerts, markAlertSeenByLeader } from "@/lib/checklistTemplate";
+import { loadChecklistAlerts, markAlertSeenByLeader, saveChecklistAlerts } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
@@ -277,12 +277,6 @@ const LeaderDashboard = () => {
   const refreshChecklistAlerts = useCallback(() => {
     if (!currentLeader) return;
 
-    const localAlerts = loadChecklistAlerts().filter((alert) => {
-      if (!alert.sector) return true;
-      const normalized = normalizeSector(alert.sector);
-      return !normalized || allowedSectorNames.has(normalized);
-    });
-
     const generatedAlerts: ChecklistAlert[] = [];
 
     inspections.forEach((inspection) => {
@@ -334,23 +328,43 @@ const LeaderDashboard = () => {
 
     const mergedAlerts = new Map<string, ChecklistAlert>();
 
-    localAlerts.forEach((alert) => {
+    generatedAlerts.forEach((alert) => {
       mergedAlerts.set(alert.id, {
         ...alert,
         seenByLeaders: alert.seenByLeaders ?? [],
       });
     });
 
-    generatedAlerts.forEach((alert) => {
-      if (!mergedAlerts.has(alert.id)) {
-        mergedAlerts.set(alert.id, alert);
+    const localAlerts = loadChecklistAlerts().filter((alert) => {
+      if (!alert.sector) return true;
+      const normalized = normalizeSector(alert.sector);
+      return !normalized || allowedSectorNames.has(normalized);
+    });
+
+    localAlerts.forEach((storedAlert) => {
+      const existing = mergedAlerts.get(storedAlert.id);
+      if (!existing) {
+        return;
       }
+
+      const combinedSeenByLeaders = new Set([
+        ...(existing.seenByLeaders ?? []),
+        ...(storedAlert.seenByLeaders ?? []),
+      ]);
+
+      mergedAlerts.set(storedAlert.id, {
+        ...existing,
+        seenByAdmin: existing.seenByAdmin || storedAlert.seenByAdmin || false,
+        seenByLeaders: Array.from(combinedSeenByLeaders),
+        createdAt: existing.createdAt ?? storedAlert.createdAt,
+      });
     });
 
     const sortedAlerts = Array.from(mergedAlerts.values()).sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
+    saveChecklistAlerts(sortedAlerts);
     setChecklistAlerts(sortedAlerts);
   }, [currentLeader, inspections, allowedSectorNames]);
   
