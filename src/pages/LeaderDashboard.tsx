@@ -144,6 +144,8 @@ const LeaderDashboard = () => {
   const [selectedEquipmentFilter, setSelectedEquipmentFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
+  const [inspectionToView, setInspectionToView] = useState<Inspection | null>(null);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [operatorToReset, setOperatorToReset] = useState<{ id: string; name: string } | null>(null);
   const [newOperatorPassword, setNewOperatorPassword] = useState("");
@@ -233,6 +235,13 @@ const LeaderDashboard = () => {
     setTimeRangeFilter(value);
     if (value === "custom") {
       setCalendarOpen(true);
+    }
+  };
+
+  const handleInspectionDialogOpenChange = (open: boolean) => {
+    setInspectionDialogOpen(open);
+    if (!open) {
+      setInspectionToView(null);
     }
   };
 
@@ -613,6 +622,11 @@ const LeaderDashboard = () => {
       default:
         return "Indefinida";
     }
+  };
+
+  const handleOpenInspectionDetails = (inspection: Inspection) => {
+    setInspectionToView(inspection);
+    setInspectionDialogOpen(true);
   };
 
   const handleOpenMaintenanceDialog = (options?: {
@@ -1020,6 +1034,57 @@ const LeaderDashboard = () => {
       );
     });
   }, [supabaseOperators, currentLeader, allowedSectorNames]);
+
+  const inspectionDetailData = useMemo(() => {
+    if (!inspectionToView) {
+      return {
+        answers: [] as Array<
+          Inspection["checklist_answers"][number] & { triggersAlert: boolean }
+        >,
+        alerts: 0,
+      };
+    }
+
+    const answers = inspectionToView.checklist_answers.map((answer, index) => {
+      const question =
+        answer.question && answer.question.trim().length > 0
+          ? answer.question
+          : `Pergunta ${index + 1}`;
+
+      const triggersAlert = shouldTriggerAlert(
+        question,
+        answer.answer,
+        { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+      );
+
+      return {
+        ...answer,
+        question,
+        triggersAlert,
+      };
+    });
+
+    const alerts = answers.filter((answer) => answer.triggersAlert).length;
+
+    return { answers, alerts };
+  }, [inspectionToView]);
+  const { answers: inspectionDetailAnswers, alerts: inspectionAlertsCount } =
+    inspectionDetailData;
+  const criticalInspectionAnswers = useMemo(
+    () => inspectionDetailAnswers.filter((answer) => answer.triggersAlert),
+    [inspectionDetailAnswers]
+  );
+  const inspectionDetailDateLabel = useMemo(() => {
+    if (!inspectionToView) return "-";
+    const dateValue =
+      inspectionToView.submission_date || inspectionToView.inspection_date;
+    if (!dateValue) return "-";
+    const date = new Date(dateValue);
+    if (Number.isNaN(date.getTime())) {
+      return "-";
+    }
+    return format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
+  }, [inspectionToView]);
 
   const exportReportToPDF = () => {
     try {
@@ -1505,11 +1570,164 @@ const LeaderDashboard = () => {
         </CardContent>
       </Card>
 
-  <Dialog open={maintenanceDialogOpen} onOpenChange={handleMaintenanceDialogOpenChange}>
-    <DialogContent className="sm:max-w-[500px]">
-      <DialogHeader>
-        <DialogTitle>Registrar ordem de serviço</DialogTitle>
-        <DialogDescription>
+      <Dialog open={inspectionDialogOpen} onOpenChange={handleInspectionDialogOpenChange}>
+        <DialogContent className="sm:max-w-[680px]">
+          <DialogHeader>
+            <DialogTitle>Detalhes da inspeção</DialogTitle>
+            <DialogDescription>
+              Visualize todas as respostas do checklist selecionado.
+            </DialogDescription>
+          </DialogHeader>
+
+          {inspectionToView ? (
+            <div className="space-y-4 py-1">
+              <Alert
+                variant={inspectionAlertsCount > 0 ? "destructive" : "default"}
+                className={
+                  inspectionAlertsCount > 0 ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"
+                }
+              >
+                <div className="flex flex-col gap-1">
+                  <AlertTitle className="flex items-center gap-2 text-sm">
+                    {inspectionAlertsCount > 0 ? (
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                    ) : (
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    )}
+                    {inspectionAlertsCount > 0
+                      ? `${inspectionAlertsCount} alerta(s) identificado(s)`
+                      : "Checklist sem alertas críticos"}
+                  </AlertTitle>
+                  {inspectionAlertsCount > 0 && (
+                    <AlertDescription className="space-y-1 text-xs text-red-700">
+                      {criticalInspectionAnswers.map((answer, index) => (
+                        <div key={`${answer.question}-${index}`} className="flex flex-col">
+                          <span className="font-semibold text-red-700">{answer.question}</span>
+                          <span className="text-red-600">
+                            Resposta: {answer.answer || "Não informada"}
+                          </span>
+                        </div>
+                      ))}
+                    </AlertDescription>
+                  )}
+                </div>
+              </Alert>
+
+              <div className="grid gap-3 text-sm text-gray-700 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs uppercase text-gray-500">Data da inspeção</p>
+                  <p>{inspectionDetailDateLabel}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500">Equipamento</p>
+                  <p>
+                    {inspectionToView.equipment.name} • KP {inspectionToView.equipment.kp}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500">Setor</p>
+                  <p>{inspectionToView.equipment.sector || "Não informado"}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-gray-500">Operador</p>
+                  <p>
+                    {inspectionToView.operator.name}
+                    {inspectionToView.operator.matricula !== "N/A"
+                      ? ` • Matrícula ${inspectionToView.operator.matricula}`
+                      : ""}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-800">Itens do checklist</p>
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {inspectionDetailAnswers.map((answer, index) => {
+                    const isAlert = answer.triggersAlert;
+                    const answerLabel = answer.answer || "Não informado";
+                    return (
+                      <div
+                        key={`${answer.question}-${index}`}
+                        className={`rounded-md border px-3 py-2 ${
+                          isAlert
+                            ? "border-red-200 bg-red-50/70"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            {answer.question}
+                          </div>
+                          <Badge
+                            variant={isAlert ? "destructive" : "secondary"}
+                            className="w-fit text-xs"
+                          >
+                            {answerLabel}
+                          </Badge>
+                        </div>
+                        {isAlert && (
+                          <p className="mt-1 text-xs font-semibold text-red-700">
+                            Alerta gerado para acompanhamento.
+                          </p>
+                        )}
+                        {answer.comments && answer.comments.trim().length > 0 && (
+                          <p className="mt-2 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700">
+                            Observação: {answer.comments}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1 text-sm text-gray-700">
+                <p className="text-sm font-semibold text-gray-800">Observações gerais</p>
+                <p className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {inspectionToView.comments?.trim()
+                    ? inspectionToView.comments
+                    : "Nenhuma observação adicional registrada."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-sm text-gray-600">
+              Selecione uma inspeção para visualizar os detalhes.
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleInspectionDialogOpenChange(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              disabled={!inspectionToView?.equipmentId}
+              onClick={() => {
+                if (!inspectionToView?.equipmentId) return;
+                const inspection = inspectionToView;
+                handleInspectionDialogOpenChange(false);
+                handleOpenMaintenanceDialog({
+                  equipmentId: inspection.equipmentId,
+                  inspectionId: inspection.id,
+                });
+              }}
+            >
+              Gerenciar OS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={maintenanceDialogOpen} onOpenChange={handleMaintenanceDialogOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Registrar ordem de serviço</DialogTitle>
+            <DialogDescription>
           Defina o equipamento, número e status para informar o administrativo.
         </DialogDescription>
       </DialogHeader>
@@ -2002,20 +2220,30 @@ const LeaderDashboard = () => {
                             </span>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                              disabled={!inspection.equipmentId}
-                              onClick={() =>
-                                handleOpenMaintenanceDialog({
-                                  equipmentId: inspection.equipmentId,
-                                  inspectionId: inspection.id,
-                                })
-                              }
-                            >
-                              Gerenciar OS
-                            </Button>
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-700 hover:bg-blue-50"
+                                onClick={() => handleOpenInspectionDetails(inspection)}
+                              >
+                                Ver inspeção
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                                disabled={!inspection.equipmentId}
+                                onClick={() =>
+                                  handleOpenMaintenanceDialog({
+                                    equipmentId: inspection.equipmentId,
+                                    inspectionId: inspection.id,
+                                  })
+                                }
+                              >
+                                Gerenciar OS
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
