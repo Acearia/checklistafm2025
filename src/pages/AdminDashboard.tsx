@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { BarChart, PieChart } from "@/components/ui/charts";
 import { Link } from "react-router-dom";
-import { CheckCircle, RefreshCw, Users, Building2 } from "lucide-react";
+import { CheckCircle, RefreshCw, Users, Building2, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -269,9 +269,19 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <div
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700"
+            aria-label="Inspeções com problemas"
+            title="Inspeções com problemas"
+          >
+            <Bell className="h-5 w-5" aria-hidden="true" />
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
+              {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+            </span>
+          </div>
           <Button onClick={handleRefreshData} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Atualizar

@@ -52,6 +52,7 @@ import {
   RefreshCw,
   AlertTriangle,
   BellRing,
+  Bell,
   Calendar as CalendarIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -496,7 +497,7 @@ const LeaderDashboard = () => {
             inspectionId: inspection.id,
             equipment: inspection.equipment.name,
             equipmentKp: inspection.equipment.kp,
-            equipmentId: resolvedEquipmentId,
+            equipmentId: inspection.equipmentId,
             operator: inspection.operator.name,
             operatorMatricula: inspection.operator.matricula,
             problem: answer.question,
@@ -1151,7 +1152,17 @@ const LeaderDashboard = () => {
             {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : 'Dashboard'}
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+          <div
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700"
+            aria-label="Inspeções com problemas"
+            title="Inspeções com problemas"
+          >
+            <Bell className="h-5 w-5" aria-hidden="true" />
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
+              {filteredStats.problemInspections}
+            </span>
+          </div>
           <Button 
             onClick={handleSendEmailNotification} 
             variant="outline" 
