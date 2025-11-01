@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, FileText, Search, RefreshCw } from "lucide-react";
+import { PlusCircle, FileText, Search } from "lucide-react";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { AddEquipmentDialog } from "@/components/equipment/AddEquipmentDialog";
 import { EditEquipmentDialog } from "@/components/equipment/EditEquipmentDialog";
@@ -96,26 +96,6 @@ const AdminEquipment = () => {
       );
     };
   }, []);
-  
-  // Reset equipment data to original
-  const resetToOriginalData = async () => {
-    try {
-      // This would require clearing all equipment and re-adding initial data
-      // For now, just refresh from Supabase
-      refresh();
-      setMaintenanceOrders(loadMaintenanceOrders());
-      toast({
-        title: "Dados atualizados",
-        description: "Os dados dos equipamentos foram atualizados do banco de dados.",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar os dados.",
-        variant: "destructive",
-      });
-    }
-  };
   
   // Calculate the next available ID - removed as we use Supabase auto-generated IDs
 
@@ -365,14 +345,6 @@ const AdminEquipment = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Gerenciar Equipamentos - Checklist AFM</h1>
         <div className="flex gap-2">
-          <Button 
-            variant="outline"
-            onClick={resetToOriginalData}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw size={16} />
-            Restaurar Dados
-          </Button>
           <Button 
             variant="outline"
             onClick={exportToPDF}
