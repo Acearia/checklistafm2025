@@ -43,7 +43,7 @@ async function syncChecklistItems() {
   const { error: deleteError } = await client
     .from("checklist_items")
     .delete()
-    .neq("id", "");
+    .not("id", "is", null);
 
   if (deleteError) {
     console.error("Failed to clear checklist_items:", deleteError);
