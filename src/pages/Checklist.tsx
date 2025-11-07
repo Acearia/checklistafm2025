@@ -120,7 +120,7 @@ const Checklist = () => {
 
     const filteredItems = filterChecklistItemsByEquipmentType(
       sourceItems,
-      selectedEquipment?.type
+      selectedEquipment?.type ?? selectedEquipment?.name
     );
 
     const needsUpdate =

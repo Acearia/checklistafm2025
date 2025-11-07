@@ -7,14 +7,34 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "1": "ponte",
   "ponte": "ponte",
   "ponte rolante": "ponte",
+  "ponterolante": "ponte",
+  "ponte rolante a": "ponte",
+  "ponte rolante b": "ponte",
+  "ponte rolante c": "ponte",
   "2": "talha",
   "talha": "talha",
   "talha eletrica": "talha",
   "talha elétrica": "talha",
+  "talha manual": "talha",
+  "talha eletrica 5t": "talha",
   "3": "portico",
   "pórtico": "portico",
   "portico": "portico",
+  "portico rolante": "portico",
+  "portico movel": "portico",
 };
+
+const normalizeValue = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const aliasEntries = Object.entries(EQUIPMENT_TYPE_ALIAS).map(([key, category]) => [
+  normalizeValue(key),
+  category,
+] as [string, EquipmentQuestionCategory]);
 
 const EQUIPMENT_TYPE_QUESTION_MAP: Record<EquipmentQuestionCategory, string[]> = {
   ponte: [
@@ -109,8 +129,15 @@ const normalizedQuestionsByType = Object.entries(EQUIPMENT_TYPE_QUESTION_MAP).re
 
 const getQuestionCategory = (equipmentType?: string | null): EquipmentQuestionCategory | null => {
   if (!equipmentType) return null;
-  const normalized = equipmentType.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-  return EQUIPMENT_TYPE_ALIAS[normalized] ?? null;
+  const normalized = normalizeValue(equipmentType);
+
+  for (const [alias, category] of aliasEntries) {
+    if (normalized === alias || normalized.includes(alias)) {
+      return category;
+    }
+  }
+
+  return null;
 };
 
 export const filterChecklistItemsByEquipmentType = (
