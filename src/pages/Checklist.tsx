@@ -734,7 +734,7 @@ const Checklist = () => {
             </div>
           )}
 
-          {(hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (
+          {selectedEquipment && (hasInteractedWithChecklist || highlightUnanswered) && unansweredCount > 0 && (
             <div className="mt-6 rounded-md border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
               {unansweredCount === 1
                 ? "Ainda falta responder 1 pergunta do checklist."
@@ -742,11 +742,17 @@ const Checklist = () => {
             </div>
           )}
 
-          <ChecklistItems
-            checklist={checklist}
-            onChecklistChange={handleChecklistChange}
-            highlightUnanswered={highlightUnanswered}
-          />
+          {selectedEquipment ? (
+            <ChecklistItems
+              checklist={checklist}
+              onChecklistChange={handleChecklistChange}
+              highlightUnanswered={highlightUnanswered}
+            />
+          ) : (
+            <div className="mt-6 rounded-md border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-600">
+              Selecione um equipamento para carregar o checklist correspondente.
+            </div>
+          )}
 
           <ChecklistPhotoUpload
             photos={photos}
