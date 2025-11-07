@@ -16,6 +16,7 @@ import type { ChecklistItem } from "@/lib/data";
 import { getChecklistState, saveChecklistState } from "@/lib/checklistStore";
 import { useChecklistData } from "@/hooks/useChecklistData";
 import { checklistItems as defaultChecklistItems } from "@/lib/data";
+import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
 
 const ChecklistItems = () => {
   const navigate = useNavigate();
@@ -39,7 +40,12 @@ const ChecklistItems = () => {
     const sourceItems =
       supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
 
-    const templateItems = sourceItems.map((item) => ({
+    const filteredSourceItems = filterChecklistItemsByEquipmentType(
+      sourceItems,
+      state.equipment?.type
+    );
+
+    const templateItems = filteredSourceItems.map((item) => ({
       id: item.id,
       question: item.question,
       answer: null,

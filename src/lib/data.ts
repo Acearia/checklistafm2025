@@ -102,4 +102,13 @@ export const checklistItems: ChecklistItem[] = [
   { id: "19", question: "O fim de curso direito está funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
   { id: "20", question: "O fim de curso esquerdo está funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
   { id: "21", question: "O equipamento apresenta ruídos estranhos?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "22", question: "Os cabos de aço apresentam fios partidos?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "23", question: "Os cabos de aço apresentam pontos de amassamento?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "24", question: "Os cabos de aço apresentam alguma dobra?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "25", question: "Ao movimentar o equipamento, é possível perceber balanço?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "26", question: "O batente de giro está em boas condições de uso?", answer: null, alertOnYes: false, alertOnNo: true },
+  { id: "27", question: "O saco recolhedor da corrente possui furos ou rasgos?", answer: null, alertOnYes: true, alertOnNo: false },
+  { id: "28", question: "O freio do pórtico está funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
+  { id: "29", question: "Os trilhos do pórtico estão desobstruídos?", answer: null, alertOnYes: false, alertOnNo: true },
+  { id: "30", question: "Os sensores antiesmagamento do pórtico estão funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
 ];

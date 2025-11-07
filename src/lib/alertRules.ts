@@ -60,6 +60,7 @@ registerRules(
     "O fim de curso para a esquerda está funcionando?",
     "O batente de giro está em boas condições de uso?",
     "O(s) gancho(s) da corrente possui(em) travas de segurança funcionando?",
+    "O freio do pórtico está funcionando?",
   ],
   { onNo: true }
 );
@@ -69,6 +70,7 @@ registerRules(
     "O gancho possui sinais de alongamento?",
     "O equipamento está fazendo algum barulho estranho?",
     "O equipamento apresenta ruídos estranhos?",
+    "O Equipamento apresenta ruídos estranhos?",
     "O controle possui botão danificado?",
     "O controle possui botões danificados?",
     "A estrutura possui grandes danos?",
@@ -87,6 +89,10 @@ registerRules(
     "O cabo de aço possui fios amassados?",
     "O cabo de aço possui fios com dobras?",
     "O cabo de aço possui fios partidos?",
+    "Os cabos de aço apresentam fios partidos?",
+    "Os cabos de aço apresentam pontos de amassamento?",
+    "Os cabos de aço apresentam alguma dobra?",
+    "Ao movimentar o equipamento, é possível perceber balanço?",
     "O(s) gancho(s) da corrente possui(em) sinais de desgaste?",
     "O(s) gancho(s) da corrente possui(em) sinais de alongamento?",
   ],
