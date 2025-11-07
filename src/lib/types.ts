@@ -71,7 +71,7 @@ export interface ChecklistAlert {
   id: string;
   questionId: string;
   question: string;
-  answer: "Sim" | "Não";
+  answer: string;
   inspectionId?: string;
   operatorName?: string;
   operatorMatricula?: string;
