@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import SignatureCanvas from "@/components/SignatureCanvas";
-import { ChecklistItem, Operator, Equipment } from "@/lib/data";
+import type { ChecklistItem, Operator, Equipment } from "@/lib/data";
+import { checklistItems as defaultChecklistItems } from "@/lib/data";
 import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
 import ChecklistHeader from "@/components/checklist/ChecklistHeader";
 import ChecklistOperatorSelect from "@/components/checklist/ChecklistOperatorSelect";
@@ -24,6 +25,7 @@ import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersB
 import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
 
 const Checklist = () => {
   const { toast } = useToast();
@@ -113,26 +115,37 @@ const Checklist = () => {
   }, []);
 
   useEffect(() => {
-    if (supabaseChecklistItems.length > 0) {
-      const needsUpdate =
-        checklist.length !== supabaseChecklistItems.length ||
-        checklist.some((item, index) => {
-          const supabaseItem = supabaseChecklistItems[index];
-          return !supabaseItem || item.id !== supabaseItem.id;
-        });
+    const sourceItems =
+      supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
 
-      if (needsUpdate && !hasInteractedWithChecklist) {
-        const normalizedChecklist = supabaseChecklistItems.map((item) => ({
-          id: item.id,
-          question: item.question,
-          answer: null,
-          alertOnYes: item.alertOnYes,
-          alertOnNo: item.alertOnNo,
-        }));
-        setChecklist(normalizedChecklist);
-      }
+    const filteredItems = filterChecklistItemsByEquipmentType(
+      sourceItems,
+      selectedEquipment?.type
+    );
+
+    const needsUpdate =
+      checklist.length !== filteredItems.length ||
+      checklist.some((item, index) => {
+        const filteredItem = filteredItems[index];
+        return !filteredItem || item.id !== filteredItem.id;
+      });
+
+    if (needsUpdate && !hasInteractedWithChecklist) {
+      const normalizedChecklist = filteredItems.map((item) => ({
+        id: item.id,
+        question: item.question,
+        answer: null,
+        alertOnYes: item.alertOnYes ?? false,
+        alertOnNo: item.alertOnNo ?? false,
+      }));
+      setChecklist(normalizedChecklist);
     }
-  }, [supabaseChecklistItems, hasInteractedWithChecklist, checklist]);
+  }, [
+    supabaseChecklistItems,
+    selectedEquipment?.type,
+    hasInteractedWithChecklist,
+    checklist,
+  ]);
 
   useEffect(() => {
     if (hasInitializedOperator || operators.length === 0) {
@@ -297,6 +310,10 @@ const Checklist = () => {
   const handleEquipmentSelect = (equipmentId: string) => {
     const equipment = equipments.find(eq => eq.id === equipmentId) || null;
     setSelectedEquipment(equipment);
+    setHasInteractedWithChecklist(false);
+    setHighlightUnanswered(false);
+    setChecklist([]);
+    saveChecklistState({ equipment, checklist: [] });
   };
 
   const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => {
