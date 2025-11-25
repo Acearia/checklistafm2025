@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
   CardContent, 
@@ -16,6 +16,13 @@ import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -59,6 +66,7 @@ const AdminDashboard = () => {
     totalWithoutOS: 0,
   });
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
+  const [sectorFilter, setSectorFilter] = useState<"all" | "with-os" | "without-os">("all");
 
   useEffect(() => {
     if (!loading) {
@@ -298,6 +306,22 @@ const AdminDashboard = () => {
     });
   };
 
+  const filteredSectors = useMemo(() => {
+    switch (sectorFilter) {
+      case "without-os":
+        return sectorSummary.sectors.filter(
+          (sector) => sector.inspectionsWithoutOS > 0
+        );
+      case "with-os":
+        return sectorSummary.sectors.filter(
+          (sector) =>
+            sector.inspectionsWithProblems > sector.inspectionsWithoutOS
+        );
+      default:
+        return sectorSummary.sectors;
+    }
+  }, [sectorSummary.sectors, sectorFilter]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -407,15 +431,38 @@ const AdminDashboard = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Resumo por Setor</CardTitle>
-          <CardDescription>
-            Total de checklists e quantos apresentaram problemas em cada setor
-          </CardDescription>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Resumo por Setor</CardTitle>
+              <CardDescription>
+                Total de checklists e quantos apresentaram problemas em cada setor
+              </CardDescription>
+            </div>
+            <Select
+              value={sectorFilter}
+              onValueChange={(value) =>
+                setSectorFilter(value as "all" | "with-os" | "without-os")
+              }
+            >
+              <SelectTrigger className="w-full bg-white sm:w-60">
+                <SelectValue placeholder="Filtrar setores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os setores</SelectItem>
+                <SelectItem value="without-os">Sem abertura de OS</SelectItem>
+                <SelectItem value="with-os">Com OS registrada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {sectorSummary.sectors.length === 0 ? (
             <p className="text-sm text-gray-600">
               Nenhuma inspeção registrada até o momento.
+            </p>
+          ) : filteredSectors.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhum setor encontrado para o filtro selecionado.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -430,7 +477,7 @@ const AdminDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="text-sm">
-                  {sectorSummary.sectors.map((sector) => {
+                  {filteredSectors.map((sector) => {
                     const percentage =
                       sector.totalInspections === 0
                         ? 0

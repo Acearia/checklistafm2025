@@ -52,6 +52,7 @@ const AdminEquipment = () => {
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
   const itemsPerPage = 10;
   const { toast } = useToast();
+  const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
   
   // Convert Supabase equipment to legacy format
   useEffect(() => {
@@ -65,20 +66,34 @@ const AdminEquipment = () => {
 
   // Filter equipments based on search term
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setDisplayedEquipments(equipments);
-      setCurrentPage(1);
-    } else {
-      const filtered = equipments.filter(eq => 
+    let filtered = equipments;
+    if (searchTerm.trim() !== '') {
+      filtered = filtered.filter(eq => 
         eq.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
         eq.kp.toLowerCase().includes(searchTerm.toLowerCase()) ||
         eq.sector.toLowerCase().includes(searchTerm.toLowerCase()) ||
         eq.capacity.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setDisplayedEquipments(filtered);
-      setCurrentPage(1);
     }
-  }, [searchTerm, equipments]);
+
+    if (osFilter === "with-open") {
+      filtered = filtered.filter((eq) =>
+        maintenanceOrders.some(
+          (order) => order.equipmentId === eq.id && order.status === "open"
+        )
+      );
+    } else if (osFilter === "without-open") {
+      filtered = filtered.filter(
+        (eq) =>
+          !maintenanceOrders.some(
+            (order) => order.equipmentId === eq.id && order.status === "open"
+          )
+      );
+    }
+
+    setDisplayedEquipments(filtered);
+    setCurrentPage(1);
+  }, [searchTerm, equipments, osFilter, maintenanceOrders]);
   
   useEffect(() => {
     const updateOrders = () => {
@@ -363,8 +378,8 @@ const AdminEquipment = () => {
         </div>
       </div>
 
-      <div className="mb-6">
-        <div className="relative">
+      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="relative w-full md:max-w-md">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
           <Input
             type="search"
@@ -373,6 +388,18 @@ const AdminEquipment = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
+        </div>
+        <div className="w-full md:w-60">
+          <Select value={osFilter} onValueChange={(value) => setOsFilter(value as "all" | "with-open" | "without-open")}>
+            <SelectTrigger className="bg-white">
+              <SelectValue placeholder="Filtrar por OS" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os equipamentos</SelectItem>
+              <SelectItem value="with-open">Com OS em andamento</SelectItem>
+              <SelectItem value="without-open">Sem OS em andamento</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
