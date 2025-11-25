@@ -14,6 +14,8 @@ import { CheckCircle, RefreshCw, Users, Building2, Bell } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
+import type { MaintenanceOrder } from "@/lib/types";
 
 const AdminDashboard = () => {
   const { toast } = useToast();
@@ -45,20 +47,41 @@ const AdminDashboard = () => {
       sector: string;
       totalInspections: number;
       inspectionsWithProblems: number;
+      inspectionsWithoutOS: number;
     }[];
     total: number;
     totalWithProblems: number;
+    totalWithoutOS: number;
   }>({
     sectors: [],
     total: 0,
     totalWithProblems: 0,
+    totalWithoutOS: 0,
   });
+  const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
 
   useEffect(() => {
     if (!loading) {
       loadDashboardData();
     }
-  }, [loading, operators, equipment, inspections, sectors, leaders]);
+  }, [loading, operators, equipment, inspections, sectors, leaders, maintenanceOrders]);
+
+  useEffect(() => {
+    const updateOrders = () => {
+      setMaintenanceOrders(loadMaintenanceOrders());
+    };
+    updateOrders();
+    window.addEventListener(
+      "checklistafm-maintenance-orders-updated",
+      updateOrders as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "checklistafm-maintenance-orders-updated",
+        updateOrders as EventListener
+      );
+    };
+  }, []);
 
   const loadDashboardData = () => {
     try {
@@ -174,10 +197,16 @@ const AdminDashboard = () => {
           sector: string;
           totalInspections: number;
           inspectionsWithProblems: number;
+          inspectionsWithoutOS: number;
         }
       >();
 
       let inspectionsWithProblemsTotal = 0;
+      let inspectionsWithoutOSTotal = 0;
+
+      const maintenanceOrdersByInspection = new Set(
+        maintenanceOrders.map((order) => order.inspectionId)
+      );
 
       inspections.forEach((inspection: any) => {
         const equipmentItem =
@@ -209,8 +238,15 @@ const AdminDashboard = () => {
             }
           );
         });
+        const hasOrderForInspection = maintenanceOrdersByInspection.has(
+          inspection.id
+        );
+
         if (hasProblems) {
           inspectionsWithProblemsTotal += 1;
+          if (!hasOrderForInspection) {
+            inspectionsWithoutOSTotal += 1;
+          }
         }
 
         const existing = summaryMap.get(sectorName);
@@ -218,12 +254,17 @@ const AdminDashboard = () => {
           existing.totalInspections += 1;
           if (hasProblems) {
             existing.inspectionsWithProblems += 1;
+            if (!hasOrderForInspection) {
+              existing.inspectionsWithoutOS += 1;
+            }
           }
         } else {
           summaryMap.set(sectorName, {
             sector: sectorName,
             totalInspections: 1,
             inspectionsWithProblems: hasProblems ? 1 : 0,
+            inspectionsWithoutOS:
+              hasProblems && !hasOrderForInspection ? 1 : 0,
           });
         }
       });
@@ -236,6 +277,7 @@ const AdminDashboard = () => {
         sectors: summaryBySector,
         total: inspections.length,
         totalWithProblems: inspectionsWithProblemsTotal,
+        totalWithoutOS: inspectionsWithoutOSTotal,
       });
       
     } catch (error) {
@@ -383,6 +425,7 @@ const AdminDashboard = () => {
                     <th className="pb-2">Setor</th>
                     <th className="pb-2 text-center">Checklists</th>
                     <th className="pb-2 text-center">Com problemas</th>
+                    <th className="pb-2 text-center">Sem abertura de OS</th>
                     <th className="pb-2 text-center">% com problemas</th>
                   </tr>
                 </thead>
@@ -395,10 +438,14 @@ const AdminDashboard = () => {
                             (sector.inspectionsWithProblems /
                               sector.totalInspections) *
                               100
-                          );
+                    );
                     const problemBadgeClass =
                       sector.inspectionsWithProblems > 0
                         ? "bg-red-100 text-red-800"
+                        : "bg-green-100 text-green-800";
+                    const withoutOsBadgeClass =
+                      sector.inspectionsWithoutOS > 0
+                        ? "bg-amber-100 text-amber-800"
                         : "bg-green-100 text-green-800";
 
                     return (
@@ -417,6 +464,13 @@ const AdminDashboard = () => {
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${problemBadgeClass}`}
                           >
                             {sector.inspectionsWithProblems.toLocaleString("pt-BR")}
+                          </span>
+                        </td>
+                        <td className="py-3 text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${withoutOsBadgeClass}`}
+                          >
+                            {sector.inspectionsWithoutOS.toLocaleString("pt-BR")}
                           </span>
                         </td>
                         <td className="py-3 text-center text-xs text-muted-foreground">
@@ -440,6 +494,12 @@ const AdminDashboard = () => {
               Inspeções com problemas:{" "}
               <strong>
                 {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+              </strong>
+            </span>
+            <span>
+              Sem abertura de OS:{" "}
+              <strong>
+                {sectorSummary.totalWithoutOS.toLocaleString("pt-BR")}
               </strong>
             </span>
           </CardFooter>
