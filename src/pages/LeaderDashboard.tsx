@@ -153,6 +153,7 @@ const LeaderDashboard = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [showEquipmentList, setShowEquipmentList] = useState(false);
   const [showOperatorList, setShowOperatorList] = useState(false);
+  const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
   const normalizeSector = (value?: string | null) =>
     value
       ? value
@@ -907,6 +908,14 @@ const LeaderDashboard = () => {
     );
   }, [supabaseEquipment, currentLeader, allowedEquipmentSet]);
 
+  const openOrdersByInspection = useMemo(() => {
+    return new Set(
+      maintenanceOrders
+        .filter((order) => order.status === "open")
+        .map((order) => order.inspectionId)
+    );
+  }, [maintenanceOrders]);
+
   useEffect(() => {
     if (
       selectedEquipmentFilter !== "all" &&
@@ -944,13 +953,28 @@ const LeaderDashboard = () => {
       const dateValue = inspection.submission_date || inspection.inspection_date;
       const inspectionDate = dateValue ? new Date(dateValue) : null;
 
+      const hasOpenOrder = openOrdersByInspection.has(inspection.id);
+      const matchesOsFilter =
+        osFilter === "all" ||
+        (osFilter === "with-open" && hasOpenOrder) ||
+        (osFilter === "without-open" &&
+          inspection.checklist_answers?.some((answer) =>
+            shouldTriggerAlert(
+              answer.question,
+              answer.answer,
+              { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+            )
+          ) &&
+          !hasOpenOrder);
+
       return (
         matchesOperatorFilter &&
         matchesEquipment &&
-        matchesDateFilter(inspectionDate)
+        matchesDateFilter(inspectionDate) &&
+        matchesOsFilter
       );
     });
-  }, [inspections, operatorFilter, selectedEquipmentFilter, matchesDateFilter]);
+  }, [inspections, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection]);
 
   const filteredProblems = useMemo(() => {
     return problemsList.filter((problem) => {
@@ -964,13 +988,20 @@ const LeaderDashboard = () => {
 
       const problemDate = problem.date ? new Date(problem.date) : null;
 
+      const hasOpenOrder = openOrdersByInspection.has(problem.inspectionId);
+      const matchesOsFilter =
+        osFilter === "all" ||
+        (osFilter === "with-open" && hasOpenOrder) ||
+        (osFilter === "without-open" && !hasOpenOrder);
+
       return (
         matchesOperatorFilter &&
         matchesEquipment &&
-        matchesDateFilter(problemDate)
+        matchesDateFilter(problemDate) &&
+        matchesOsFilter
       );
     });
-  }, [problemsList, operatorFilter, selectedEquipmentFilter, matchesDateFilter]);
+  }, [problemsList, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection]);
 
   const filteredStats = useMemo(() => {
     const problemInspectionsCount = new Set(
@@ -2006,6 +2037,20 @@ const LeaderDashboard = () => {
               <SelectItem value="month">Último mês</SelectItem>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">OS:</label>
+          <Select value={osFilter} onValueChange={setOsFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="with-open">Com OS em andamento</SelectItem>
+              <SelectItem value="without-open">Sem OS aberta</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -31,6 +31,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Badge } from "@/components/ui/badge";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
+import type { MaintenanceOrder } from "@/lib/types";
 
 const AdminInspections = () => {
   const { toast } = useToast();
@@ -48,10 +50,29 @@ const AdminInspections = () => {
   const [filterEquipment, setFilterEquipment] = useState<string>("all");
   const [filterOperator, setFilterOperator] = useState<string>("all");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
+  const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
 
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
   }, [equipment]);
+
+  useEffect(() => {
+    const updateOrders = () => {
+      setMaintenanceOrders(loadMaintenanceOrders());
+    };
+    updateOrders();
+    window.addEventListener(
+      "checklistafm-maintenance-orders-updated",
+      updateOrders as EventListener
+    );
+    return () => {
+      window.removeEventListener(
+        "checklistafm-maintenance-orders-updated",
+        updateOrders as EventListener
+      );
+    };
+  }, []);
 
 
   const handleViewDetails = (inspection: any) => {
@@ -66,6 +87,14 @@ const AdminInspections = () => {
       description: "Os dados das inspeções estão sendo exportados para CSV.",
     });
   };
+
+  const openOrdersByInspection = useMemo(() => {
+    return new Set(
+      maintenanceOrders
+        .filter((order) => order.status === "open")
+        .map((order) => order.inspectionId)
+    );
+  }, [maintenanceOrders]);
 
   const processedInspections = useMemo(() => {
     return inspections.map((inspection: any) => {
@@ -97,14 +126,17 @@ const AdminInspections = () => {
       });
       const problemItems = answersWithFlags.filter((answer) => answer.triggersAlert);
 
+      const hasOpenOrder = openOrdersByInspection.has(inspection.id);
+
       return {
         ...inspection,
         checklist_answers: answersWithFlags,
         problemItems,
         problemCount: problemItems.length,
+        hasOpenOrder,
       };
     });
-  }, [inspections]);
+  }, [inspections, openOrdersByInspection]);
 
   const filteredInspections = processedInspections.filter((inspection: any) => {
     const matchesEquipment =
@@ -122,7 +154,14 @@ const AdminInspections = () => {
     const inspectionSector = equipmentItem?.sector || "Sem setor";
     const matchesSector = sectorFilter === "all" || inspectionSector === sectorFilter;
 
-    return matchesEquipment && matchesOperator && matchesSector;
+    const matchesOs =
+      osFilter === "all" ||
+      (osFilter === "with-open" && inspection.hasOpenOrder) ||
+      (osFilter === "without-open" &&
+        inspection.problemCount > 0 &&
+        !inspection.hasOpenOrder);
+
+    return matchesEquipment && matchesOperator && matchesSector && matchesOs;
   });
 
   const sectorSummary = useMemo(() => {
@@ -140,10 +179,12 @@ const AdminInspections = () => {
         sector: string;
         totalInspections: number;
         inspectionsWithProblems: number;
+        inspectionsWithoutOS: number;
       }
     >();
 
     let inspectionsWithProblemsTotal = 0;
+    let inspectionsWithoutOSTotal = 0;
 
     processedInspections.forEach((inspection: any) => {
       const equipmentItem = equipmentById.get(inspection.equipment_id);
@@ -157,6 +198,9 @@ const AdminInspections = () => {
         answers.some((answer) => Boolean(answer?.triggersAlert));
       if (hasProblems) {
         inspectionsWithProblemsTotal += 1;
+        if (!inspection.hasOpenOrder) {
+          inspectionsWithoutOSTotal += 1;
+        }
       }
 
       const existing = summaryMap.get(sectorName);
@@ -164,12 +208,16 @@ const AdminInspections = () => {
         existing.totalInspections += 1;
         if (hasProblems) {
           existing.inspectionsWithProblems += 1;
+          if (!inspection.hasOpenOrder) {
+            existing.inspectionsWithoutOS += 1;
+          }
         }
       } else {
         summaryMap.set(sectorName, {
           sector: sectorName,
           totalInspections: 1,
           inspectionsWithProblems: hasProblems ? 1 : 0,
+          inspectionsWithoutOS: hasProblems && !inspection.hasOpenOrder ? 1 : 0,
         });
       }
     });
@@ -182,6 +230,7 @@ const AdminInspections = () => {
       sectors,
       total: processedInspections.length,
       totalWithProblems: inspectionsWithProblemsTotal,
+      totalWithoutOS: inspectionsWithoutOSTotal,
     };
   }, [processedInspections, equipment]);
 
@@ -226,6 +275,7 @@ const AdminInspections = () => {
                     <TableHead>Setor</TableHead>
                     <TableHead className="text-center">Checklists concluídos</TableHead>
                     <TableHead className="text-center">Com problemas</TableHead>
+                    <TableHead className="text-center">Sem OS</TableHead>
                     <TableHead className="text-center">% com problemas</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -269,6 +319,17 @@ const AdminInspections = () => {
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${problemTagVariant}`}
                           >
                             {sector.inspectionsWithProblems.toLocaleString("pt-BR")}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              sector.inspectionsWithoutOS > 0
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {sector.inspectionsWithoutOS.toLocaleString("pt-BR")}
                           </span>
                         </TableCell>
                         <TableCell className="text-center text-sm text-muted-foreground">
@@ -316,7 +377,7 @@ const AdminInspections = () => {
           <CardDescription>Filtre as inspeções por equipamento ou operador</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium mb-1 block">Equipamento</label>
               <Select 
@@ -355,8 +416,37 @@ const AdminInspections = () => {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Status de OS</label>
+              <Select value={osFilter} onValueChange={(value) => setOsFilter(value as "all" | "with-open" | "without-open")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas as inspeções" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as inspeções</SelectItem>
+                  <SelectItem value="with-open">Com OS em andamento</SelectItem>
+                  <SelectItem value="without-open">Sem OS aberta</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
+        {sectorSummary.sectors.length > 0 && (
+          <CardFooter className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Total de inspeções:{" "}
+              <strong>{sectorSummary.total.toLocaleString("pt-BR")}</strong>
+            </span>
+            <span>
+              Inspeções com problemas:{" "}
+              <strong>{sectorSummary.totalWithProblems.toLocaleString("pt-BR")}</strong>
+            </span>
+            <span>
+              Sem abertura de OS:{" "}
+              <strong>{sectorSummary.totalWithoutOS.toLocaleString("pt-BR")}</strong>
+            </span>
+          </CardFooter>
+        )}
       </Card>
 
       <Card>
@@ -383,6 +473,7 @@ const AdminInspections = () => {
                     <TableHead>KP</TableHead>
                     <TableHead>Operador</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>OS</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -411,6 +502,19 @@ const AdminInspections = () => {
                           <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses}`}>
                             {statusLabel}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          {((inspection as any).problemCount ?? 0) > 0 ? (
+                            (inspection as any).hasOpenOrder ? (
+                              <Badge variant="secondary">OS em andamento</Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-amber-300 text-amber-700">
+                                Sem OS
+                              </Badge>
+                            )
+                          ) : (
+                            <span className="text-xs text-gray-500">N/A</span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 
