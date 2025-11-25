@@ -99,7 +99,6 @@ registerRules(
   { onYes: true }
 );
 
-registerRule("A corrente possui plaqueta de identificação fixada?", { onNo: true });
 registerRule("Os ganchos da corrente possuem sinais de alongamento?", { onYes: true });
 
 const ALERT_ON_NO_KEYWORDS = [
