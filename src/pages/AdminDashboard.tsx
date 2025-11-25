@@ -59,11 +59,13 @@ const AdminDashboard = () => {
     total: number;
     totalWithProblems: number;
     totalWithoutOS: number;
+    totalWithoutProblems: number;
   }>({
     sectors: [],
     total: 0,
     totalWithProblems: 0,
     totalWithoutOS: 0,
+    totalWithoutProblems: 0,
   });
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
   const [sectorFilter, setSectorFilter] = useState<"all" | "with-os" | "without-os">("all");
@@ -286,6 +288,10 @@ const AdminDashboard = () => {
         total: inspections.length,
         totalWithProblems: inspectionsWithProblemsTotal,
         totalWithoutOS: inspectionsWithoutOSTotal,
+        totalWithoutProblems: Math.max(
+          inspections.length - inspectionsWithProblemsTotal,
+          0
+        ),
       });
       
     } catch (error) {
@@ -549,9 +555,9 @@ const AdminDashboard = () => {
               </strong>
             </span>
             <span>
-              Inspeções com OS em andamento:{" "}
+              Inspeções sem problemas:{" "}
               <strong>
-                {sectorSummary.totalWithoutOS.toLocaleString("pt-BR")}
+                {sectorSummary.totalWithoutProblems.toLocaleString("pt-BR")}
               </strong>
             </span>
           </CardFooter>

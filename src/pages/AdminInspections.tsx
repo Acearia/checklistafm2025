@@ -185,6 +185,7 @@ const AdminInspections = () => {
 
     let inspectionsWithProblemsTotal = 0;
     let inspectionsWithoutOSTotal = 0;
+    let inspectionsWithoutProblemsTotal = 0;
 
     processedInspections.forEach((inspection: any) => {
       const equipmentItem = equipmentById.get(inspection.equipment_id);
@@ -201,6 +202,8 @@ const AdminInspections = () => {
         if (!inspection.hasOpenOrder) {
           inspectionsWithoutOSTotal += 1;
         }
+      } else {
+        inspectionsWithoutProblemsTotal += 1;
       }
 
       const existing = summaryMap.get(sectorName);
@@ -231,6 +234,7 @@ const AdminInspections = () => {
       total: processedInspections.length,
       totalWithProblems: inspectionsWithProblemsTotal,
       totalWithoutOS: inspectionsWithoutOSTotal,
+      totalWithoutProblems: inspectionsWithoutProblemsTotal,
     };
   }, [processedInspections, equipment]);
 
@@ -354,6 +358,12 @@ const AdminInspections = () => {
                 Com problemas:{" "}
                 <strong>
                   {sectorSummary.totalWithProblems.toLocaleString("pt-BR")}
+                </strong>
+              </span>
+              <span>
+                Sem problemas:{" "}
+                <strong>
+                  {sectorSummary.totalWithoutProblems.toLocaleString("pt-BR")}
                 </strong>
               </span>
             </div>
