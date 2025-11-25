@@ -275,7 +275,7 @@ const AdminInspections = () => {
                     <TableHead>Setor</TableHead>
                     <TableHead className="text-center">Checklists concluídos</TableHead>
                     <TableHead className="text-center">Com problemas</TableHead>
-                    <TableHead className="text-center">Sem OS</TableHead>
+                    <TableHead className="text-center">Com OS</TableHead>
                     <TableHead className="text-center">% com problemas</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -329,7 +329,7 @@ const AdminInspections = () => {
                                 : "bg-green-100 text-green-800"
                             }`}
                           >
-                            {sector.inspectionsWithoutOS.toLocaleString("pt-BR")}
+                            {(sector.inspectionsWithProblems - sector.inspectionsWithoutOS).toLocaleString("pt-BR")}
                           </span>
                         </TableCell>
                         <TableCell className="text-center text-sm text-muted-foreground">

@@ -315,6 +315,7 @@ const AdminDashboard = () => {
       case "with-os":
         return sectorSummary.sectors.filter(
           (sector) =>
+            sector.inspectionsWithProblems > 0 &&
             sector.inspectionsWithProblems > sector.inspectionsWithoutOS
         );
       default:
@@ -472,7 +473,7 @@ const AdminDashboard = () => {
                     <th className="pb-2">Setor</th>
                     <th className="pb-2 text-center">Checklists</th>
                     <th className="pb-2 text-center">Com problemas</th>
-                    <th className="pb-2 text-center">Sem abertura de OS</th>
+                    <th className="pb-2 text-center">Com OS</th>
                     <th className="pb-2 text-center">% com problemas</th>
                   </tr>
                 </thead>
@@ -515,9 +516,13 @@ const AdminDashboard = () => {
                         </td>
                         <td className="py-3 text-center">
                           <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${withoutOsBadgeClass}`}
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              sector.inspectionsWithProblems > sector.inspectionsWithoutOS
+                                ? "bg-green-100 text-green-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
                           >
-                            {sector.inspectionsWithoutOS.toLocaleString("pt-BR")}
+                            {(sector.inspectionsWithProblems - sector.inspectionsWithoutOS).toLocaleString("pt-BR")}
                           </span>
                         </td>
                         <td className="py-3 text-center text-xs text-muted-foreground">
@@ -544,7 +549,7 @@ const AdminDashboard = () => {
               </strong>
             </span>
             <span>
-              Sem abertura de OS:{" "}
+              Inspeções com OS em andamento:{" "}
               <strong>
                 {sectorSummary.totalWithoutOS.toLocaleString("pt-BR")}
               </strong>
