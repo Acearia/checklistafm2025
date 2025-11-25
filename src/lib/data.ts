@@ -87,7 +87,7 @@ export const checklistItems: ChecklistItem[] = [
   { id: "4", question: "O gancho possui sinais de alongamento?", answer: null, alertOnYes: true, alertOnNo: false },
   { id: "5", question: "Os ganchos da corrente possuem sinais de desgaste?", answer: null, alertOnYes: true, alertOnNo: false },
   { id: "6", question: "As travas de segurança dos ganchos estão funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
-  { id: "7", question: "A corrente possui a plaqueta de identificação instalada?", answer: null, alertOnYes: false, alertOnNo: true },
+  { id: "7", question: "A corrente possui a plaqueta de identificação instalada?", answer: null, alertOnYes: false, alertOnNo: false },
   { id: "8", question: "As polias estão girando sem dificuldades?", answer: null, alertOnYes: false, alertOnNo: true },
   { id: "9", question: "A sinalização sonora funciona durante a movimentação?", answer: null, alertOnYes: false, alertOnNo: true },
   { id: "10", question: "O controle possui botão danificado?", answer: null, alertOnYes: true, alertOnNo: false },
