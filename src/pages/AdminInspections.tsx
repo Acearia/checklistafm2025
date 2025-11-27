@@ -35,6 +35,7 @@ import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Input } from "@/components/ui/input";
 
 const AdminInspections = () => {
   const { toast } = useToast();
