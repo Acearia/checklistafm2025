@@ -33,6 +33,8 @@ import { Badge } from "@/components/ui/badge";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const AdminInspections = () => {
   const { toast } = useToast();
