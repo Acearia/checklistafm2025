@@ -28,6 +28,8 @@ export const normalizeQuestion = (question: string | null | undefined): string =
 const QUESTION_ALERT_RULES = new Map<string, AlertRule>();
 const SKIP_ALERT_QUESTIONS = new Set<string>([
   normalizeQuestion("A corrente possui a plaqueta de identificação instalada?"),
+  normalizeQuestion("A corrente possui plaqueta de identificação instalada?"),
+  normalizeQuestion("Corrente possui plaqueta de identificação instalada?"),
 ]);
 
 const registerRule = (question: string, rule: AlertRule) => {
@@ -132,9 +134,13 @@ export const getAlertRule = (
   question: string,
   existing?: AlertRule
 ): { onYes: boolean; onNo: boolean } => {
+  const normalized = normalizeQuestion(question);
+  if (SKIP_ALERT_QUESTIONS.has(normalized)) {
+    return { onYes: false, onNo: false };
+  }
+
   let onYes = Boolean(existing?.onYes);
   let onNo = Boolean(existing?.onNo);
-  const normalized = normalizeQuestion(question);
 
   const explicitRule = QUESTION_ALERT_RULES.get(normalized);
   if (explicitRule) {
