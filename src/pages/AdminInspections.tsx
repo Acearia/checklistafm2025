@@ -730,14 +730,20 @@ const AdminInspections = () => {
             );
           })()}
           
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Fechar
-            </Button>
-            <Button className="bg-red-700 hover:bg-red-800">
-              <Download className="mr-2 h-4 w-4" />
-              Exportar PDF
-            </Button>
+          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="w-full sm:w-auto"
+              >
+                Fechar
+              </Button>
+              <Button className="bg-red-700 hover:bg-red-800 w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Exportar PDF
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
