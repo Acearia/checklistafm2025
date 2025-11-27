@@ -151,11 +151,16 @@ const AdminInspections = () => {
       inspection.operator_matricula === filterOperator ||
       inspection.operator_id === filterOperator;
 
-    const equipmentItem =
+    const inspectionEquipment =
       inspection.equipment && inspection.equipment.sector
         ? inspection.equipment
         : equipmentById.get(inspection.equipment_id);
-    const inspectionSector = equipmentItem?.sector || "Sem setor";
+    const inspectionOperator = operators.find(
+      (op) =>
+        op.matricula === inspection.operator_matricula ||
+        op.id === inspection.operator_id
+    );
+    const inspectionSector = inspectionEquipment?.sector || "Sem setor";
     const matchesSector = sectorFilter === "all" || inspectionSector === sectorFilter;
 
     const matchesOs =
