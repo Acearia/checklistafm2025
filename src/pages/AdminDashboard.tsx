@@ -666,10 +666,10 @@ const AdminDashboard = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium">
-                          {new Date(inspection.submission_date || inspection.created_at).toLocaleDateString()}
+                          {format(new Date(inspection.submission_date || inspection.created_at), "dd/MM/yyyy", { locale: ptBR })}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(inspection.submission_date || inspection.created_at).toLocaleTimeString()}
+                          {format(new Date(inspection.submission_date || inspection.created_at), "HH:mm", { locale: ptBR })}
                         </div>
                       </div>
                     </div>

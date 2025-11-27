@@ -503,7 +503,7 @@ const AdminInspections = () => {
                     return (
                       <TableRow key={index}>
                         <TableCell>
-                          {new Date(inspection.submission_date || inspection.created_at).toLocaleDateString()}
+                          {format(new Date(inspection.submission_date || inspection.created_at), "dd/MM/yyyy", { locale: ptBR })}
                         </TableCell>
                         <TableCell>{inspectionEquipment?.name || "N/A"}</TableCell>
                         <TableCell>{inspectionEquipment?.kp || "N/A"}</TableCell>
@@ -565,7 +565,7 @@ const AdminInspections = () => {
                     
                     return (
                       <>
-                        Data: {new Date(selectedInspection.submission_date || selectedInspection.created_at).toLocaleDateString()} | 
+                        Data: {format(new Date(selectedInspection.submission_date || selectedInspection.created_at), "dd/MM/yyyy", { locale: ptBR })} | 
                         Equipamento: {inspectionEquipment?.name || selectedInspection.equipment?.name || "N/A"} | 
                         Operador: {inspectionOperator?.name || selectedInspection.operator?.name || "N/A"} | 
                         Alertas: {problemCount}
