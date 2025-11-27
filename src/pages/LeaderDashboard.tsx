@@ -154,6 +154,7 @@ const LeaderDashboard = () => {
   const [showEquipmentList, setShowEquipmentList] = useState(false);
   const [showOperatorList, setShowOperatorList] = useState(false);
   const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const normalizeSector = (value?: string | null) =>
     value
       ? value
@@ -941,6 +942,7 @@ const LeaderDashboard = () => {
     ? maintenanceOrders.some(order => order.equipmentId === maintenanceEquipmentId)
     : false;
   const filteredInspections = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
     return inspections.filter((inspection) => {
       const matchesOperatorFilter =
         operatorFilter === "all" ||
@@ -954,6 +956,12 @@ const LeaderDashboard = () => {
       const inspectionDate = dateValue ? new Date(dateValue) : null;
 
       const hasOpenOrder = openOrdersByInspection.has(inspection.id);
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        inspection.operator.name.toLowerCase().includes(normalizedSearch) ||
+        inspection.operator.matricula.toLowerCase().includes(normalizedSearch) ||
+        inspection.equipment.name.toLowerCase().includes(normalizedSearch) ||
+        inspection.equipment.kp.toLowerCase().includes(normalizedSearch);
       const matchesOsFilter =
         osFilter === "all" ||
         (osFilter === "with-open" && hasOpenOrder) ||
@@ -971,12 +979,14 @@ const LeaderDashboard = () => {
         matchesOperatorFilter &&
         matchesEquipment &&
         matchesDateFilter(inspectionDate) &&
-        matchesOsFilter
+        matchesOsFilter &&
+        matchesSearch
       );
     });
-  }, [inspections, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection]);
+  }, [inspections, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection, searchTerm]);
 
   const filteredProblems = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
     return problemsList.filter((problem) => {
       const matchesOperatorFilter =
         operatorFilter === "all" ||
@@ -989,6 +999,12 @@ const LeaderDashboard = () => {
       const problemDate = problem.date ? new Date(problem.date) : null;
 
       const hasOpenOrder = openOrdersByInspection.has(problem.inspectionId);
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        problem.operator.toLowerCase().includes(normalizedSearch) ||
+        (problem.operatorMatricula || "").toLowerCase().includes(normalizedSearch) ||
+        problem.equipment.toLowerCase().includes(normalizedSearch) ||
+        (problem.equipmentKp || "").toLowerCase().includes(normalizedSearch);
       const matchesOsFilter =
         osFilter === "all" ||
         (osFilter === "with-open" && hasOpenOrder) ||
@@ -998,10 +1014,11 @@ const LeaderDashboard = () => {
         matchesOperatorFilter &&
         matchesEquipment &&
         matchesDateFilter(problemDate) &&
-        matchesOsFilter
+        matchesOsFilter &&
+        matchesSearch
       );
     });
-  }, [problemsList, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection]);
+  }, [problemsList, operatorFilter, selectedEquipmentFilter, matchesDateFilter, osFilter, openOrdersByInspection, searchTerm]);
 
   const filteredStats = useMemo(() => {
     const problemInspectionsCount = new Set(
@@ -1987,7 +2004,17 @@ const LeaderDashboard = () => {
         </CardContent>
       </Card>
 
-  <div className="flex flex-wrap items-center gap-4 mb-4">
+      <div className="flex flex-wrap items-center gap-4 mb-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <label className="text-sm font-medium">Busca:</label>
+          <Input
+            placeholder="Equipamento, KP ou operador"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full sm:w-64"
+          />
+        </div>
+
         <div className="flex items-center gap-2">
           <label className="text-sm font-medium">Operador:</label>
           <Select value={operatorFilter} onValueChange={setOperatorFilter}>

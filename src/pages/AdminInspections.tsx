@@ -54,6 +54,7 @@ const AdminInspections = () => {
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
@@ -163,7 +164,15 @@ const AdminInspections = () => {
         inspection.problemCount > 0 &&
         !inspection.hasOpenOrder);
 
-    return matchesEquipment && matchesOperator && matchesSector && matchesOs;
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      normalizedSearch.length === 0 ||
+      (inspectionEquipment?.name || "").toLowerCase().includes(normalizedSearch) ||
+      (inspectionEquipment?.kp || "").toLowerCase().includes(normalizedSearch) ||
+      (inspectionOperator?.name || "").toLowerCase().includes(normalizedSearch) ||
+      (inspection.operator_matricula || inspection.operator_id || "").toLowerCase().includes(normalizedSearch);
+
+    return matchesEquipment && matchesOperator && matchesSector && matchesOs && matchesSearch;
   });
 
   const sectorSummary = useMemo(() => {
@@ -386,10 +395,18 @@ const AdminInspections = () => {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Filtre as inspeções por equipamento ou operador</CardDescription>
+          <CardDescription>Filtre as inspeções por equipamento, operador ou texto</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Busca rápida</label>
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Equipamento, KP, operador..."
+              />
+            </div>
             <div>
               <label className="text-sm font-medium mb-1 block">Equipamento</label>
               <Select 
@@ -550,7 +567,7 @@ const AdminInspections = () => {
 
       {/* Modal de detalhes */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Detalhes da Inspeção</DialogTitle>
             <DialogDescription>
@@ -579,6 +596,7 @@ const AdminInspections = () => {
             </DialogDescription>
           </DialogHeader>
           
+          <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {selectedInspection && (() => {
             const inspectionOperator = operators.find(
               (op) =>
@@ -729,21 +747,20 @@ const AdminInspections = () => {
               </div>
             );
           })()}
+          </div>
           
-          <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:w-auto">
-              <Button
-                variant="outline"
-                onClick={() => setIsDialogOpen(false)}
-                className="w-full sm:w-auto"
-              >
-                Fechar
-              </Button>
-              <Button className="bg-red-700 hover:bg-red-800 w-full sm:w-auto">
-                <Download className="mr-2 h-4 w-4" />
-                Exportar PDF
-              </Button>
-            </div>
+          <DialogFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Fechar
+            </Button>
+            <Button className="bg-red-700 hover:bg-red-800 w-full sm:w-auto">
+              <Download className="mr-2 h-4 w-4" />
+              Exportar PDF
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
