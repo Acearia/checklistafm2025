@@ -26,6 +26,9 @@ export const normalizeQuestion = (question: string | null | undefined): string =
 };
 
 const QUESTION_ALERT_RULES = new Map<string, AlertRule>();
+const SKIP_ALERT_QUESTIONS = new Set<string>([
+  normalizeQuestion("A corrente possui a plaqueta de identificação instalada?"),
+]);
 
 const registerRule = (question: string, rule: AlertRule) => {
   QUESTION_ALERT_RULES.set(normalizeQuestion(question), rule);
@@ -99,6 +102,7 @@ registerRules(
   { onYes: true }
 );
 
+registerRule("A corrente possui a plaqueta de identificação instalada?", { onNo: false });
 registerRule("Os ganchos da corrente possuem sinais de alongamento?", { onYes: true });
 
 const ALERT_ON_NO_KEYWORDS = [
@@ -156,6 +160,9 @@ export const shouldTriggerAlert = (
   answer: string | null | undefined,
   existing?: AlertRule
 ): boolean => {
+  if (SKIP_ALERT_QUESTIONS.has(normalizeQuestion(question))) {
+    return false;
+  }
   const { onYes, onNo } = getAlertRule(question, existing);
   const normalizedAnswer = normalizeAnswer(answer);
 
