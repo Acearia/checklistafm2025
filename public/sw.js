@@ -1,6 +1,6 @@
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open("checklist-afm-cache-v1").then((cache) =>
+    caches.open(CACHE_NAME).then((cache) =>
       cache.addAll([
         "/",
         "/manifest.webmanifest",
@@ -17,7 +17,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((key) => key !== "checklist-afm-cache-v1")
+          .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key))
       )
     )
@@ -25,9 +25,19 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+const CACHE_NAME = "checklist-afm-cache-v2";
+const API_PATHS = ["/rest/", "/auth/", "/storage/", "/realtime/", "/functions/"];
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || !request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  const { pathname } = new URL(request.url);
+  const isApiRequest = API_PATHS.some((path) => pathname.startsWith(path));
+  if (isApiRequest) {
+    // Nunca cacheia requisições da API Supabase
     return;
   }
 
@@ -39,7 +49,7 @@ self.addEventListener("fetch", (event) => {
       return fetch(request)
         .then((response) => {
           const responseClone = response.clone();
-          caches.open("checklist-afm-cache-v1").then((cache) => {
+          caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseClone).catch(() => {
               // ignore cache put errors
             });
