@@ -278,7 +278,8 @@ const AdminOperators = () => {
       };
 
       if (data.senha && data.senha.trim().length === 4) {
-        updates.senha = data.senha.trim();
+        // Marca para troca obrigatória na próxima entrada
+        updates.senha = `${data.senha.trim()}|RESET`;
       }
 
       await operatorService.update(data.id, updates);

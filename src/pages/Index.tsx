@@ -88,10 +88,12 @@ const Index = () => {
 
     // Verificar senha cadastrada
     const operatorSenhaRaw = (operator as any).senha;
-    const operatorSenha =
+    const operatorSenhaStr =
       operatorSenhaRaw === null || operatorSenhaRaw === undefined
         ? ""
         : String(operatorSenhaRaw).trim();
+    const [operatorSenha, senhaFlag] = operatorSenhaStr.split("|");
+    const requiresReset = (senhaFlag || "").toUpperCase() === "RESET";
     const senhaInformada = senha.trim();
 
     if (!operatorSenha) {
@@ -129,6 +131,22 @@ const Index = () => {
         title: "Senha incorreta",
         description: "Verifique a senha e tente novamente",
         variant: "destructive",
+      });
+      return;
+    }
+
+    if (requiresReset) {
+      console.log(`[LOG] Senha marcada para troca. Solicitando redefinição: ${matricula}`);
+      setValidatedOperator(null);
+      setPasswordError(null);
+      setPasswordSetupOperator(operator);
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSetupError(null);
+      setPasswordSetupDialogOpen(true);
+      toast({
+        title: "Troque sua senha",
+        description: "Defina uma nova senha de 4 dígitos para continuar.",
       });
       return;
     }

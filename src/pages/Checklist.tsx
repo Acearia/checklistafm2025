@@ -302,9 +302,8 @@ const Checklist = () => {
       return;
     }
 
-    const expectedPassword = matchingOperator?.senha
-      ? String(matchingOperator.senha).trim()
-      : "";
+    const rawSenha = matchingOperator?.senha ? String(matchingOperator.senha).trim() : "";
+    const [expectedPassword, senhaFlag] = rawSenha.split("|");
 
     if (!expectedPassword) {
       setOperatorUnlockError("Este operador não possui senha cadastrada. Solicite ao administrador.");
@@ -313,6 +312,12 @@ const Checklist = () => {
 
     if (expectedPassword !== trimmedPassword) {
       setOperatorUnlockError("Senha incorreta. Tente novamente.");
+      return;
+    }
+
+    const requiresReset = (senhaFlag || "").toUpperCase() === "RESET";
+    if (requiresReset) {
+      setOperatorUnlockError("Esta senha requer troca. Use a tela inicial para definir uma nova senha.");
       return;
     }
 
@@ -386,22 +391,75 @@ const Checklist = () => {
     }
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const resizeImageToDataUrl = (file: File, maxSize = 1280): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        const ratio = Math.min(maxSize / width, maxSize / height, 1);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Não foi possível processar a imagem."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Não foi possível gerar a imagem."));
+              return;
+            }
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("Falha ao ler a imagem."));
+            reader.readAsDataURL(blob);
+          },
+          "image/jpeg",
+          0.7
+        );
+      };
+      img.onerror = () => reject(new Error("Falha ao carregar a imagem."));
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
-    
-    Array.from(files).forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setPhotos(prev => [...prev, { id: Date.now().toString(), data: result }]);
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    // Reset the file input to allow selecting the same file again
-    if (event.target) {
-      event.target.value = '';
+
+    const MAX_PHOTOS = 5;
+    if (photos.length >= MAX_PHOTOS) {
+      toast({
+        title: "Limite de fotos atingido",
+        description: `Você pode anexar até ${MAX_PHOTOS} fotos por checklist.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      for (const file of Array.from(files)) {
+        if (photos.length >= MAX_PHOTOS) break;
+        const dataUrl = await resizeImageToDataUrl(file, 1280);
+        setPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, data: dataUrl }]);
+      }
+    } catch (err) {
+      console.error("Erro ao processar foto:", err);
+      toast({
+        title: "Erro ao anexar foto",
+        description: err instanceof Error ? err.message : "Não foi possível adicionar a imagem. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      if (event.target) {
+        event.target.value = "";
+      }
     }
   };
 
@@ -623,7 +681,7 @@ const Checklist = () => {
       console.error('Error saving inspection:', error);
       toast({
         title: "Erro ao salvar",
-        description: "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
         variant: "destructive",
       });
     } finally {
