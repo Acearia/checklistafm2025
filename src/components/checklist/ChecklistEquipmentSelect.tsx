@@ -13,12 +13,16 @@ interface ChecklistEquipmentSelectProps {
   equipments: Equipment[];
   selectedEquipment: Equipment | null;
   onEquipmentSelect: (equipmentId: string) => void;
+  disabled?: boolean;
+  emptyMessage?: string;
 }
 
 const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({ 
   equipments, 
   selectedEquipment, 
-  onEquipmentSelect 
+  onEquipmentSelect,
+  disabled = false,
+  emptyMessage,
 }) => {
   const getEquipmentTypeText = (type: string) => {
     switch (type) {
@@ -32,9 +36,9 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
   return (
     <div className="mb-4 grid grid-cols-1 gap-4">
       <div className="w-full">
-        <Select onValueChange={onEquipmentSelect}>
-          <SelectTrigger className="w-full bg-white">
-            <SelectValue placeholder="Selecione o equipamento" />
+        <Select onValueChange={onEquipmentSelect} disabled={disabled || equipments.length === 0}>
+          <SelectTrigger className="w-full bg-white" disabled={disabled || equipments.length === 0}>
+            <SelectValue placeholder={disabled ? "Selecione o operador primeiro" : "Selecione o equipamento"} />
           </SelectTrigger>
           <SelectContent>
             {equipments.map(equipment => (
@@ -44,6 +48,9 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
             ))}
           </SelectContent>
         </Select>
+        {emptyMessage && equipments.length === 0 && (
+          <p className="mt-2 text-xs text-gray-500">{emptyMessage}</p>
+        )}
       </div>
 
       {selectedEquipment && (

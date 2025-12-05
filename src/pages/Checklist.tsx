@@ -38,6 +38,7 @@ const Checklist = () => {
     refresh
   } = useChecklistData();
 
+  const normalizeText = (value?: string | null) => (value || "").trim().toUpperCase();
   const getOperatorIdentifier = (op: any) => op?.matricula || op?.id || "";
 
   const normalizeOperator = (op: any): Operator => ({
@@ -85,6 +86,12 @@ const Checklist = () => {
         .length,
     [checklist]
   );
+
+  const filteredEquipments = useMemo(() => {
+    const sector = normalizeText(selectedOperator?.setor);
+    if (!sector) return equipments;
+    return equipments.filter((eq) => normalizeText(eq.sector) === sector);
+  }, [equipments, selectedOperator]);
 
   const ordersForSelectedEquipment = useMemo(() => {
     if (!selectedEquipment) return [];
@@ -197,6 +204,19 @@ const Checklist = () => {
       });
     }
   };
+
+  useEffect(() => {
+    if (!selectedEquipment) return;
+
+    const stillAllowed = filteredEquipments.some((eq) => eq.id === selectedEquipment.id);
+    if (!stillAllowed) {
+      setSelectedEquipment(null);
+      setChecklist([]);
+      setHasInteractedWithChecklist(false);
+      setHighlightUnanswered(false);
+      saveChecklistState({ equipment: null, checklist: [] });
+    }
+  }, [filteredEquipments, selectedEquipment]);
 
   useEffect(() => {
     if (!selectedEquipment || ordersForSelectedEquipment.length === 0) {
@@ -665,9 +685,15 @@ const Checklist = () => {
           )}
 
           <ChecklistEquipmentSelect
-            equipments={equipments}
+            equipments={filteredEquipments}
             selectedEquipment={selectedEquipment}
             onEquipmentSelect={handleEquipmentSelect}
+            disabled={!selectedOperator}
+            emptyMessage={
+              selectedOperator
+                ? `Nenhum equipamento disponível para o setor ${selectedOperator.setor ?? ""}.`
+                : "Selecione o operador para listar os equipamentos do setor."
+            }
           />
 
           {selectedEquipment && (
