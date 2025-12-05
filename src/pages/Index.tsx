@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ClipboardCheck, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,15 +27,34 @@ const Index = () => {
   const [senha, setSenha] = useState("");
   const [validatedOperator, setValidatedOperator] = useState<any>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"home" | "leader" | "admin">("home");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const touch = typeof navigator !== "undefined" && navigator.maxTouchPoints > 1;
+    const smallWidth = window.innerWidth < 1024;
+    const isIpad = /iPad|Tablet|Macintosh/.test(ua) && touch;
+    return smallWidth || isIpad;
+  });
   const [passwordSetupDialogOpen, setPasswordSetupDialogOpen] = useState(false);
   const [passwordSetupOperator, setPasswordSetupOperator] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSetupError, setPasswordSetupError] = useState<string | null>(null);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const ua = navigator.userAgent || "";
+      const touch = navigator.maxTouchPoints > 1;
+      const smallWidth = window.innerWidth < 1024;
+      const isIpad = /iPad|Tablet|Macintosh/.test(ua) && touch;
+      setIsMobile(smallWidth || isIpad);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleValidateMatricula = () => {
     if (!matricula.trim()) {
@@ -196,6 +215,97 @@ const Index = () => {
     }
   };
   
+  const HomeCard = (
+    <Card className="bg-white/85 backdrop-blur-md border border-white/50 shadow-lg mt-6">
+      <CardContent className="pt-6 flex flex-col items-center">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao Checklist AFM</h2>
+          <p className="text-gray-600">Sistema de inspeção de equipamentos</p>
+        </div>
+        
+        <div className="w-full space-y-4">
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Matrícula
+              </label>
+              <Input
+                placeholder="Número da matrícula"
+                value={matricula}
+                onChange={(e) => {
+                  setMatricula(e.target.value);
+                  setValidatedOperator(null);
+                  setPasswordError(null);
+                }}
+                className="w-full"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">
+                Senha (4 dígitos)
+              </label>
+              <Input
+                type="password"
+                placeholder="••••"
+                value={senha}
+                maxLength={4}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/\D/g, '');
+                  setSenha(value);
+                  setValidatedOperator(null);
+                  setPasswordError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleValidateMatricula();
+                  }
+                }}
+                className="w-full"
+                disabled={loading}
+              />
+            </div>
+
+            {passwordError && (
+              <p className="text-sm text-red-600 text-center">{passwordError}</p>
+            )}
+
+            <Button 
+              onClick={handleValidateMatricula}
+              variant="outline"
+              disabled={loading || !matricula.trim()}
+              className="w-full"
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Validar
+            </Button>
+          </div>
+
+          {validatedOperator && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm font-medium text-green-900">
+                {validatedOperator.name}
+              </p>
+              <p className="text-xs text-green-700">
+                {validatedOperator.cargo} - {validatedOperator.setor}
+              </p>
+            </div>
+          )}
+
+          <Button 
+            onClick={handleStartChecklist}
+            disabled={!validatedOperator}
+            className="w-full py-8 bg-red-700 hover:bg-red-800 text-white text-lg flex flex-col items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ClipboardCheck size={40} />
+            <span>Iniciar Checklist</span>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div
       className={cn(
@@ -205,10 +315,10 @@ const Index = () => {
     >
       <header className="bg-red-700 text-white px-4 py-3 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <img src={logoUrl} alt="Checklist AFM" className="h-24 w-auto drop-shadow-md" />
+          <img src={logoUrl} alt="Checklist AFM" className="h-16 w-auto md:h-24 drop-shadow-md" />
           <div className="leading-tight text-white">
-            <h1 className="font-extrabold text-3xl tracking-wide">Checklist AFM</h1>
-            <p className="text-base font-semibold uppercase tracking-[0.45em] text-red-100">
+            <h1 className="font-extrabold text-2xl md:text-3xl tracking-wide">Checklist AFM</h1>
+            <p className="text-sm md:text-base font-semibold uppercase tracking-[0.35em] md:tracking-[0.45em] text-red-100">
               Inspeção de Equipamentos
             </p>
           </div>
@@ -222,150 +332,73 @@ const Index = () => {
 
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-3xl mx-auto space-y-4">
+          {isMobile ? (
+            <>
+              {HomeCard}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-gray-600 pt-2">
+                <Link to="/leader/login">
+                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                    Acesso de Líderes
+                  </Button>
+                </Link>
+                <Link to="/admin/login">
+                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                    Acesso Administrativo
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <Tabs defaultValue="home" className="w-full">
+              <TabsList className="grid w-full grid-cols-3 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
+                <TabsTrigger value="home">Início</TabsTrigger>
+                <TabsTrigger value="leader">Líderes</TabsTrigger>
+                <TabsTrigger value="admin">Administrativo</TabsTrigger>
+              </TabsList>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as "home" | "leader" | "admin")}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-3 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
-              <TabsTrigger value="home">Início</TabsTrigger>
-              <TabsTrigger value="leader">Líderes</TabsTrigger>
-              <TabsTrigger value="admin">Administrativo</TabsTrigger>
-            </TabsList>
-          
-            <TabsContent value="home" className="mt-6">
-              <Card className="bg-white/85 backdrop-blur-md border border-white/50 shadow-lg">
-                <CardContent className="pt-6 flex flex-col items-center">
-                  <div className="text-center mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao Checklist AFM</h2>
-                    <p className="text-gray-600">Sistema de inspeção de equipamentos</p>
-                  </div>
-                  
-                  <div className="w-full space-y-4">
-                    {/* Campo de matrícula e senha */}
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">
-                          Matrícula
-                        </label>
-                        <Input
-                          placeholder="Número da matrícula"
-                          value={matricula}
-                          onChange={(e) => {
-                            setMatricula(e.target.value);
-                            setValidatedOperator(null);
-                            setPasswordError(null);
-                          }}
-                          className="w-full"
-                          disabled={loading}
-                        />
-                      </div>
+              <TabsContent value="home" className="mt-6">
+                {HomeCard}
+              </TabsContent>
 
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">
-                          Senha (4 dígitos)
-                        </label>
-                        <Input
-                          type="password"
-                          placeholder="••••"
-                          value={senha}
-                          maxLength={4}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/\D/g, '');
-                            setSenha(value);
-                            setValidatedOperator(null);
-                            setPasswordError(null);
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleValidateMatricula();
-                            }
-                          }}
-                          className="w-full"
-                          disabled={loading}
-                        />
-                      </div>
-
-                      {passwordError && (
-                        <p className="text-sm text-red-600 text-center">{passwordError}</p>
-                      )}
-
-                      <Button 
-                        onClick={handleValidateMatricula}
-                        variant="outline"
-                        disabled={loading || !matricula.trim()}
-                        className="w-full"
-                      >
-                        <Search className="h-4 w-4 mr-2" />
-                        Validar
-                      </Button>
+              <TabsContent value="leader" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área de Líderes</h2>
+                      <p className="text-gray-600 mb-6">Acesse o dashboard de líderes do sistema</p>
                     </div>
+                    
+                    <Link to="/leader/login">
+                      <Button 
+                        className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
+                      >
+                        <span>Dashboard de Líderes</span>
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-                    {/* Informações do operador validado */}
-                    {validatedOperator && (
-                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm font-medium text-green-900">
-                          {validatedOperator.name}
-                        </p>
-                        <p className="text-xs text-green-700">
-                          {validatedOperator.cargo} - {validatedOperator.setor}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Botão Iniciar Checklist */}
-                    <Button 
-                      onClick={handleStartChecklist}
-                      disabled={!validatedOperator}
-                      className="w-full py-8 bg-red-700 hover:bg-red-800 text-white text-lg flex flex-col items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ClipboardCheck size={40} />
-                      <span>Iniciar Checklist</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="leader" className="mt-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Área de Líderes</h2>
-                    <p className="text-gray-600 mb-6">Acesse o dashboard de líderes do sistema</p>
-                  </div>
-                  
-                  <Link to="/leader/login">
-                    <Button 
-                      className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
-                    >
-                      <span>Dashboard de Líderes</span>
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="admin" className="mt-6">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">Área Administrativa</h2>
-                    <p className="text-gray-600 mb-6">Acesse as funções administrativas do sistema</p>
-                  </div>
-                  
-                  <Link to="/admin/login">
-                    <Button
-                      className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
-                    >
-                      <span>Dashboard Administrativo</span>
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="admin" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área Administrativa</h2>
+                      <p className="text-gray-600 mb-6">Acesse as funções administrativas do sistema</p>
+                    </div>
+                    
+                    <Link to="/admin/login">
+                      <Button
+                        className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
+                      >
+                        <span>Dashboard Administrativo</span>
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </div>
 
