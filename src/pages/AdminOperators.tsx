@@ -327,6 +327,25 @@ const AdminOperators = () => {
     }
   };
 
+  const handleResetPassword = async (operator: Operator) => {
+    if (!operator?.id) return;
+    try {
+      await operatorService.update(operator.id, { senha: "0000|RESET" });
+      toast({
+        title: "Senha resetada",
+        description: "Use 0000 no próximo acesso; o operador terá que definir nova senha.",
+      });
+      await refresh();
+    } catch (error) {
+      console.error('Erro ao resetar senha:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível resetar a senha.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const openEditDialog = (operator: Operator) => {
     setCurrentOperator(operator);
     setEditDialogOpen(true);
@@ -426,6 +445,14 @@ const AdminOperators = () => {
                           onClick={() => openEditDialog(operator)}
                         >
                           Editar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mr-2 text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700"
+                          onClick={() => handleResetPassword(operator)}
+                        >
+                          Resetar senha
                         </Button>
                         <Button 
                           variant="outline" 
