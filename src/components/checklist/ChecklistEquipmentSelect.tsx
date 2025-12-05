@@ -43,7 +43,7 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
           <SelectContent>
             {equipments.map(equipment => (
               <SelectItem key={equipment.id} value={equipment.id}>
-                {equipment.name} (KP: {equipment.kp})
+                {equipment.name} (KP: {equipment.kp} • Capacidade: {equipment.capacity})
               </SelectItem>
             ))}
           </SelectContent>
