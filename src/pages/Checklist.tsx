@@ -87,10 +87,17 @@ const Checklist = () => {
     [checklist]
   );
 
+  const getOperatorSectors = (op?: Operator | null) => {
+    const raw = normalizeText(op?.setor);
+    if (!raw) return [];
+    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+  };
+
   const filteredEquipments = useMemo(() => {
-    const sector = normalizeText(selectedOperator?.setor);
-    if (!sector) return equipments;
-    return equipments.filter((eq) => normalizeText(eq.sector) === sector);
+    const sectors = getOperatorSectors(selectedOperator);
+    if (sectors.length === 0) return equipments;
+    const sectorSet = new Set(sectors);
+    return equipments.filter((eq) => sectorSet.has(normalizeText(eq.sector)));
   }, [equipments, selectedOperator]);
 
   const ordersForSelectedEquipment = useMemo(() => {

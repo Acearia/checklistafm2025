@@ -37,6 +37,13 @@ const Index = () => {
     const isIpad = /iPad|Tablet|Macintosh/.test(ua) && touch;
     return smallWidth || isIpad;
   });
+  const operatorSectors = useMemo(() => {
+    const raw = selectedOperator?.setor || "";
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [selectedOperator]);
   const [passwordSetupDialogOpen, setPasswordSetupDialogOpen] = useState(false);
   const [passwordSetupOperator, setPasswordSetupOperator] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -305,11 +312,11 @@ const Index = () => {
               <p className="text-sm font-medium text-green-900">
                 {validatedOperator.name}
               </p>
-              <p className="text-xs text-green-700">
-                {validatedOperator.cargo} - {validatedOperator.setor}
-              </p>
-            </div>
-          )}
+                    <p className="text-xs text-green-700">
+                      {validatedOperator.cargo} {operatorSectors.length > 0 ? `- ${operatorSectors.join(", ")}` : ""}
+                    </p>
+                  </div>
+                )}
 
           <Button 
             onClick={handleStartChecklist}

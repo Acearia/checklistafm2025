@@ -5,13 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Operator } from "@/lib/data";
 import {
   Dialog,
@@ -67,6 +60,7 @@ export function EditOperatorDialog({
 }: EditOperatorDialogProps) {
   // Check if operator exists to avoid null reference errors
   const operatorData = operator || { id: "", name: "", cargo: "", setor: "", senha: "" };
+  const [selectedSectors, setSelectedSectors] = React.useState<string[]>([]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -96,17 +90,39 @@ export function EditOperatorDialog({
     // Ensure name is required and not empty
     if (!values.name.trim()) return;
     
+    const sectorsValue =
+      selectedSectors.length > 0
+        ? selectedSectors.join(", ")
+        : values.setor === NONE_SECTOR_VALUE
+          ? undefined
+          : values.setor;
+
     onEditOperator({
       id: values.id,
       name: values.name,
       cargo: values.cargo,
-      setor: values.setor === NONE_SECTOR_VALUE ? undefined : values.setor,
+      setor: sectorsValue,
       senha: values.senha,
     });
     
     form.reset();
     onOpenChange(false);
   }
+
+  const toggleSector = (name: string) => {
+    setSelectedSectors((prev) =>
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+    );
+  };
+
+  React.useEffect(() => {
+    if (operator?.setor) {
+      const parts = operator.setor.split(",").map((s) => s.trim()).filter(Boolean);
+      setSelectedSectors(parts);
+    } else {
+      setSelectedSectors([]);
+    }
+  }, [operator]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -163,25 +179,26 @@ export function EditOperatorDialog({
               name="setor"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Setor</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value || NONE_SECTOR_VALUE}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um setor" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={NONE_SECTOR_VALUE}>Sem setor definido</SelectItem>
-                      {sectors.map((sector) => (
-                        <SelectItem key={sector.id} value={sector.name}>
-                          {sector.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Setores (selecione um ou mais)</FormLabel>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-auto border rounded-md p-2">
+                    {sectors.length === 0 && (
+                      <p className="text-xs text-gray-500">Nenhum setor cadastrado.</p>
+                    )}
+                    {sectors.map((sector) => (
+                      <label key={sector.id} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={selectedSectors.includes(sector.name)}
+                          onChange={() => toggleSector(sector.name)}
+                        />
+                        <span>{sector.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Se nada for marcado, o operador ficará sem setor.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
