@@ -25,7 +25,7 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-const CACHE_NAME = "checklist-afm-cache-v2";
+const CACHE_NAME = "checklist-afm-cache-v4";
 const API_PATHS = ["/rest/", "/auth/", "/storage/", "/realtime/", "/functions/"];
 
 self.addEventListener("fetch", (event) => {

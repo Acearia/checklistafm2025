@@ -21,8 +21,14 @@ createRoot(document.getElementById("root")!).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch((error) => {
-      console.warn("SW registration failed:", error);
-    });
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+      .catch(() => {})
+      .finally(() => {
+        navigator.serviceWorker.register("/sw.js?v=4").catch((error) => {
+          console.warn("SW registration failed:", error);
+        });
+      });
   });
 }
