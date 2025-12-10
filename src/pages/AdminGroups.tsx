@@ -20,6 +20,7 @@ const AdminGroups = () => {
   const [questionForm, setQuestionForm] = useState({ question: "", alertOnYes: false, alertOnNo: false, order: 0 });
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [expanded, setExpanded] = useState<string[]>([]);
 
   useEffect(() => {
     if (groups.length > 0 && !selectedGroupId) {
@@ -59,6 +60,10 @@ const AdminGroups = () => {
       return { ...g, equipments: eqNames, questions: qs };
     });
   }, [groups, equipmentGroups, equipment, groupQuestions]);
+
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
 
   const handleSaveGroup = async () => {
     if (!groupForm.name.trim()) {
@@ -196,13 +201,27 @@ const AdminGroups = () => {
               <div className="text-sm text-gray-700">
                 <strong>Perguntas:</strong> {g.questions.length}
               </div>
-              <div className="text-xs text-gray-600 line-clamp-3">
-                {g.questions.slice(0, 3).map((q: any) => q.question).join(" · ") || "Nenhuma pergunta"}
-              </div>
               <div className="text-xs text-gray-600">
                 <strong>Equipamentos:</strong>{" "}
                 {g.equipments.length > 0 ? g.equipments.join(", ") : "Nenhum"}
               </div>
+              <div className="text-xs text-gray-700 space-y-1">
+                <strong>Lista de perguntas:</strong>
+                <ul className="list-disc list-inside">
+                  {(expanded.includes(g.id) ? g.questions : g.questions.slice(0, 5)).map((q: any) => (
+                    <li key={q.id}>
+                      {q.question}{" "}
+                      {q.alert_on_yes ? "(Alerta SIM) " : ""}{q.alert_on_no ? "(Alerta NÃO)" : ""}
+                    </li>
+                  ))}
+                  {g.questions.length === 0 && <li className="text-gray-500">Nenhuma pergunta</li>}
+                </ul>
+              </div>
+              {g.questions.length > 5 && (
+                <Button variant="ghost" size="sm" onClick={() => toggleExpand(g.id)}>
+                  {expanded.includes(g.id) ? "Ocultar perguntas" : "Ver todas as perguntas"}
+                </Button>
+              )}
               <Button
                 size="sm"
                 className="w-full mt-2"
