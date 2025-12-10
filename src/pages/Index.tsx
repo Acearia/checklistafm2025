@@ -38,12 +38,12 @@ const Index = () => {
     return smallWidth || isIpad;
   });
   const operatorSectors = useMemo(() => {
-    const raw = selectedOperator?.setor || "";
+    const raw = validatedOperator?.setor || "";
     return raw
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
-  }, [selectedOperator]);
+  }, [validatedOperator]);
   const [passwordSetupDialogOpen, setPasswordSetupDialogOpen] = useState(false);
   const [passwordSetupOperator, setPasswordSetupOperator] = useState<any>(null);
   const [newPassword, setNewPassword] = useState("");
