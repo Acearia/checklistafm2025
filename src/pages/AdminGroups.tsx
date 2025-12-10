@@ -182,42 +182,53 @@ const AdminGroups = () => {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Resumo de grupos existentes</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {summary.length === 0 && <p className="text-sm text-gray-500">Nenhum grupo cadastrado.</p>}
-          {summary.map((g) => (
-            <div key={g.id} className="border rounded-md p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-gray-800">{g.name}</p>
-                  {g.description && <p className="text-sm text-gray-600">{g.description}</p>}
-                </div>
-                <Button size="sm" variant={selectedGroupId === g.id ? "default" : "outline"} onClick={() => setSelectedGroupId(g.id)}>
-                  Editar
-                </Button>
-              </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {summary.map((g) => (
+          <Card key={g.id} className={selectedGroupId === g.id ? "border-red-300 shadow-md" : ""}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center justify-between">
+                <span>{g.name}</span>
+                <Badge variant="outline">{g.equipments.length} eq.</Badge>
+              </CardTitle>
+              {g.description && <p className="text-sm text-gray-600">{g.description}</p>}
+            </CardHeader>
+            <CardContent className="space-y-2">
               <div className="text-sm text-gray-700">
+                <strong>Perguntas:</strong> {g.questions.length}
+              </div>
+              <div className="text-xs text-gray-600 line-clamp-3">
+                {g.questions.slice(0, 3).map((q: any) => q.question).join(" · ") || "Nenhuma pergunta"}
+              </div>
+              <div className="text-xs text-gray-600">
                 <strong>Equipamentos:</strong>{" "}
                 {g.equipments.length > 0 ? g.equipments.join(", ") : "Nenhum"}
               </div>
-              <div className="text-sm text-gray-700">
-                <strong>Perguntas:</strong>
-                <ul className="list-disc list-inside text-gray-700">
-                  {g.questions.length === 0 && <li className="text-gray-500">Nenhuma pergunta</li>}
-                  {g.questions.map((q: any) => (
-                    <li key={q.id}>
-                      {q.question} {q.alert_on_yes ? "(Alerta SIM)" : ""} {q.alert_on_no ? "(Alerta NÃO)" : ""}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <Button
+                size="sm"
+                className="w-full mt-2"
+                variant={selectedGroupId === g.id ? "default" : "outline"}
+                onClick={() => setSelectedGroupId(g.id)}
+              >
+                Editar grupo
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+        <Card
+          className="border-dashed border-2 flex items-center justify-center cursor-pointer hover:border-red-300"
+          onClick={() => {
+            setSelectedGroupId(null);
+            setGroupForm({ name: "", description: "" });
+          }}
+        >
+          <CardContent className="flex flex-col items-center justify-center py-8 space-y-2">
+            <div className="h-10 w-10 rounded-full border border-red-400 text-red-600 flex items-center justify-center text-xl">
+              +
             </div>
-          ))}
-        </CardContent>
-      </Card>
+            <p className="text-sm text-gray-700 text-center">Adicionar novo grupo</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
