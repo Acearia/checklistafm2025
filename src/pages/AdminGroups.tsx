@@ -47,6 +47,19 @@ const AdminGroups = () => {
     [groupQuestions, selectedGroupId],
   );
 
+  const summary = useMemo(() => {
+    return groups.map((g: any) => {
+      const eqIds = equipmentGroups
+        .filter((eg: any) => eg.group_id === g.id)
+        .map((eg: any) => eg.equipment_id);
+      const eqNames = equipment.filter((eq: any) => eqIds.includes(eq.id)).map((eq: any) => eq.name);
+      const qs = groupQuestions
+        .filter((q: any) => q.group_id === g.id)
+        .sort((a: any, b: any) => (a.order_number || 0) - (b.order_number || 0));
+      return { ...g, equipments: eqNames, questions: qs };
+    });
+  }, [groups, equipmentGroups, equipment, groupQuestions]);
+
   const handleSaveGroup = async () => {
     if (!groupForm.name.trim()) {
       toast({ title: "Nome obrigatório", description: "Informe o nome do grupo.", variant: "destructive" });
@@ -168,6 +181,43 @@ const AdminGroups = () => {
           )}
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Resumo de grupos existentes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {summary.length === 0 && <p className="text-sm text-gray-500">Nenhum grupo cadastrado.</p>}
+          {summary.map((g) => (
+            <div key={g.id} className="border rounded-md p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-gray-800">{g.name}</p>
+                  {g.description && <p className="text-sm text-gray-600">{g.description}</p>}
+                </div>
+                <Button size="sm" variant={selectedGroupId === g.id ? "default" : "outline"} onClick={() => setSelectedGroupId(g.id)}>
+                  Editar
+                </Button>
+              </div>
+              <div className="text-sm text-gray-700">
+                <strong>Equipamentos:</strong>{" "}
+                {g.equipments.length > 0 ? g.equipments.join(", ") : "Nenhum"}
+              </div>
+              <div className="text-sm text-gray-700">
+                <strong>Perguntas:</strong>
+                <ul className="list-disc list-inside text-gray-700">
+                  {g.questions.length === 0 && <li className="text-gray-500">Nenhuma pergunta</li>}
+                  {g.questions.map((q: any) => (
+                    <li key={q.id}>
+                      {q.question} {q.alert_on_yes ? "(Alerta SIM)" : ""} {q.alert_on_no ? "(Alerta NÃO)" : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
