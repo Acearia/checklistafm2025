@@ -15,6 +15,7 @@ import AdminLeaders from "./pages/AdminLeaders";
 import AdminSectors from "./pages/AdminSectors";
 import AdminSettings from "./pages/AdminSettings";
 import AdminReports from "./pages/AdminReports";
+import AdminGroups from "./pages/AdminGroups";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
 import ChecklistDetail from "./pages/ChecklistDetail";
@@ -52,6 +53,7 @@ function App() {
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
           <Route path="leaders" element={<AdminLeaders />} />
           <Route path="sectors" element={<AdminSectors />} />
+          <Route path="groups" element={<AdminGroups />} />
           <Route path="checklists/:id" element={<ChecklistDetail />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="reports" element={<AdminReports />} />

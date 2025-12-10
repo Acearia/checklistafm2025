@@ -494,6 +494,15 @@ export const equipmentGroupService = {
     if (error) throw error;
     return data;
   },
+  async setGroupsForGroup(groupId: string, equipmentIds: string[]) {
+    const { error: delError } = await supabase.from("equipment_groups").delete().eq("group_id", groupId);
+    if (delError) throw delError;
+    if (equipmentIds.length === 0) return [];
+    const rows = equipmentIds.map((eid) => ({ equipment_id: eid, group_id: groupId }));
+    const { data, error } = await supabase.from("equipment_groups").insert(rows).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
 // Migration helper - move data from localStorage to Supabase

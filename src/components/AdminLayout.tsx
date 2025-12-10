@@ -130,6 +130,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
               <SidebarLink to="/admin/operators" icon={<User size={20} />} label="Operadores" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
+              <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
              <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relatórios" />
               
