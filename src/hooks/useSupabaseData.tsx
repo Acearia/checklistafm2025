@@ -7,6 +7,10 @@ import {
   sectorService,
   leaderService,
   sectorLeaderAssignmentService,
+  checklistGroupService,
+  groupQuestionService,
+  groupProcedureService,
+  equipmentGroupService,
 } from "@/lib/supabase-service";
 
 const STALE_TIME_MS = 1000 * 60; // 1 minute
@@ -49,6 +53,26 @@ export const useSupabaseData = () => {
         queryFn: () => sectorLeaderAssignmentService.getAll(),
         staleTime: STALE_TIME_MS,
       },
+      {
+        queryKey: ["checklist-groups"],
+        queryFn: () => checklistGroupService.getAll(),
+        staleTime: STALE_TIME_MS * 5,
+      },
+      {
+        queryKey: ["group-questions"],
+        queryFn: () => groupQuestionService.getAll(),
+        staleTime: STALE_TIME_MS * 5,
+      },
+      {
+        queryKey: ["group-procedures"],
+        queryFn: () => groupProcedureService.getAll(),
+        staleTime: STALE_TIME_MS * 5,
+      },
+      {
+        queryKey: ["equipment-groups"],
+        queryFn: () => equipmentGroupService.getAll(),
+        staleTime: STALE_TIME_MS,
+      },
     ],
   });
 
@@ -60,6 +84,10 @@ export const useSupabaseData = () => {
     sectorsQuery,
     leadersQuery,
     sectorLeaderAssignmentsQuery,
+    groupsQuery,
+    groupQuestionsQuery,
+    groupProceduresQuery,
+    equipmentGroupsQuery,
   ] = queryResults;
 
   const loading = queryResults.some((result) => result.isLoading);
@@ -80,6 +108,10 @@ export const useSupabaseData = () => {
     sectors: sectorsQuery.data ?? [],
     leaders: leadersQuery.data ?? [],
     sectorLeaderAssignments: sectorLeaderAssignmentsQuery.data ?? [],
+    groups: groupsQuery.data ?? [],
+    groupQuestions: groupQuestionsQuery.data ?? [],
+    groupProcedures: groupProceduresQuery.data ?? [],
+    equipmentGroups: equipmentGroupsQuery.data ?? [],
     loading,
     error,
     refresh,

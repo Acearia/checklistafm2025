@@ -26,6 +26,30 @@ export interface ChecklistItem {
   alertOnNo?: boolean;
 }
 
+export interface ChecklistGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface GroupQuestion {
+  id: string;
+  group_id: string;
+  question: string;
+  alert_on_yes?: boolean;
+  alert_on_no?: boolean;
+  order_number?: number;
+}
+
+export interface GroupProcedure {
+  id: string;
+  group_id: string;
+  title: string;
+  description?: string | null;
+  procedure_type?: string | null;
+  order_number?: number;
+}
+
 // Conversion functions between legacy and Supabase types
 export const convertSupabaseOperatorToLegacy = (supabaseOperator: any): Operator => ({
   id: supabaseOperator.matricula,

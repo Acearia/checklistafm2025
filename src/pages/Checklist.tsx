@@ -26,6 +26,7 @@ import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
+import type { GroupQuestion } from "@/lib/types-compat";
 
 const Checklist = () => {
   const { toast } = useToast();
@@ -35,6 +36,9 @@ const Checklist = () => {
     equipments,
     checklistItems: supabaseChecklistItems,
     sectors,
+    groups,
+    groupQuestions,
+    equipmentGroups,
     refresh
   } = useChecklistData();
 
@@ -79,6 +83,13 @@ const Checklist = () => {
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
   const [comments, setComments] = useState<string>('');
+
+  const equipmentGroupIds = useMemo(() => {
+    if (!selectedEquipment) return [];
+    return equipmentGroups
+      .filter((eg) => eg.equipment_id === selectedEquipment.id)
+      .map((eg) => eg.group_id);
+  }, [equipmentGroups, selectedEquipment]);
 
   const unansweredCount = useMemo(
     () =>
@@ -129,13 +140,30 @@ const Checklist = () => {
   }, []);
 
   useEffect(() => {
+    const getGroupItems = (groupIds: string[]): ChecklistItem[] => {
+      if (!groupIds || groupIds.length === 0) return [];
+      const relevant = (groupQuestions as GroupQuestion[]).filter((q) => groupIds.includes(q.group_id));
+      return relevant
+        .sort((a, b) => (a.order_number || 0) - (b.order_number || 0))
+        .map((q) => ({
+          id: q.id,
+          question: q.question,
+          alertOnYes: Boolean(q.alert_on_yes),
+          alertOnNo: Boolean(q.alert_on_no),
+          answer: null,
+        }));
+    };
+
     const sourceItems =
       supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
 
-    const filteredItems = filterChecklistItemsByEquipmentType(
-      sourceItems,
-      selectedEquipment?.type ?? selectedEquipment?.name
-    );
+    const groupItems = getGroupItems(equipmentGroupIds);
+    const filteredItems = groupItems.length > 0
+      ? groupItems
+      : filterChecklistItemsByEquipmentType(
+          sourceItems,
+          selectedEquipment?.type ?? selectedEquipment?.name
+        );
 
     const needsUpdate =
       checklist.length !== filteredItems.length ||
@@ -157,6 +185,8 @@ const Checklist = () => {
   }, [
     supabaseChecklistItems,
     selectedEquipment?.type,
+    equipmentGroupIds,
+    groupQuestions,
     hasInteractedWithChecklist,
     checklist,
   ]);

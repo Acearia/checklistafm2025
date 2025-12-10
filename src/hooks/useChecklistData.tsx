@@ -7,6 +7,9 @@ import {
   type Equipment, 
   type ChecklistItem,
   type Sector,
+  type ChecklistGroup,
+  type GroupQuestion,
+  type GroupProcedure,
   convertSupabaseOperatorToLegacy,
   convertSupabaseEquipmentToLegacy,
   convertSupabaseChecklistItemToLegacy
@@ -20,6 +23,10 @@ export const useChecklistData = () => {
     equipment: supabaseEquipments,
     checklistItems: supabaseChecklistItems,
     sectors: supabaseSectors,
+    groups: supabaseGroups,
+    groupQuestions: supabaseGroupQuestions,
+    groupProcedures: supabaseGroupProcedures,
+    equipmentGroups: supabaseEquipmentGroups,
     loading: supabaseLoading,
     error: supabaseError,
     refresh,
@@ -29,6 +36,10 @@ export const useChecklistData = () => {
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [groups, setGroups] = useState<ChecklistGroup[]>([]);
+  const [groupQuestions, setGroupQuestions] = useState<GroupQuestion[]>([]);
+  const [groupProcedures, setGroupProcedures] = useState<GroupProcedure[]>([]);
+  const [equipmentGroups, setEquipmentGroups] = useState<any[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dbConnectionStatus, setDbConnectionStatus] = useState<'unchecked' | 'connected' | 'error'>('connected');
 
@@ -70,6 +81,13 @@ export const useChecklistData = () => {
       setIsLoadingData(false);
     }
   }, [supabaseLoading]);
+
+  useEffect(() => {
+    setGroups(supabaseGroups as ChecklistGroup[]);
+    setGroupQuestions(supabaseGroupQuestions as GroupQuestion[]);
+    setGroupProcedures(supabaseGroupProcedures as GroupProcedure[]);
+    setEquipmentGroups(supabaseEquipmentGroups as any[]);
+  }, [supabaseGroups, supabaseGroupQuestions, supabaseGroupProcedures, supabaseEquipmentGroups]);
 
   // Removed automatic toast on data load - only show in admin area
 
@@ -160,6 +178,10 @@ export const useChecklistData = () => {
     equipments,
     checklistItems,
     sectors,
+    groups,
+    groupQuestions,
+    groupProcedures,
+    equipmentGroups,
     isLoadingData,
     dbConnectionStatus,
     processInitialOperators,

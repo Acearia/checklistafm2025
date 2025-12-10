@@ -13,6 +13,27 @@ export type UpdateLeader = TablesUpdate<"leaders">;
 export type SectorLeaderAssignment = Tables<"sector_leader_assignments">;
 export type SectorLeaderAssignmentInsert = TablesInsert<"sector_leader_assignments">;
 export type SectorLeaderAssignmentUpdate = TablesUpdate<"sector_leader_assignments">;
+export type ChecklistGroup = {
+  id: string;
+  name: string;
+  description?: string | null;
+};
+export type GroupQuestion = {
+  id: string;
+  group_id: string;
+  question: string;
+  alert_on_yes?: boolean;
+  alert_on_no?: boolean;
+  order_number?: number;
+};
+export type GroupProcedure = {
+  id: string;
+  group_id: string;
+  title: string;
+  description?: string | null;
+  procedure_type?: string | null;
+  order_number?: number;
+};
 
 export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
@@ -399,6 +420,80 @@ export const sectorLeaderAssignmentService = {
 
     if (error) throw error;
   }
+};
+
+// Checklist groups
+export const checklistGroupService = {
+  async getAll() {
+    const { data, error } = await supabase.from("checklist_groups").select("*").order("name");
+    if (error) throw error;
+    return data || [];
+  },
+  async create(group: { name: string; description?: string | null }) {
+    const { data, error } = await supabase.from("checklist_groups").insert(group).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: Partial<{ name: string; description?: string | null }>) {
+    const { data, error } = await supabase.from("checklist_groups").update(updates).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase.from("checklist_groups").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
+export const groupQuestionService = {
+  async getAll() {
+    const { data, error } = await supabase.from("group_questions").select("*").order("order_number");
+    if (error) throw error;
+    return data || [];
+  },
+  async upsert(question: Partial<GroupQuestion>) {
+    const { data, error } = await supabase.from("group_questions").upsert(question).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase.from("group_questions").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
+export const groupProcedureService = {
+  async getAll() {
+    const { data, error } = await supabase.from("group_procedures").select("*").order("order_number");
+    if (error) throw error;
+    return data || [];
+  },
+  async upsert(proc: Partial<GroupProcedure>) {
+    const { data, error } = await supabase.from("group_procedures").upsert(proc).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase.from("group_procedures").delete().eq("id", id);
+    if (error) throw error;
+  },
+};
+
+export const equipmentGroupService = {
+  async getAll() {
+    const { data, error } = await supabase.from("equipment_groups").select("*");
+    if (error) throw error;
+    return data || [];
+  },
+  async setGroups(equipmentId: string, groupIds: string[]) {
+    const { error: delError } = await supabase.from("equipment_groups").delete().eq("equipment_id", equipmentId);
+    if (delError) throw delError;
+    if (groupIds.length === 0) return [];
+    const rows = groupIds.map((gid) => ({ equipment_id: equipmentId, group_id: gid }));
+    const { data, error } = await supabase.from("equipment_groups").insert(rows).select();
+    if (error) throw error;
+    return data;
+  },
 };
 
 // Migration helper - move data from localStorage to Supabase
