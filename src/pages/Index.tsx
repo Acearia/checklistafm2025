@@ -199,17 +199,17 @@ const Index = () => {
 
   const handlePasswordSetupSubmit = async () => {
     if (!passwordSetupOperator) {
-      setPasswordSetupError("Operador nÃ£o encontrado.");
+      setPasswordSetupError("Operador não encontrado.");
       return;
     }
 
     if (!newPassword || newPassword.length !== 4) {
-      setPasswordSetupError("A senha deve ter 4 dÃ­gitos.");
+      setPasswordSetupError("A senha deve ter 4 dígitos.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordSetupError("As senhas informadas nÃ£o coincidem.");
+      setPasswordSetupError("As senhas informadas não coincidem.");
       return;
     }
 
@@ -221,7 +221,7 @@ const Index = () => {
 
       toast({
         title: "Senha definida",
-        description: "Senha criada com sucesso. VocÃª jÃ¡ pode iniciar o checklist.",
+        description: "Senha criada com sucesso. Você já pode iniciar o checklist.",
       });
 
       const updatedOperator = {
@@ -237,7 +237,7 @@ const Index = () => {
       handlePasswordSetupDialogChange(false);
     } catch (error) {
       console.error("Erro ao definir senha do operador:", error);
-      setPasswordSetupError("NÃ£o foi possÃ­vel salvar a senha. Tente novamente.");
+      setPasswordSetupError("Não foi possível salvar a senha. Tente novamente.");
     } finally {
       setIsSettingPassword(false);
     }
@@ -256,17 +256,17 @@ const Index = () => {
       <CardContent className="pt-6 flex flex-col items-center">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao Checklist AFM</h2>
-          <p className="text-gray-600">Sistema de inspeÃ§Ã£o de equipamentos</p>
+          <p className="text-gray-600">Sistema de inspeção de equipamentos</p>
         </div>
         
         <div className="w-full space-y-4">
           <div className="space-y-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                MatrÃ­cula
+                Matrícula
               </label>
               <Input
-                placeholder="NÃºmero da matrÃ­cula"
+                placeholder="Número da matrícula"
                 value={matricula}
                 onChange={(e) => {
                   setMatricula(e.target.value);
@@ -280,11 +280,11 @@ const Index = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Senha (4 dÃ­gitos)
+                Senha (4 dígitos)
               </label>
               <Input
                 type="password"
-                placeholder="â€¢â€¢â€¢â€¢"
+                placeholder="••••"
                 value={senha}
                 maxLength={4}
                 onChange={(e) => {
@@ -355,7 +355,7 @@ const Index = () => {
           <div className="leading-tight text-white">
             <h1 className="font-extrabold text-2xl md:text-3xl tracking-wide">Checklist AFM</h1>
             <p className="text-sm md:text-base font-semibold uppercase tracking-[0.35em] md:tracking-[0.45em] text-red-100">
-              InspeÃ§Ã£o de Equipamentos
+              Inspeção de Equipamentos
             </p>
           </div>
         </div>
@@ -374,7 +374,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-gray-600 pt-2">
                 <Link to="/leader/login">
                   <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                    Acesso de LÃ­deres
+                    Acesso de Líderes
                   </Button>
                 </Link>
                 <Link to="/admin/login">
@@ -387,8 +387,8 @@ const Index = () => {
           ) : (
             <Tabs defaultValue="home" className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
-                <TabsTrigger value="home">InÃ­cio</TabsTrigger>
-                <TabsTrigger value="leader">LÃ­deres</TabsTrigger>
+                <TabsTrigger value="home">Início</TabsTrigger>
+                <TabsTrigger value="leader">Líderes</TabsTrigger>
                 <TabsTrigger value="admin">Administrativo</TabsTrigger>
               </TabsList>
 
@@ -400,15 +400,15 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Ãrea de LÃ­deres</h2>
-                      <p className="text-gray-600 mb-6">Acesse o dashboard de lÃ­deres do sistema</p>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área de Líderes</h2>
+                      <p className="text-gray-600 mb-6">Acesse o dashboard de líderes do sistema</p>
                     </div>
                     
                     <Link to="/leader/login">
                       <Button 
                         className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
                       >
-                        <span>Dashboard de LÃ­deres</span>
+                        <span>Dashboard de Líderes</span>
                       </Button>
                     </Link>
                   </CardContent>
@@ -419,8 +419,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Ãrea Administrativa</h2>
-                      <p className="text-gray-600 mb-6">Acesse as funÃ§Ãµes administrativas do sistema</p>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área Administrativa</h2>
+                      <p className="text-gray-600 mb-6">Acesse as funções administrativas do sistema</p>
                     </div>
                     
                     <Link to="/admin/login">
@@ -443,13 +443,13 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Definir senha de acesso</DialogTitle>
             <DialogDescription>
-              Crie uma senha de 4 dÃ­gitos para o operador {passwordSetupOperator?.name || ""}.
+              Crie uma senha de 4 dígitos para o operador {passwordSetupOperator?.name || ""}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Input
               type="password"
-              placeholder="Nova senha (4 dÃ­gitos)"
+              placeholder="Nova senha (4 dígitos)"
               maxLength={4}
               value={newPassword}
               onChange={(e) => {
