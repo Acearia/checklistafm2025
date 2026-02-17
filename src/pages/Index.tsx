@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ClipboardCheck, Search } from "lucide-react";
@@ -15,18 +15,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import SupabaseStatus from "@/components/SupabaseStatus";
-import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { operatorService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistState } from "@/lib/checklistState";
 import logoUrl from "@/assets/afm-logo.png";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
-  const { loading, error, operators, refresh } = useSupabaseData(["operators"]);
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
   const [validatedOperator, setValidatedOperator] = useState<any>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isValidating, setIsValidating] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isMobile, setIsMobile] = useState(() => {
@@ -63,7 +64,7 @@ const Index = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleValidateMatricula = () => {
+  const handleValidateMatricula = async () => {
     if (!matricula.trim()) {
       toast({
         title: "Erro",
@@ -74,103 +75,115 @@ const Index = () => {
     }
 
     console.log(`[LOG] Validando matrícula: ${matricula} com senha`);
-
     const normalizedMatricula = matricula.trim();
-    const operator = operators.find((op) => {
-      const opMatricula = (op as any).matricula ?? op.id;
-      return opMatricula === normalizedMatricula || op.id === normalizedMatricula;
-    });
+    setIsValidating(true);
 
-    if (!operator) {
-      console.log(`[LOG] Matrícula não encontrada: ${matricula}`);
-      setValidatedOperator(null);
-      setPasswordError("Matrícula não encontrada. Verifique o número informado.");
-      toast({
-        title: "Matrícula não encontrada",
-        description: "Verifique o número e tente novamente",
-        variant: "destructive",
-      });
-      return;
-    }
+    try {
+      const operator = await operatorService.getByMatricula(normalizedMatricula);
+      setConnectionError(null);
 
-    // Verificar senha cadastrada
-    const operatorSenhaRaw = (operator as any).senha;
-    const operatorSenhaStr =
-      operatorSenhaRaw === null || operatorSenhaRaw === undefined
-        ? ""
-        : String(operatorSenhaRaw).trim();
-    const [operatorSenha, senhaFlag] = operatorSenhaStr.split("|");
-    const requiresReset = (senhaFlag || "").toUpperCase() === "RESET";
-    const senhaInformada = senha.trim();
+      if (!operator) {
+        console.log(`[LOG] Matrícula não encontrada: ${matricula}`);
+        setValidatedOperator(null);
+        setPasswordError("Matrícula não encontrada. Verifique o número informado.");
+        toast({
+          title: "Matrícula não encontrada",
+          description: "Verifique o número e tente novamente",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (!operatorSenha) {
-      console.log(`[LOG] Operador sem senha cadastrada, solicitando criação: ${matricula}`);
-      setValidatedOperator(null);
+      const operatorSenhaRaw = (operator as any).senha;
+      const operatorSenhaStr =
+        operatorSenhaRaw === null || operatorSenhaRaw === undefined
+          ? ""
+          : String(operatorSenhaRaw).trim();
+      const [operatorSenha, senhaFlag] = operatorSenhaStr.split("|");
+      const requiresReset = (senhaFlag || "").toUpperCase() === "RESET";
+      const senhaInformada = senha.trim();
+
+      if (!operatorSenha) {
+        console.log(`[LOG] Operador sem senha cadastrada, solicitando criação: ${matricula}`);
+        setValidatedOperator(null);
+        setPasswordError(null);
+        setPasswordSetupOperator(operator);
+        setNewPassword("");
+        setConfirmPassword("");
+        setPasswordSetupError(null);
+        setPasswordSetupDialogOpen(true);
+        toast({
+          title: "Defina uma senha",
+          description: "Crie uma senha de 4 dígitos para continuar.",
+        });
+        return;
+      }
+
+      if (!senhaInformada || senhaInformada.length !== 4) {
+        setValidatedOperator(null);
+        setPasswordError("Informe a senha de 4 dígitos para continuar.");
+        toast({
+          title: "Senha obrigatória",
+          description: "Digite a senha de 4 dígitos.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (operatorSenha !== senhaInformada) {
+        console.log(`[LOG] Senha incorreta para matrícula: ${matricula}`);
+        setValidatedOperator(null);
+        setPasswordError("Senha incorreta. Verifique e tente novamente.");
+        toast({
+          title: "Senha incorreta",
+          description: "Verifique a senha e tente novamente",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (requiresReset) {
+        console.log(`[LOG] Senha marcada para troca. Solicitando redefinição: ${matricula}`);
+        setValidatedOperator(null);
+        setPasswordError(null);
+        setPasswordSetupOperator(operator);
+        setNewPassword("");
+        setConfirmPassword("");
+        setPasswordSetupError(null);
+        setPasswordSetupDialogOpen(true);
+        toast({
+          title: "Troque sua senha",
+          description: "Defina uma nova senha de 4 dígitos para continuar.",
+        });
+        return;
+      }
+
+      const operatorMatricula = (operator as any).matricula || operator.id;
+      console.log(`[LOG] Operador encontrado: ${operator.name} (Matrícula: ${operatorMatricula})`);
+      const normalizedOperator = {
+        ...operator,
+        id: operatorMatricula,
+        matricula: operatorMatricula,
+      };
+      setValidatedOperator(normalizedOperator);
       setPasswordError(null);
-      setPasswordSetupOperator(operator);
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordSetupError(null);
-      setPasswordSetupDialogOpen(true);
       toast({
-        title: "Defina uma senha",
-        description: "Crie uma senha de 4 dígitos para continuar.",
+        title: "Matrícula validada",
+        description: `Bem-vindo, ${operator.name}!`,
       });
-      return;
-    }
-
-    if (!senhaInformada || senhaInformada.length !== 4) {
+    } catch (error) {
+      console.error("Erro ao validar matrícula no Supabase:", error);
       setValidatedOperator(null);
-      setPasswordError("Informe a senha de 4 dígitos para continuar.");
+      setPasswordError("Não foi possível validar no banco. Tente novamente.");
+      setConnectionError(error instanceof Error ? error.message : "Erro de conexão com o banco.");
       toast({
-        title: "Senha obrigatória",
-        description: "Digite a senha de 4 dígitos.",
+        title: "Erro de conexão",
+        description: "Não foi possível validar a matrícula no banco.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsValidating(false);
     }
-
-    if (operatorSenha !== senhaInformada) {
-      console.log(`[LOG] Senha incorreta para matrícula: ${matricula}`);
-      setValidatedOperator(null);
-      setPasswordError("Senha incorreta. Verifique e tente novamente.");
-      toast({
-        title: "Senha incorreta",
-        description: "Verifique a senha e tente novamente",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (requiresReset) {
-      console.log(`[LOG] Senha marcada para troca. Solicitando redefinição: ${matricula}`);
-      setValidatedOperator(null);
-      setPasswordError(null);
-      setPasswordSetupOperator(operator);
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordSetupError(null);
-      setPasswordSetupDialogOpen(true);
-      toast({
-        title: "Troque sua senha",
-        description: "Defina uma nova senha de 4 dígitos para continuar.",
-      });
-      return;
-    }
-
-    const operatorMatricula = (operator as any).matricula || operator.id;
-    console.log(`[LOG] Operador encontrado: ${operator.name} (Matrícula: ${operatorMatricula})`);
-    const normalizedOperator = {
-      ...operator,
-      id: operatorMatricula,
-      matricula: operatorMatricula,
-    };
-    setValidatedOperator(normalizedOperator);
-    setPasswordError(null);
-    toast({
-      title: "Matrícula validada",
-      description: `Bem-vindo, ${operator.name}!`,
-    });
   };
 
   const handlePasswordSetupDialogChange = (open: boolean) => {
@@ -186,31 +199,29 @@ const Index = () => {
 
   const handlePasswordSetupSubmit = async () => {
     if (!passwordSetupOperator) {
-      setPasswordSetupError("Operador não encontrado.");
+      setPasswordSetupError("Operador nÃ£o encontrado.");
       return;
     }
 
     if (!newPassword || newPassword.length !== 4) {
-      setPasswordSetupError("A senha deve ter 4 dígitos.");
+      setPasswordSetupError("A senha deve ter 4 dÃ­gitos.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordSetupError("As senhas informadas não coincidem.");
+      setPasswordSetupError("As senhas informadas nÃ£o coincidem.");
       return;
     }
 
     try {
       setIsSettingPassword(true);
-      const { operatorService } = await import("@/lib/supabase-service");
       const operatorMatricula = (passwordSetupOperator as any).matricula ?? passwordSetupOperator.id;
 
       await operatorService.update(operatorMatricula, { senha: newPassword });
-      await refresh();
 
       toast({
         title: "Senha definida",
-        description: "Senha criada com sucesso. Você já pode iniciar o checklist.",
+        description: "Senha criada com sucesso. VocÃª jÃ¡ pode iniciar o checklist.",
       });
 
       const updatedOperator = {
@@ -226,7 +237,7 @@ const Index = () => {
       handlePasswordSetupDialogChange(false);
     } catch (error) {
       console.error("Erro ao definir senha do operador:", error);
-      setPasswordSetupError("Não foi possível salvar a senha. Tente novamente.");
+      setPasswordSetupError("NÃ£o foi possÃ­vel salvar a senha. Tente novamente.");
     } finally {
       setIsSettingPassword(false);
     }
@@ -245,17 +256,17 @@ const Index = () => {
       <CardContent className="pt-6 flex flex-col items-center">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao Checklist AFM</h2>
-          <p className="text-gray-600">Sistema de inspeção de equipamentos</p>
+          <p className="text-gray-600">Sistema de inspeÃ§Ã£o de equipamentos</p>
         </div>
         
         <div className="w-full space-y-4">
           <div className="space-y-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Matrícula
+                MatrÃ­cula
               </label>
               <Input
-                placeholder="Número da matrícula"
+                placeholder="NÃºmero da matrÃ­cula"
                 value={matricula}
                 onChange={(e) => {
                   setMatricula(e.target.value);
@@ -263,17 +274,17 @@ const Index = () => {
                   setPasswordError(null);
                 }}
                 className="w-full"
-                disabled={loading}
+                disabled={isValidating}
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Senha (4 dígitos)
+                Senha (4 dÃ­gitos)
               </label>
               <Input
                 type="password"
-                placeholder="••••"
+                placeholder="â€¢â€¢â€¢â€¢"
                 value={senha}
                 maxLength={4}
                 onChange={(e) => {
@@ -288,7 +299,7 @@ const Index = () => {
                   }
                 }}
                 className="w-full"
-                disabled={loading}
+                disabled={isValidating}
               />
             </div>
 
@@ -299,11 +310,11 @@ const Index = () => {
             <Button 
               onClick={handleValidateMatricula}
               variant="outline"
-              disabled={loading || !matricula.trim()}
+              disabled={isValidating || !matricula.trim()}
               className="w-full"
             >
               <Search className="h-4 w-4 mr-2" />
-              Validar
+              {isValidating ? "Validando..." : "Validar"}
             </Button>
           </div>
 
@@ -344,14 +355,14 @@ const Index = () => {
           <div className="leading-tight text-white">
             <h1 className="font-extrabold text-2xl md:text-3xl tracking-wide">Checklist AFM</h1>
             <p className="text-sm md:text-base font-semibold uppercase tracking-[0.35em] md:tracking-[0.45em] text-red-100">
-              Inspeção de Equipamentos
+              InspeÃ§Ã£o de Equipamentos
             </p>
           </div>
         </div>
         <SupabaseStatus 
-          isConnected={!error && !loading}
-          loading={loading}
-          error={error}
+          isConnected={!connectionError}
+          loading={isValidating}
+          error={connectionError}
         />
       </header>
 
@@ -363,7 +374,7 @@ const Index = () => {
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-gray-600 pt-2">
                 <Link to="/leader/login">
                   <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
-                    Acesso de Líderes
+                    Acesso de LÃ­deres
                   </Button>
                 </Link>
                 <Link to="/admin/login">
@@ -376,8 +387,8 @@ const Index = () => {
           ) : (
             <Tabs defaultValue="home" className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
-                <TabsTrigger value="home">Início</TabsTrigger>
-                <TabsTrigger value="leader">Líderes</TabsTrigger>
+                <TabsTrigger value="home">InÃ­cio</TabsTrigger>
+                <TabsTrigger value="leader">LÃ­deres</TabsTrigger>
                 <TabsTrigger value="admin">Administrativo</TabsTrigger>
               </TabsList>
 
@@ -389,15 +400,15 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área de Líderes</h2>
-                      <p className="text-gray-600 mb-6">Acesse o dashboard de líderes do sistema</p>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Ãrea de LÃ­deres</h2>
+                      <p className="text-gray-600 mb-6">Acesse o dashboard de lÃ­deres do sistema</p>
                     </div>
                     
                     <Link to="/leader/login">
                       <Button 
                         className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
                       >
-                        <span>Dashboard de Líderes</span>
+                        <span>Dashboard de LÃ­deres</span>
                       </Button>
                     </Link>
                   </CardContent>
@@ -408,8 +419,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área Administrativa</h2>
-                      <p className="text-gray-600 mb-6">Acesse as funções administrativas do sistema</p>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Ãrea Administrativa</h2>
+                      <p className="text-gray-600 mb-6">Acesse as funÃ§Ãµes administrativas do sistema</p>
                     </div>
                     
                     <Link to="/admin/login">
@@ -432,13 +443,13 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Definir senha de acesso</DialogTitle>
             <DialogDescription>
-              Crie uma senha de 4 dígitos para o operador {passwordSetupOperator?.name || ""}.
+              Crie uma senha de 4 dÃ­gitos para o operador {passwordSetupOperator?.name || ""}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Input
               type="password"
-              placeholder="Nova senha (4 dígitos)"
+              placeholder="Nova senha (4 dÃ­gitos)"
               maxLength={4}
               value={newPassword}
               onChange={(e) => {

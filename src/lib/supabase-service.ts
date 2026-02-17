@@ -60,6 +60,20 @@ export const operatorService = {
     return data || [];
   },
 
+  async getByMatricula(matricula: string) {
+    const normalizedMatricula = matricula.trim();
+    if (!normalizedMatricula) return null;
+
+    const { data, error } = await supabase
+      .from("operators")
+      .select("*")
+      .eq("matricula", normalizedMatricula)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
   async create(operator: OperatorInsert) {
     const payload: OperatorInsert = {
       ...operator,
