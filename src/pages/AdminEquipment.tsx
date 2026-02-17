@@ -35,7 +35,10 @@ import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersB
 import type { MaintenanceOrder } from "@/lib/types";
 
 const AdminEquipment = () => {
-  const { equipment: supabaseEquipments, sectors, refresh, loading } = useSupabaseData();
+  const { equipment: supabaseEquipments, sectors, refresh, loading } = useSupabaseData([
+    "equipment",
+    "sectors",
+  ]);
   const [equipments, setEquipments] = useState<Equipment[]>([]);
   const [displayedEquipments, setDisplayedEquipments] = useState<Equipment[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);

@@ -22,7 +22,7 @@ import logoUrl from "@/assets/afm-logo.png";
 import { cn } from "@/lib/utils";
 
 const Index = () => {
-  const { loading, error, operators, refresh } = useSupabaseData();
+  const { loading, error, operators, refresh } = useSupabaseData(["operators"]);
   const [matricula, setMatricula] = useState("");
   const [senha, setSenha] = useState("");
   const [validatedOperator, setValidatedOperator] = useState<any>(null);

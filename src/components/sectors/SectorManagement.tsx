@@ -21,7 +21,11 @@ const SectorManagement = () => {
     loading,
     error,
     refresh,
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "sectors",
+    "leaders",
+    "sectorLeaderAssignments",
+  ]);
 
   const [editingSector, setEditingSector] = useState<Sector | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);

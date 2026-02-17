@@ -29,7 +29,11 @@ const AdminLeaders = () => {
     loading,
     error,
     refresh,
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "leaders",
+    "sectors",
+    "sectorLeaderAssignments",
+  ]);
   
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);

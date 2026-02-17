@@ -22,7 +22,7 @@ const LeaderLogin = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { leaders, loading: leadersLoading } = useSupabaseData();
+  const { leaders, loading: leadersLoading } = useSupabaseData(["leaders"]);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [pendingLeaderId, setPendingLeaderId] = useState<string | null>(null);
   const [pendingLeaderName, setPendingLeaderName] = useState<string>("");

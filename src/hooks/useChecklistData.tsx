@@ -30,7 +30,16 @@ export const useChecklistData = () => {
     loading: supabaseLoading,
     error: supabaseError,
     refresh,
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "operators",
+    "equipment",
+    "checklistItems",
+    "sectors",
+    "groups",
+    "groupQuestions",
+    "groupProcedures",
+    "equipmentGroups",
+  ]);
   
   const [operators, setOperators] = useState<Operator[]>([]);
   const [equipments, setEquipments] = useState<Equipment[]>([]);

@@ -37,7 +37,13 @@ const AdminDashboard = () => {
     loading, 
     error, 
     refresh 
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "operators",
+    "equipment",
+    "inspections",
+    "sectors",
+    "leaders",
+  ]);
   
   const [stats, setStats] = useState({
     totalInspections: 0,
@@ -684,4 +690,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-

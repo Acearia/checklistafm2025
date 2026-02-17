@@ -13,7 +13,12 @@ import {
 } from "@/lib/supabase-service";
 
 const AdminGroups = () => {
-  const { groups, groupQuestions, equipment, equipmentGroups, refresh, loading } = useSupabaseData();
+  const { groups, groupQuestions, equipment, equipmentGroups, refresh, loading } = useSupabaseData([
+    "groups",
+    "groupQuestions",
+    "equipment",
+    "equipmentGroups",
+  ]);
   const { toast } = useToast();
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [groupForm, setGroupForm] = useState({ name: "", description: "" });

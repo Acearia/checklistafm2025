@@ -30,7 +30,14 @@ const AdminLeaderDashboard = () => {
     loading,
     error,
     refresh,
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "leaders",
+    "sectors",
+    "sectorLeaderAssignments",
+    "operators",
+    "equipment",
+    "inspections",
+  ]);
 
   // Calculate statistics
   const getLeaderStats = () => {

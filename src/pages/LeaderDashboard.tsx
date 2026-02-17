@@ -123,7 +123,14 @@ const LeaderDashboard = () => {
     loading: supabaseLoading,
     error: supabaseError,
     refresh
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "inspections",
+    "equipment",
+    "operators",
+    "leaders",
+    "sectors",
+    "sectorLeaderAssignments",
+  ]);
   
   // States
   const [loading, setLoading] = useState(true);

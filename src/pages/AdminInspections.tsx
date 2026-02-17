@@ -47,7 +47,11 @@ const AdminInspections = () => {
     loading, 
     error, 
     refresh 
-  } = useSupabaseData();
+  } = useSupabaseData([
+    "inspections",
+    "operators",
+    "equipment",
+  ]);
   
   const [selectedInspection, setSelectedInspection] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -897,6 +901,5 @@ const AdminInspections = () => {
 };
 
 export default AdminInspections;
-
 
 

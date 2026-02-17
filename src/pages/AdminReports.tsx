@@ -13,7 +13,7 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 const AdminReports = () => {
   const [date, setDate] = React.useState<Date | undefined>(new Date());
   const { toast } = useToast();
-  const { inspections, loading } = useSupabaseData();
+  const { inspections, loading } = useSupabaseData(["inspections"]);
 
   const filteredInspections = useMemo(() => {
     if (!date) return inspections;

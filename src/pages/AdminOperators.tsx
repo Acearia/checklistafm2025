@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/pagination";
 
 const AdminOperators = () => {
-  const { operators: supabaseOperators, sectors: supabaseSectors, refresh, loading } = useSupabaseData();
+  const { operators: supabaseOperators, sectors: supabaseSectors, refresh, loading } = useSupabaseData([
+    "operators",
+    "sectors",
+  ]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [displayedOperators, setDisplayedOperators] = useState<Operator[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
