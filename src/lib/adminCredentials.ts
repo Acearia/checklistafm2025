@@ -1,7 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type AdminRole = "admin" | "seguranca";
-export type SystemRole = AdminRole | "investigador";
+type InvestigatorRole = "investigador" | "investigator";
+export type SystemRole = AdminRole | InvestigatorRole;
 
 interface AdminAccountRecord {
   username: string;
@@ -10,7 +11,8 @@ interface AdminAccountRecord {
 }
 
 const ADMIN_TABLE = "admin_users";
-const INVESTIGATOR_ROLE: SystemRole = "investigador";
+const INVESTIGATOR_ROLES: InvestigatorRole[] = ["investigador", "investigator"];
+const PRIMARY_INVESTIGATOR_ROLE: InvestigatorRole = "investigador";
 const LOCAL_ACCOUNTS_STORAGE_KEY = "checklistafm-admin-users-local";
 
 const encodePassword = (value: string): string => {
@@ -27,7 +29,10 @@ const normalizeUsername = (value: string) => value.trim().toLowerCase();
 const isAdminRole = (role: string): role is AdminRole =>
   role === "admin" || role === "seguranca";
 const isSystemRole = (role: string): role is SystemRole =>
-  role === "admin" || role === "seguranca" || role === "investigador";
+  role === "admin" ||
+  role === "seguranca" ||
+  role === "investigador" ||
+  role === "investigator";
 
 const isPrivateHost = (hostname: string) => {
   if (!hostname) return false;
@@ -228,7 +233,7 @@ export const verifyInvestigatorCredentials = async (
     .from(ADMIN_TABLE)
     .select("username, role, password_hash")
     .eq("username", normalized)
-    .eq("role", INVESTIGATOR_ROLE)
+    .in("role", INVESTIGATOR_ROLES)
     .maybeSingle();
 
   if (error || !data) {
@@ -239,12 +244,12 @@ export const verifyInvestigatorCredentials = async (
     const localAuth = verifyLocalCredentials(
       username,
       password,
-      (role) => role === INVESTIGATOR_ROLE,
+      (role) => INVESTIGATOR_ROLES.includes(role as InvestigatorRole),
     );
     if (!localAuth) return null;
     return {
       username: localAuth.username,
-      role: INVESTIGATOR_ROLE,
+      role: PRIMARY_INVESTIGATOR_ROLE,
     };
   }
 
@@ -252,7 +257,7 @@ export const verifyInvestigatorCredentials = async (
 
   return {
     username: data.username,
-    role: INVESTIGATOR_ROLE,
+    role: PRIMARY_INVESTIGATOR_ROLE,
   };
 };
 
@@ -341,13 +346,13 @@ export const listInvestigatorAccounts = async (): Promise<
   const { data, error } = await supabase
     .from(ADMIN_TABLE)
     .select("username, role")
-    .eq("role", INVESTIGATOR_ROLE)
+    .in("role", INVESTIGATOR_ROLES)
     .order("username");
 
   if (!error && data) {
     return data.map((item) => ({
       username: item.username,
-      role: INVESTIGATOR_ROLE,
+      role: PRIMARY_INVESTIGATOR_ROLE,
     }));
   }
 
@@ -356,9 +361,9 @@ export const listInvestigatorAccounts = async (): Promise<
     return [];
   }
 
-  return listLocalAccounts((role) => role === INVESTIGATOR_ROLE).map((item) => ({
+  return listLocalAccounts((role) => INVESTIGATOR_ROLES.includes(role as InvestigatorRole)).map((item) => ({
     username: item.username,
-    role: INVESTIGATOR_ROLE,
+    role: PRIMARY_INVESTIGATOR_ROLE,
   }));
 };
 
@@ -368,23 +373,51 @@ export const upsertInvestigatorAccount = async (
 ): Promise<boolean> => {
   const normalized = normalizeUsername(username);
   if (!normalized) return false;
+  const passwordHash = encodePassword(password);
+
+  const tryUpsert = async (role: InvestigatorRole) =>
+    supabase
+      .from(ADMIN_TABLE)
+      .upsert(
+        [
+          {
+            username: normalized,
+            password_hash: passwordHash,
+            role,
+          },
+        ],
+        { onConflict: "username" },
+      );
+
+  const firstAttempt = await tryUpsert(PRIMARY_INVESTIGATOR_ROLE);
+  if (!firstAttempt.error) return true;
+
+  // Compatibilidade com bancos antigos que usam 'investigator' no CHECK da role.
+  const canRetryWithLegacyRole =
+    String(firstAttempt.error.code || "") === "23514" &&
+    String(firstAttempt.error.message || "").includes("admin_users_role_check");
+
+  if (canRetryWithLegacyRole) {
+    const retry = await tryUpsert("investigator");
+    if (!retry.error) return true;
+    if (!canUseLocalFallback()) {
+      console.error("Erro ao salvar investigador:", retry.error);
+      return false;
+    }
+  } else if (!canUseLocalFallback()) {
+    console.error("Erro ao salvar investigador:", firstAttempt.error);
+    return false;
+  }
+
+  if (!canUseLocalFallback()) {
+    return false;
+  }
 
   const payload = {
     username: normalized,
-    password_hash: encodePassword(password),
-    role: INVESTIGATOR_ROLE,
+    password_hash: passwordHash,
+    role: PRIMARY_INVESTIGATOR_ROLE,
   };
-
-  const { error } = await supabase
-    .from(ADMIN_TABLE)
-    .upsert([payload], { onConflict: "username" });
-
-  if (!error) return true;
-
-  if (!canUseLocalFallback()) {
-    console.error("Erro ao salvar investigador:", error);
-    return false;
-  }
 
   const local = loadLocalAccounts();
   const index = local.findIndex((item) => item.username === normalized);
@@ -404,7 +437,7 @@ export const deleteInvestigatorAccount = async (username: string): Promise<boole
     .from(ADMIN_TABLE)
     .delete()
     .eq("username", normalized)
-    .eq("role", INVESTIGATOR_ROLE);
+    .in("role", INVESTIGATOR_ROLES);
 
   if (!error) return true;
 
@@ -414,7 +447,11 @@ export const deleteInvestigatorAccount = async (username: string): Promise<boole
   }
 
   const local = loadLocalAccounts().filter(
-    (item) => !(item.username === normalized && item.role === INVESTIGATOR_ROLE),
+    (item) =>
+      !(
+        item.username === normalized &&
+        INVESTIGATOR_ROLES.includes(item.role as InvestigatorRole)
+      ),
   );
   saveLocalAccounts(local);
   return true;
