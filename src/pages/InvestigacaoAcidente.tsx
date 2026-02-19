@@ -77,6 +77,7 @@ interface AttachmentMeta {
 }
 
 interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
+  numero_ocorrencia: number;
   id: string;
   created_at: string;
   teve_afastamento: boolean;
@@ -84,6 +85,7 @@ interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
 }
 
 const STORAGE_KEY = "checklistafm-investigacoes-acidente";
+const OCCURRENCE_COUNTER_KEY = "checklistafm-investigacao-ocorrencia-counter";
 const CUSTOM_AGENTES_STORAGE_KEY = "checklistafm-investigacao-agentes-custom";
 const CUSTOM_CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-custom";
 
@@ -398,6 +400,67 @@ const formatFileSize = (bytes: number) => {
   return `${bytes} B`;
 };
 
+const formatDataResumo = (dateValue: string) => {
+  if (!dateValue) return "N/A";
+  const parts = dateValue.split("-");
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    if (year && month && day) {
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) return "N/A";
+  const day = String(parsed.getDate()).padStart(2, "0");
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const year = parsed.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const formatTurnoResumo = (turno: string) => {
+  if (turno === "1o") return "1°";
+  if (turno === "2o") return "2°";
+  if (turno === "3o") return "3°";
+  if (turno === "Geral") return "Geral";
+  return turno || "N/A";
+};
+
+const parseNumeroOcorrencia = (value: unknown) => {
+  const numero = Number(value);
+  if (!Number.isFinite(numero) || numero < 0) return null;
+  return Math.floor(numero);
+};
+
+const formatNumeroOcorrencia = (value: number) => String(value).padStart(3, "0");
+
+const getNextNumeroOcorrencia = (records: InvestigacaoAcidenteRecord[]) => {
+  const counterStorage = parseNumeroOcorrencia(localStorage.getItem(OCCURRENCE_COUNTER_KEY));
+
+  let maxFromRecords = 0;
+  let hasNumeroInRecords = false;
+  records.forEach((record) => {
+    const current = parseNumeroOcorrencia((record as { numero_ocorrencia?: unknown }).numero_ocorrencia);
+    if (current === null) return;
+    hasNumeroInRecords = true;
+    if (current > maxFromRecords) {
+      maxFromRecords = current;
+    }
+  });
+
+  const fallbackFromLength = hasNumeroInRecords ? 0 : records.length;
+
+  if (counterStorage === null && maxFromRecords === 0 && fallbackFromLength === 0) {
+    localStorage.setItem(OCCURRENCE_COUNTER_KEY, "0");
+    return 0;
+  }
+
+  const lastUsed = Math.max(counterStorage ?? 0, maxFromRecords, fallbackFromLength);
+  const next = lastUsed + 1;
+  localStorage.setItem(OCCURRENCE_COUNTER_KEY, String(next));
+  return next;
+};
+
 const InvestigacaoAcidente = () => {
   const { toast } = useToast();
   const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
@@ -411,6 +474,8 @@ const InvestigacaoAcidente = () => {
   const [authPassword, setAuthPassword] = useState("");
   const [loadingInvestigators, setLoadingInvestigators] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
+  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [whatsappResumo, setWhatsappResumo] = useState("");
   const [isSavingColaborador, setIsSavingColaborador] = useState(false);
   const [novoColaboradorMatricula, setNovoColaboradorMatricula] = useState("");
   const [novoColaboradorNome, setNovoColaboradorNome] = useState("");
@@ -631,6 +696,42 @@ const InvestigacaoAcidente = () => {
     setSignDialogOpen(open);
     if (!open) {
       setAuthPassword("");
+    }
+  };
+
+  const handleWhatsappDialogChange = (open: boolean) => {
+    setWhatsappDialogOpen(open);
+  };
+
+  const handleOpenWhatsapp = () => {
+    if (!whatsappResumo.trim()) {
+      toast({
+        title: "Resumo vazio",
+        description: "Nao foi possivel montar o resumo para envio no WhatsApp.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(whatsappResumo)}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  };
+
+  const handleCopyWhatsappResumo = async () => {
+    if (!whatsappResumo.trim()) return;
+    try {
+      await navigator.clipboard.writeText(whatsappResumo);
+      toast({
+        title: "Resumo copiado",
+        description: "Agora e so colar no grupo geral da seguranca.",
+      });
+    } catch (error) {
+      console.error("Erro ao copiar resumo do WhatsApp:", error);
+      toast({
+        title: "Nao foi possivel copiar",
+        description: "Copie o texto manualmente no resumo exibido.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -909,8 +1010,35 @@ const InvestigacaoAcidente = () => {
 
     setIsSaving(true);
     try {
+      const existingRecords = JSON.parse(
+        localStorage.getItem(STORAGE_KEY) || "[]",
+      ) as InvestigacaoAcidenteRecord[];
+
+      const ocorrenciaNumero = getNextNumeroOcorrencia(existingRecords);
+      const nomeNormalizado = form.nome_acidentado.trim().toLocaleLowerCase("pt-BR");
+      const operadorAcidentado = operadoresDisponiveis.find(
+        (operator) => operator.name.toLocaleLowerCase("pt-BR") === nomeNormalizado,
+      );
+      const matriculaAcidentado = operadorAcidentado?.matricula || "Nao informada";
+      const classificacaoFinal = form.natureza_ocorrencia
+        ? `${form.natureza_ocorrencia} ${form.teve_afastamento ? "com afastamento" : "sem afastamento"}!`
+        : "Nao informada";
+
+      const resumoWhatsapp = [
+        "🚨 Comunicado de Ocorrência 🚨",
+        `Ocorrência: ${formatNumeroOcorrencia(ocorrenciaNumero)}`,
+        `Turno: ${formatTurnoResumo(form.turno)}`,
+        `Horário: ${form.hora || "N/A"}`,
+        `Data: ${formatDataResumo(form.data_ocorrencia)}`,
+        `Matrícula: ${matriculaAcidentado}`,
+        `Nome: ${form.nome_acidentado || "N/A"}`,
+        form.descricao_detalhada || "Sem descricao detalhada.",
+        `Classificação: ${classificacaoFinal}`,
+      ].join("\n");
+
       const payload: InvestigacaoAcidenteRecord = {
         ...form,
+        numero_ocorrencia: ocorrenciaNumero,
         teve_afastamento: form.teve_afastamento === true,
         dias_afastamento: form.teve_afastamento === true ? form.dias_afastamento : "",
         id:
@@ -925,10 +1053,6 @@ const InvestigacaoAcidente = () => {
         })),
       };
 
-      const existingRecords = JSON.parse(
-        localStorage.getItem(STORAGE_KEY) || "[]",
-      ) as InvestigacaoAcidenteRecord[];
-
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify([payload, ...existingRecords]),
@@ -940,6 +1064,9 @@ const InvestigacaoAcidente = () => {
         title: "Investigacao enviada",
         description: "Registro salvo com sucesso.",
       });
+
+      setWhatsappResumo(resumoWhatsapp);
+      setWhatsappDialogOpen(true);
 
       setForm(INITIAL_FORM);
       setAttachments([]);
@@ -1763,6 +1890,33 @@ const InvestigacaoAcidente = () => {
               </Button>
               <Button type="button" onClick={handleAdicionarNovaCausa}>
                 Salvar causa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      <Dialog open={whatsappDialogOpen} onOpenChange={handleWhatsappDialogChange}>
+        {whatsappDialogOpen && (
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Ocorrencia finalizada</DialogTitle>
+              <DialogDescription>
+                Resumo pronto para compartilhar no grupo geral da seguranca via WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <Label htmlFor="resumo-whatsapp">Resumo da ocorrencia</Label>
+              <Textarea id="resumo-whatsapp" rows={12} value={whatsappResumo} readOnly />
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleCopyWhatsappResumo}>
+                Copiar resumo
+              </Button>
+              <Button type="button" onClick={handleOpenWhatsapp}>
+                Abrir WhatsApp
               </Button>
             </DialogFooter>
           </DialogContent>
