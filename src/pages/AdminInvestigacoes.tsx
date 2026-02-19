@@ -68,7 +68,67 @@ interface InvestigacaoRecord {
 
 const STORAGE_KEY = "checklistafm-investigacoes-acidente";
 
-const toSafeString = (value: unknown) => (value == null ? "" : String(value));
+const decodePotentialMojibake = (value: string) => {
+  const cp1252ReverseMap: Record<number, number> = {
+    0x20ac: 0x80,
+    0x201a: 0x82,
+    0x0192: 0x83,
+    0x201e: 0x84,
+    0x2026: 0x85,
+    0x2020: 0x86,
+    0x2021: 0x87,
+    0x02c6: 0x88,
+    0x2030: 0x89,
+    0x0160: 0x8a,
+    0x2039: 0x8b,
+    0x0152: 0x8c,
+    0x017d: 0x8e,
+    0x2018: 0x91,
+    0x2019: 0x92,
+    0x201c: 0x93,
+    0x201d: 0x94,
+    0x2022: 0x95,
+    0x2013: 0x96,
+    0x2014: 0x97,
+    0x02dc: 0x98,
+    0x2122: 0x99,
+    0x0161: 0x9a,
+    0x203a: 0x9b,
+    0x0153: 0x9c,
+    0x017e: 0x9e,
+    0x0178: 0x9f,
+  };
+
+  const fixReplacementChars = (input: string) =>
+    input
+      .replace(/EXPEDI\uFFFD+\s*O/gi, "EXPEDIÇÃO")
+      .replace(/N\uFFFDO/gi, "NÃO")
+      .replace(/\uFFFD+/g, "");
+
+  const hasMojibake = /[ÃÂ]/.test(value);
+  const hasReplacement = /\uFFFD/.test(value);
+  if (!hasMojibake && !hasReplacement) return value;
+
+  if (!hasMojibake) {
+    return fixReplacementChars(value);
+  }
+
+  try {
+    const bytes = Uint8Array.from(
+      Array.from(value, (char) => {
+        const codePoint = char.charCodeAt(0);
+        if (codePoint <= 0xff) return codePoint;
+        return cp1252ReverseMap[codePoint] ?? 0x3f;
+      }),
+    );
+    return fixReplacementChars(new TextDecoder("utf-8").decode(bytes));
+  } catch {
+    return fixReplacementChars(value);
+  }
+};
+
+const toSafeString = (value: unknown) =>
+  value == null ? "" : decodePotentialMojibake(String(value));
 
 const formatFileSize = (bytes: number) => {
   if (!Number.isFinite(bytes) || bytes < 0) return "0 B";
@@ -563,79 +623,70 @@ const AdminInvestigacoes = () => {
       </Card>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Detalhes da Investigacao</DialogTitle>
             <DialogDescription>
-              {selected
-                ? `${selected.titulo || "Sem titulo"} - ${formatDateTime(
-                    selected.data_ocorrencia || selected.created_at,
-                    selected.hora,
-                  )}`
-                : ""}
+              {selected && (
+                <div className="text-sm">
+                  Data:{" "}
+                  {formatDateTime(selected.data_ocorrencia || selected.created_at, selected.hora)}{" "}
+                  | Acidentado: {selected.nome_acidentado || "N/A"} | Setor:{" "}
+                  {selected.setor || "N/A"} | Classificacao:{" "}
+                  {selected.natureza_ocorrencia || "N/A"}
+                </div>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           {selected && (
-            <div className="space-y-4 overflow-y-auto pr-1">
-              <div className="grid gap-3 md:grid-cols-2">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Identificacao</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-sm">
-                    <p><strong>Nome:</strong> {selected.nome_acidentado || "N/A"}</p>
-                    <p><strong>Cargo:</strong> {selected.cargo || "N/A"}</p>
-                    <p><strong>Setor:</strong> {selected.setor || "N/A"}</p>
-                    <p><strong>Turno:</strong> {selected.turno || "N/A"}</p>
-                    <p><strong>Tempo empresa:</strong> {selected.tempo_empresa || "N/A"}</p>
-                    <p><strong>Tempo funcao:</strong> {selected.tempo_funcao || "N/A"}</p>
-                  </CardContent>
-                </Card>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="border rounded p-3">
+                  <h3 className="font-medium text-sm mb-1">Identificacao</h3>
+                  <p className="text-sm"><strong>Nome:</strong> {selected.nome_acidentado || "N/A"}</p>
+                  <p className="text-sm"><strong>Cargo:</strong> {selected.cargo || "N/A"}</p>
+                  <p className="text-sm"><strong>Setor:</strong> {selected.setor || "N/A"}</p>
+                  <p className="text-sm"><strong>Turno:</strong> {selected.turno || "N/A"}</p>
+                  <p className="text-sm"><strong>Tempo empresa:</strong> {selected.tempo_empresa || "N/A"}</p>
+                  <p className="text-sm"><strong>Tempo funcao:</strong> {selected.tempo_funcao || "N/A"}</p>
+                </div>
 
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Classificacao</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-sm">
-                    <p><strong>Classificacao:</strong> {selected.natureza_ocorrencia || "N/A"}</p>
-                    <p><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
-                    <p><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
-                    <p><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>
-                    <p><strong>Probabilidade:</strong> {selected.probabilidade || "N/A"}</p>
-                    <p>
-                      <strong>Afastamento:</strong>{" "}
-                      {selected.teve_afastamento
-                        ? `Sim (${selected.dias_afastamento || "0"} dia(s))`
-                        : "Nao"}
-                    </p>
-                  </CardContent>
-                </Card>
+                <div className="border rounded p-3">
+                  <h3 className="font-medium text-sm mb-1">Classificacao</h3>
+                  <p className="text-sm"><strong>Classificacao:</strong> {selected.natureza_ocorrencia || "N/A"}</p>
+                  <p className="text-sm"><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
+                  <p className="text-sm"><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
+                  <p className="text-sm"><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>
+                  <p className="text-sm"><strong>Probabilidade:</strong> {selected.probabilidade || "N/A"}</p>
+                  <p className="text-sm">
+                    <strong>Afastamento:</strong>{" "}
+                    {selected.teve_afastamento ? `Sim (${selected.dias_afastamento || "0"} dia(s))` : "Nao"}
+                  </p>
+                </div>
               </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Analise e relato</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+              <div>
+                <h3 className="font-medium mb-2">Analise e relato</h3>
+                <div className="border p-3 rounded bg-gray-50 space-y-2 text-sm">
                   <p><strong>Parte do corpo:</strong> {selected.parte_corpo_atingida || "N/A"}</p>
                   <p><strong>Causa raiz:</strong> {selected.causa_raiz || "N/A"}</p>
+                  <p><strong>Agente causador:</strong> {selected.agente_causador || "N/A"}</p>
+                  <p><strong>Causa do acidente:</strong> {selected.causa_acidente || "N/A"}</p>
                   <p><strong>Descricao detalhada:</strong></p>
-                  <p className="rounded border bg-gray-50 p-2 whitespace-pre-wrap">
+                  <p className="rounded border bg-white p-2 whitespace-pre-wrap">
                     {selected.descricao_detalhada || "N/A"}
                   </p>
                   <p><strong>Observacoes:</strong></p>
-                  <p className="rounded border bg-gray-50 p-2 whitespace-pre-wrap">
+                  <p className="rounded border bg-white p-2 whitespace-pre-wrap">
                     {selected.observacoes || "N/A"}
                   </p>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Assinatura e anexos</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+              <div>
+                <h3 className="font-medium mb-2">Assinatura e anexos</h3>
+                <div className="border p-3 rounded bg-gray-50 space-y-2 text-sm">
                   <p>
                     <strong>Investigador:</strong> {selected.investigador || "Nao assinado"}
                   </p>
@@ -647,7 +698,7 @@ const AdminInvestigacoes = () => {
                       {selected.attachments.map((file, index) => (
                         <div
                           key={`${file.name}-${index}`}
-                          className="flex items-center justify-between rounded border px-3 py-2"
+                          className="flex items-center justify-between rounded border bg-white px-3 py-2"
                         >
                           <div className="min-w-0">
                             <p className="truncate font-medium">{file.name || `Arquivo ${index + 1}`}</p>
@@ -659,13 +710,13 @@ const AdminInvestigacoes = () => {
                       ))}
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+          <DialogFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <Button variant="outline" onClick={() => setDetailsOpen(false)} className="w-full sm:w-auto">
               Fechar
             </Button>
           </DialogFooter>

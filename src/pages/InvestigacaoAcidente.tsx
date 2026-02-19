@@ -331,8 +331,6 @@ LOCALIZACAO DA LESAO INEXISTENTE
 `.trim().split("\n").map((item) => item.trim()).filter(Boolean);
 
 const decodePotentialMojibake = (value: string) => {
-  if (!/[ÃÂ]/.test(value)) return value;
-
   const cp1252ReverseMap: Record<number, number> = {
     0x20ac: 0x80,
     0x201a: 0x82,
@@ -363,6 +361,20 @@ const decodePotentialMojibake = (value: string) => {
     0x0178: 0x9f,
   };
 
+  const fixReplacementChars = (input: string) =>
+    input
+      .replace(/EXPEDI\uFFFD+\s*O/gi, "EXPEDIÇÃO")
+      .replace(/N\uFFFDO/gi, "NÃO")
+      .replace(/\uFFFD+/g, "");
+
+  const hasMojibake = /[ÃÂ]/.test(value);
+  const hasReplacement = /\uFFFD/.test(value);
+  if (!hasMojibake && !hasReplacement) return value;
+
+  if (!hasMojibake) {
+    return fixReplacementChars(value);
+  }
+
   try {
     const bytes = Uint8Array.from(
       Array.from(value, (char) => {
@@ -371,9 +383,10 @@ const decodePotentialMojibake = (value: string) => {
         return cp1252ReverseMap[codePoint] ?? 0x3f;
       }),
     );
-    return new TextDecoder("utf-8").decode(bytes);
+    const decoded = new TextDecoder("utf-8").decode(bytes);
+    return fixReplacementChars(decoded);
   } catch {
-    return value;
+    return fixReplacementChars(value);
   }
 };
 
