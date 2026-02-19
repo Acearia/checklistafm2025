@@ -1,0 +1,136 @@
+[
+  {
+    "name": "Fernando Dalabona",
+    "email": "fernando.dalabona@afm.com.br",
+    "sectors": ["TRATAMENTO TÉRMICO"],
+    "shift": "default"
+  },
+  {
+    "name": "Renê Simas",
+    "email": "rene.simas@afm.com.br",
+    "sectors": ["SOLDA"],
+    "shift": "default"
+  },
+  {
+    "name": "Lucas Queiroz",
+    "email": "lucas.queiroz@afm.com.br",
+    "sectors": [
+      "REBOLO PENDULAR",
+      "REBARBAÇÃO",
+      "MAÇARICO",
+      "LIXADEIRA MANUAL",
+      "JATEAMENTO",
+      "CORTE",
+      "ACABAMENTO DE PEÇAS"
+    ],
+    "shift": "1T"
+  },
+  {
+    "name": "Vanderson Donato",
+    "email": "vanderson.donato@afm.com.br",
+    "sectors": [
+      "REBOLO PENDULAR",
+      "REBARBAÇÃO",
+      "MAÇARICO",
+      "LIXADEIRA MANUAL",
+      "JATEAMENTO",
+      "CORTE",
+      "ACABAMENTO DE PEÇAS"
+    ],
+    "shift": "2T"
+  },
+  {
+    "name": "Fabrício Dalabona",
+    "email": "fabricio.dalabona@afm.com.br",
+    "sectors": [
+      "TRATAMENTO TÉRMICO",
+      "SOLDA",
+      "REBOLO PENDULAR",
+      "REBARBAÇÃO",
+      "MAÇARICO",
+      "LIXADEIRA MANUAL",
+      "JATEAMENTO",
+      "CORTE",
+      "ACABAMENTO DE PEÇAS"
+    ],
+    "shift": "Supervisor"
+  },
+  {
+    "name": "Rafael Batista",
+    "email": "rafael.batista@afm.com.br",
+    "sectors": [
+      "SUCATA",
+      "FUSÃO"
+    ],
+    "shift": "default"
+  },
+  {
+    "name": "Gilson Castro",
+    "email": "gilson.castro@afm.com.br",
+    "sectors": [
+      "DESMOLDAGEM",
+      "LINHA DE MOLDAGEM E FECHAMENTO",
+      "MACHARIA",
+      "MOLDAGEM",
+      "MOLDES E MACHOS"
+    ],
+    "shift": "1T"
+  },
+  {
+    "name": "Renan Marangoni",
+    "email": "renan.marangoni@afm.com.br",
+    "sectors": [
+      "DESMOLDAGEM",
+      "LINHA DE MOLDAGEM E FECHAMENTO",
+      "MACHARIA",
+      "MOLDAGEM",
+      "MOLDES E MACHOS"
+    ],
+    "shift": "2T"
+  },
+  {
+    "name": "Carlos Zimmermann",
+    "email": "carlos.zimmermann@afm.com.br",
+    "sectors": [
+      "DESMOLDAGEM",
+      "LINHA DE MOLDAGEM E FECHAMENTO",
+      "MACHARIA",
+      "MOLDAGEM",
+      "MOLDES E MACHOS"
+    ],
+    "shift": "Supervisor"
+  },
+  {
+    "name": "Felipe Gayo",
+    "email": "felipe.gayo@afm.com.br",
+    "sectors": ["ALMOXARIFADO"],
+    "shift": "default"
+  },
+  {
+    "name": "Bruno Rech",
+    "email": "bruno.rech@afm.com.br",
+    "sectors": ["LOGÍSTICA INTERNA"],
+    "shift": "default"
+  },
+  {
+    "name": "Elbert Ferreira",
+    "email": "elbert.ferreira@afm.com.br",
+    "sectors": [
+      "EXPEDIÇÃO",
+      "CQF"
+    ],
+    "shift": "default"
+  },
+  {
+    "name": "Ivan Kraisch",
+    "email": "ivan.kraisch@afm.com.br",
+    "sectors": ["MANUTENÇÃO"],
+    "shift": "default"
+  },
+  {
+    "name": "Guilherme Lencke",
+    "email": "guilherme.lencke@afm.com.br",
+    "sectors": ["USINAGEM"],
+    "shift": "default"
+  }
+]
