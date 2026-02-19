@@ -49,6 +49,7 @@ interface InvestigacaoRecord {
   setor: string;
   tempo_empresa: string;
   tempo_funcao: string;
+  natureza_ocorrencia: string;
   mao_de_obra: string;
   tipo_acidente: string;
   teve_afastamento: boolean;
@@ -109,6 +110,7 @@ const parseInvestigacoes = (): InvestigacaoRecord[] => {
           setor: toSafeString(item.setor),
           tempo_empresa: toSafeString(item.tempo_empresa),
           tempo_funcao: toSafeString(item.tempo_funcao),
+          natureza_ocorrencia: toSafeString(item.natureza_ocorrencia),
           mao_de_obra: toSafeString(item.mao_de_obra),
           tipo_acidente: toSafeString(item.tipo_acidente),
           teve_afastamento: Boolean(item.teve_afastamento),
@@ -303,6 +305,7 @@ const AdminInvestigacoes = () => {
       "titulo",
       "acidentado",
       "setor",
+      "natureza_ocorrencia",
       "tipo_acidente",
       "gravidade",
       "probabilidade",
@@ -322,6 +325,7 @@ const AdminInvestigacoes = () => {
         item.titulo,
         item.nome_acidentado,
         item.setor,
+        item.natureza_ocorrencia,
         item.tipo_acidente,
         item.gravidade,
         item.probabilidade,
@@ -512,6 +516,7 @@ const AdminInvestigacoes = () => {
                     <TableHead>Titulo</TableHead>
                     <TableHead>Acidentado</TableHead>
                     <TableHead>Setor</TableHead>
+                    <TableHead>Classificacao</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Gravidade</TableHead>
                     <TableHead>Assinatura</TableHead>
@@ -526,6 +531,7 @@ const AdminInvestigacoes = () => {
                       <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
                       <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
                       <TableCell>{item.setor || "N/A"}</TableCell>
+                      <TableCell>{item.natureza_ocorrencia || "N/A"}</TableCell>
                       <TableCell>{item.tipo_acidente || "N/A"}</TableCell>
                       <TableCell>
                         <Badge
@@ -592,6 +598,7 @@ const AdminInvestigacoes = () => {
                     <CardTitle className="text-base">Classificacao</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1 text-sm">
+                    <p><strong>Classificacao:</strong> {selected.natureza_ocorrencia || "N/A"}</p>
                     <p><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
                     <p><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
                     <p><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>

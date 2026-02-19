@@ -29,7 +29,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -40,6 +39,7 @@ import {
 
 type MaoDeObra = "Direta" | "Indireta";
 type TipoAcidente = "Tipico" | "Trajeto" | "Terceiros" | "Danos Morais" | "Ambiental";
+type NaturezaOcorrencia = "Incidente" | "Acidente";
 type Gravidade = "Minima" | "Mediana" | "Consideravel" | "Critica";
 type Probabilidade = "Improvavel" | "Pouco Provavel" | "Provavel" | "Altamente Provavel";
 type Turno = "1o" | "2o" | "3o" | "Geral";
@@ -54,9 +54,10 @@ interface InvestigacaoAcidenteForm {
   setor: string;
   tempo_empresa: string;
   tempo_funcao: string;
+  natureza_ocorrencia: NaturezaOcorrencia | "";
   mao_de_obra: MaoDeObra | "";
   tipo_acidente: TipoAcidente | "";
-  teve_afastamento: boolean;
+  teve_afastamento: boolean | null;
   dias_afastamento: string;
   gravidade: Gravidade | "";
   probabilidade: Probabilidade | "";
@@ -78,6 +79,7 @@ interface AttachmentMeta {
 interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
   id: string;
   created_at: string;
+  teve_afastamento: boolean;
   attachments: AttachmentMeta[];
 }
 
@@ -370,9 +372,10 @@ const INITIAL_FORM: InvestigacaoAcidenteForm = {
   setor: "",
   tempo_empresa: "",
   tempo_funcao: "",
+  natureza_ocorrencia: "",
   mao_de_obra: "",
   tipo_acidente: "",
-  teve_afastamento: false,
+  teve_afastamento: null,
   dias_afastamento: "",
   gravidade: "",
   probabilidade: "",
@@ -645,11 +648,15 @@ const InvestigacaoAcidente = () => {
     [form],
   );
 
-  const isClassificationComplete = Boolean(form.mao_de_obra && form.tipo_acidente);
+  const isClassificationComplete = Boolean(
+    form.natureza_ocorrencia && form.mao_de_obra && form.tipo_acidente,
+  );
+  const hasAfastamentoSelection = form.teve_afastamento !== null;
   const isRiskComplete = Boolean(form.gravidade && form.probabilidade);
   const isAfastamentoComplete =
-    !form.teve_afastamento ||
-    (Boolean(form.dias_afastamento.trim()) && Number(form.dias_afastamento) > 0);
+    hasAfastamentoSelection &&
+    (form.teve_afastamento !== true ||
+      (Boolean(form.dias_afastamento.trim()) && Number(form.dias_afastamento) > 0));
   const isSigned = Boolean(form.investigador.trim());
   const hasAttachments = attachments.length > 0;
 
@@ -676,6 +683,9 @@ const InvestigacaoAcidente = () => {
     if (!isRiskComplete) {
       return "Complete a analise de risco.";
     }
+    if (!hasAfastamentoSelection) {
+      return "Informe se houve afastamento.";
+    }
     if (!isAfastamentoComplete) {
       return "Informe dias validos no afastamento.";
     }
@@ -688,6 +698,7 @@ const InvestigacaoAcidente = () => {
     return null;
   }, [
     hasAttachments,
+    hasAfastamentoSelection,
     isAfastamentoComplete,
     isClassificationComplete,
     isRiskComplete,
@@ -702,11 +713,21 @@ const InvestigacaoAcidente = () => {
       }
     }
 
-    if (!form.mao_de_obra || !form.tipo_acidente || !form.gravidade || !form.probabilidade) {
+    if (
+      !form.natureza_ocorrencia ||
+      !form.mao_de_obra ||
+      !form.tipo_acidente ||
+      !form.gravidade ||
+      !form.probabilidade
+    ) {
       return "Preencha todos os campos de classificacao e analise de risco.";
     }
 
-    if (form.teve_afastamento) {
+    if (form.teve_afastamento === null) {
+      return "Informe se houve afastamento.";
+    }
+
+    if (form.teve_afastamento === true) {
       const dias = Number(form.dias_afastamento);
       if (!form.dias_afastamento.trim() || Number.isNaN(dias) || dias <= 0) {
         return "Informe os dias de afastamento quando houver afastamento.";
@@ -890,7 +911,8 @@ const InvestigacaoAcidente = () => {
     try {
       const payload: InvestigacaoAcidenteRecord = {
         ...form,
-        dias_afastamento: form.teve_afastamento ? form.dias_afastamento : "",
+        teve_afastamento: form.teve_afastamento === true,
+        dias_afastamento: form.teve_afastamento === true ? form.dias_afastamento : "",
         id:
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
@@ -1157,7 +1179,25 @@ const InvestigacaoAcidente = () => {
             <CardTitle>Classificacao</CardTitle>
             <CardDescription>Caracteristicas do acidente e afastamento.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 md:grid-cols-4">
+            <div className="space-y-2">
+              <Label>Incidente ou acidente *</Label>
+              <Select
+                value={form.natureza_ocorrencia || undefined}
+                onValueChange={(value) =>
+                  updateField("natureza_ocorrencia", value as NaturezaOcorrencia)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Incidente">Incidente</SelectItem>
+                  <SelectItem value="Acidente">Acidente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label>Mao de obra *</Label>
               <Select
@@ -1194,19 +1234,34 @@ const InvestigacaoAcidente = () => {
             </div>
 
             <div className="space-y-2">
-              <Label>Afastamento</Label>
-              <div className="flex items-center justify-between rounded-md border px-3 py-2">
-                <span className="text-sm text-gray-700">
-                  {form.teve_afastamento ? "Com afastamento" : "Sem afastamento"}
-                </span>
-                <Switch
-                  checked={form.teve_afastamento}
-                  onCheckedChange={(checked) => updateField("teve_afastamento", checked)}
-                />
-              </div>
+              <Label>Afastamento *</Label>
+              <Select
+                value={
+                  form.teve_afastamento === null
+                    ? undefined
+                    : form.teve_afastamento
+                      ? "sim"
+                      : "nao"
+                }
+                onValueChange={(value) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    teve_afastamento: value === "sim",
+                    dias_afastamento: value === "sim" ? prev.dias_afastamento : "",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sim">Sim</SelectItem>
+                  <SelectItem value="nao">Nao</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {form.teve_afastamento && (
+            {form.teve_afastamento === true && (
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="dias_afastamento">Dias de afastamento *</Label>
                 <Input
