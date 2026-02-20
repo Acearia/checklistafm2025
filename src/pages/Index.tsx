@@ -376,15 +376,21 @@ const Index = () => {
                     Investigação de Acidente
                   </Button>
                 </Link>
+                <Link to="/regras-de-ouro">
+                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                    Regras de Ouro
+                  </Button>
+                </Link>
               </div>
             </>
           ) : (
             <Tabs defaultValue="home" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
+              <TabsList className="grid w-full grid-cols-5 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
                 <TabsTrigger value="home">Início</TabsTrigger>
                 <TabsTrigger value="leader">Líderes</TabsTrigger>
                 <TabsTrigger value="admin">Administrativo</TabsTrigger>
                 <TabsTrigger value="investigacao">Investigação</TabsTrigger>
+                <TabsTrigger value="regras-ouro">Regras de Ouro</TabsTrigger>
               </TabsList>
 
               <TabsContent value="home" className="mt-6">
@@ -441,6 +447,25 @@ const Index = () => {
                         className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
                       >
                         <span>Abrir Investigação</span>
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="regras-ouro" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center mb-6">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Regras de Ouro</h2>
+                      <p className="text-gray-600 mb-6">Acesse o formulário de regras de ouro.</p>
+                    </div>
+
+                    <Link to="/regras-de-ouro">
+                      <Button
+                        className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
+                      >
+                        <span>Abrir Regras de Ouro</span>
                       </Button>
                     </Link>
                   </CardContent>

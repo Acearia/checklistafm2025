@@ -19,6 +19,7 @@ import AdminGroups from "./pages/AdminGroups";
 import AdminInvestigators from "./pages/AdminInvestigators";
 import AdminInvestigacoes from "./pages/AdminInvestigacoes";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
+import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
 import ChecklistDetail from "./pages/ChecklistDetail";
@@ -35,6 +36,8 @@ function App() {
         <Route path="/checklist" element={<Checklist />} />
         <Route path="/checklist/:equipmentId" element={<Checklist />} />
         <Route path="/investigacao-acidente" element={<InvestigacaoAcidente />} />
+        <Route path="/regras-de-ouro" element={<InvestigacaoAcidente2 />} />
+        <Route path="/investigacao-acidente-2" element={<InvestigacaoAcidente2 />} />
         
         {/* Novas rotas para o checklist dividido em etapas */}
         <Route path="/checklist-steps/operator" element={<ChecklistOperator />} />
