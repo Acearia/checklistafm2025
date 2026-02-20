@@ -57,6 +57,16 @@ const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
     role: "admin",
   },
   {
+    username: normalizeUsername("teste"),
+    password_hash: encodePassword("teste123"),
+    role: "admin",
+  },
+  {
+    username: normalizeUsername("teste@local"),
+    password_hash: encodePassword("teste123"),
+    role: "admin",
+  },
+  {
     username: normalizeUsername("seguranca"),
     password_hash: encodePassword("seguranca123"),
     role: "seguranca",
@@ -244,7 +254,8 @@ export const verifyInvestigatorCredentials = async (
     const localAuth = verifyLocalCredentials(
       username,
       password,
-      (role) => INVESTIGATOR_ROLES.includes(role as InvestigatorRole),
+      (role) =>
+        INVESTIGATOR_ROLES.includes(role as InvestigatorRole) || isAdminRole(role),
     );
     if (!localAuth) return null;
     return {

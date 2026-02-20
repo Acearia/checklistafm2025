@@ -4,6 +4,7 @@ import {
   Card, 
   CardContent, 
   CardDescription, 
+  CardFooter,
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -48,10 +49,8 @@ import {
   LogOut,
   Wrench, 
   FileText,
-  Mail,
   RefreshCw,
   AlertTriangle,
-  BellRing,
   Bell,
   Calendar as CalendarIcon
 } from "lucide-react";
@@ -60,7 +59,7 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { format, startOfDay, endOfDay, subDays, subMonths, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
-import { loadChecklistAlerts, markAlertSeenByLeader, saveChecklistAlerts } from "@/lib/checklistTemplate";
+import { loadChecklistAlerts, saveChecklistAlerts } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
@@ -107,6 +106,16 @@ interface ProblemEntry {
   status: string;
   answer?: string;
 }
+
+const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
+
+const getInspectionDateValue = (inspection: Inspection) =>
+  inspection.submission_date || inspection.inspection_date || "";
+
+const isSameCalendarDay = (date: Date, reference: Date) =>
+  date.getDate() === reference.getDate() &&
+  date.getMonth() === reference.getMonth() &&
+  date.getFullYear() === reference.getFullYear();
 
 const LeaderDashboard = () => {
   const navigate = useNavigate();
@@ -215,7 +224,16 @@ const LeaderDashboard = () => {
     return names;
   }, [leaderSectorKeys, assignmentSectorNameSet]);
 
+  const hasGlobalSectorAccess = useMemo(
+    () => allowedSectorNames.has("todos"),
+    [allowedSectorNames],
+  );
+
   const allowedEquipmentIds = useMemo<string[]>(() => {
+    if (hasGlobalSectorAccess) {
+      return supabaseEquipment.map((equipment) => equipment.id);
+    }
+
     const allowed = new Set<string>();
 
     supabaseEquipment.forEach((equipment) => {
@@ -226,7 +244,7 @@ const LeaderDashboard = () => {
     });
 
     return Array.from(allowed);
-  }, [supabaseEquipment, allowedSectorNames]);
+  }, [supabaseEquipment, allowedSectorNames, hasGlobalSectorAccess]);
 
   const allowedEquipmentSet = useMemo(() => new Set(allowedEquipmentIds), [allowedEquipmentIds]);
 
@@ -356,6 +374,7 @@ const LeaderDashboard = () => {
 
     const localAlerts = loadChecklistAlerts().filter((alert) => {
       if (!alert.sector) return true;
+      if (hasGlobalSectorAccess) return true;
       const normalized = normalizeSector(alert.sector);
       return !normalized || allowedSectorNames.has(normalized);
     });
@@ -385,7 +404,7 @@ const LeaderDashboard = () => {
 
     saveChecklistAlerts(sortedAlerts);
     setChecklistAlerts(sortedAlerts);
-  }, [currentLeader, inspections, allowedSectorNames]);
+  }, [currentLeader, inspections, allowedSectorNames, hasGlobalSectorAccess]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
@@ -541,6 +560,8 @@ const LeaderDashboard = () => {
     const checkAuthentication = async () => {
       const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
       const leaderId = localStorage.getItem("checklistafm-leader-id");
+      const leaderSector = localStorage.getItem("checklistafm-leader-sector") || "";
+      const localProfileRaw = localStorage.getItem(LOCAL_PROFILE_KEY);
       
       if (!isAuthenticated || !leaderId) {
         navigate("/leader/login");
@@ -548,7 +569,7 @@ const LeaderDashboard = () => {
       }
 
       // Load leader data from Supabase
-      if (!supabaseLoading && supabaseLeaders.length > 0) {
+      if (!supabaseLoading) {
         const leader = supabaseLeaders.find(l => l.id === leaderId);
         if (leader) {
           setCurrentLeader({
@@ -556,6 +577,31 @@ const LeaderDashboard = () => {
             name: leader.name,
             email: leader.email,
             sector: leader.sector
+          });
+          return;
+        }
+
+        if (leaderId === "__local_super__" && localProfileRaw) {
+          try {
+            const parsed = JSON.parse(localProfileRaw);
+            setCurrentLeader({
+              id: parsed.id || "__local_super__",
+              name: parsed.name || "Usuario Local",
+              email: parsed.email || "teste@local",
+              sector: parsed.sector || leaderSector || "TODOS",
+            });
+            return;
+          } catch (error) {
+            console.error("Erro ao carregar perfil local de lider:", error);
+          }
+        }
+
+        if (leaderSector) {
+          setCurrentLeader({
+            id: leaderId,
+            name: "Lider Local",
+            email: "local@checklist",
+            sector: leaderSector,
           });
         }
       }
@@ -601,23 +647,6 @@ const LeaderDashboard = () => {
     toast({
       title: "Dados atualizados",
       description: "Dashboard atualizado com sucesso",
-    });
-  };
-
-  const handleSendEmailNotification = () => {
-    if (!currentLeader) {
-      toast({
-        title: "Erro ao enviar email",
-        description: "Não foi possível identificar o líder atual",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Simulate email sending
-    toast({
-      title: "Email enviado",
-      description: `Relatório enviado para ${currentLeader.email}`,
     });
   };
 
@@ -821,22 +850,6 @@ const LeaderDashboard = () => {
     }
   };
 
-  const handleAcknowledgeAlert = (alertId: string) => {
-    if (!currentLeader) return;
-    markAlertSeenByLeader(alertId, currentLeader.id);
-    setChecklistAlerts((prev) =>
-      prev.map((alert) => {
-        if (alert.id !== alertId) return alert;
-        const seenByLeaders = new Set(alert.seenByLeaders || []);
-        seenByLeaders.add(currentLeader.id);
-        return { ...alert, seenByLeaders: Array.from(seenByLeaders) };
-      })
-    );
-    toast({
-      title: "Alerta acompanhado",
-      description: "O alerta foi marcado como recebido por você.",
-    });
-  };
 
   const leaderId = currentLeader?.id ?? "";
 
@@ -908,7 +921,6 @@ const LeaderDashboard = () => {
     )
   ).length;
 
-  const alertsToShow = alertsByInspection.slice(0, 5);
   const sectorEquipments = useMemo(() => {
     if (!currentLeader) return [];
     return supabaseEquipment.filter((equipment) =>
@@ -1038,6 +1050,151 @@ const LeaderDashboard = () => {
       pendingActions: filteredProblems.length,
     };
   }, [filteredInspections, filteredProblems]);
+
+  const boardBySector = useMemo(() => {
+    const sectorMap = new Map<
+      string,
+      Map<
+        string,
+        {
+          id: string;
+          name: string;
+          kp: string;
+          inspections: Array<{
+            id: string;
+            label: string;
+            isToday: boolean;
+            hasProblems: boolean;
+            hasOpenOrder: boolean;
+            inspection: Inspection;
+          }>;
+        }
+      >
+    >();
+    const today = new Date();
+
+    const ensureEquipment = (
+      sectorName: string,
+      equipmentId: string,
+      equipmentName: string,
+      equipmentKp: string,
+    ) => {
+      const normalizedSector = sectorName || "Sem setor";
+      const normalizedId = equipmentId || `equip-${equipmentName}`;
+      const normalizedName = equipmentName || normalizedId;
+      const normalizedKp = equipmentKp || "-";
+
+      let sectorEquipmentsMap = sectorMap.get(normalizedSector);
+      if (!sectorEquipmentsMap) {
+        sectorEquipmentsMap = new Map();
+        sectorMap.set(normalizedSector, sectorEquipmentsMap);
+      }
+
+      let equipmentEntry = sectorEquipmentsMap.get(normalizedId);
+      if (!equipmentEntry) {
+        equipmentEntry = {
+          id: normalizedId,
+          name: normalizedName,
+          kp: normalizedKp,
+          inspections: [],
+        };
+        sectorEquipmentsMap.set(normalizedId, equipmentEntry);
+      }
+
+      return equipmentEntry;
+    };
+
+    sectorEquipments.forEach((equipment) => {
+      ensureEquipment(
+        equipment.sector || "Sem setor",
+        equipment.id,
+        equipment.name || equipment.id,
+        equipment.kp || "-",
+      );
+    });
+
+    inspections.forEach((inspection, index) => {
+      const equipmentId =
+        inspection.equipmentId ||
+        `${inspection.equipment.name}-${inspection.equipment.kp}-${index}`;
+      const equipmentEntry = ensureEquipment(
+        inspection.equipment.sector || "Sem setor",
+        equipmentId,
+        inspection.equipment.name || equipmentId,
+        inspection.equipment.kp || "-",
+      );
+
+      const dateValue = getInspectionDateValue(inspection);
+      const parsedDate = dateValue ? new Date(dateValue) : null;
+      const isValidDate = Boolean(parsedDate && !Number.isNaN(parsedDate.getTime()));
+      const label = isValidDate
+        ? format(parsedDate as Date, "dd/MM/yyyy HH:mm", { locale: ptBR })
+        : "Sem data";
+
+      const hasProblems = inspection.checklist_answers.some((answer) =>
+        shouldTriggerAlert(
+          answer.question,
+          answer.answer,
+          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+        )
+      );
+
+      equipmentEntry.inspections.push({
+        id: inspection.id || `${equipmentEntry.id}-${index}`,
+        label,
+        isToday: isValidDate ? isSameCalendarDay(parsedDate as Date, today) : false,
+        hasProblems,
+        hasOpenOrder: openOrdersByInspection.has(inspection.id),
+        inspection,
+      });
+    });
+
+    return Array.from(sectorMap.entries())
+      .map(([sector, equipmentMap]) => ({
+        sector,
+        equipments: Array.from(equipmentMap.values())
+          .map((equipmentEntry) => ({
+            ...equipmentEntry,
+            inspections: equipmentEntry.inspections
+              .sort((a, b) => {
+                const dateA = getInspectionDateValue(a.inspection);
+                const dateB = getInspectionDateValue(b.inspection);
+                return (
+                  new Date(dateB || 0).getTime() - new Date(dateA || 0).getTime()
+                );
+              })
+              .slice(0, 12),
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+      }))
+      .sort((a, b) => a.sector.localeCompare(b.sector, "pt-BR"));
+  }, [sectorEquipments, inspections, openOrdersByInspection]);
+
+  const boardStats = useMemo(() => {
+    let equipmentCount = 0;
+    let inspectionsToday = 0;
+    let inspectionsWithProblemsToday = 0;
+
+    boardBySector.forEach((sector) => {
+      sector.equipments.forEach((equipmentEntry) => {
+        equipmentCount += 1;
+        equipmentEntry.inspections.forEach((inspectionEntry) => {
+          if (!inspectionEntry.isToday) return;
+          inspectionsToday += 1;
+          if (inspectionEntry.hasProblems) {
+            inspectionsWithProblemsToday += 1;
+          }
+        });
+      });
+    });
+
+    return {
+      sectorCount: boardBySector.length,
+      equipmentCount,
+      inspectionsToday,
+      inspectionsWithProblemsToday,
+    };
+  }, [boardBySector]);
 
   const filteredProblemsByEquipment = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1197,8 +1354,8 @@ const LeaderDashboard = () => {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-6 pb-4">
+      <div className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="w-full text-center text-gray-900 sm:w-auto">
           <h1 className="text-2xl font-bold">
             Dashboard de Líderes
@@ -1207,7 +1364,7 @@ const LeaderDashboard = () => {
             {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : 'Dashboard'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-end">
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
           <div
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700"
             aria-label="Inspeções com problemas"
@@ -1215,17 +1372,9 @@ const LeaderDashboard = () => {
           >
             <Bell className="h-5 w-5" aria-hidden="true" />
             <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
-              {filteredStats.problemInspections}
+              {pendingAlertsCount}
             </span>
           </div>
-          <Button 
-            onClick={handleSendEmailNotification} 
-            variant="outline" 
-            className="flex items-center gap-2"
-          >
-            <Mail className="h-4 w-4" />
-            Receber por Email
-          </Button>
           <Button 
             onClick={exportReportToPDF} 
             variant="outline" 
@@ -1243,6 +1392,7 @@ const LeaderDashboard = () => {
               localStorage.removeItem("checklistafm-leader-auth");
               localStorage.removeItem("checklistafm-leader-id");
               localStorage.removeItem("checklistafm-leader-sector");
+              localStorage.removeItem(LOCAL_PROFILE_KEY);
               navigate("/leader/login");
             }} 
             variant="outline" 
@@ -1254,166 +1404,9 @@ const LeaderDashboard = () => {
         </div>
       </div>
       
-      <Card className="border border-gray-200 bg-white">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <BellRing className="h-4 w-4 text-red-600" />
-            Alertas críticos do checklist
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant={pendingAlertsCount > 0 ? "destructive" : "secondary"}
-              className="text-xs px-2 py-0"
-            >
-              {pendingAlertsCount} pendente(s)
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={refreshChecklistAlerts}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Atualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {alertsToShow.length === 0 ? (
-            <p className="text-sm text-gray-600">
-              Nenhum alerta crítico registrado para o seu setor.
-            </p>
-          ) : (
-            alertsToShow.map((inspectionAlerts) => {
-              const totalAlerts = inspectionAlerts.alerts.length;
-              const equipmentName =
-                inspectionAlerts.equipmentName ||
-                inspectionAlerts.alerts[0]?.equipmentName ||
-                "Não informado";
-              const operatorName =
-                inspectionAlerts.operatorName ||
-                inspectionAlerts.alerts[0]?.operatorName ||
-                "N/A";
-              const operatorMatricula =
-                inspectionAlerts.operatorMatricula ||
-                inspectionAlerts.alerts[0]?.operatorMatricula;
-              const latestDate = inspectionAlerts.latestCreatedAt;
-              const hasPending = inspectionAlerts.alerts.some(
-                (alert) => !alert.seenByLeaders?.includes(leaderId)
-              );
-              const equipmentMatch = sectorEquipments.find(
-                (equipment) => equipment.name === equipmentName
-              ) ?? supabaseEquipment.find(
-                (equipment) => equipment.name === equipmentName
-              );
 
-              return (
-                <div
-                  key={inspectionAlerts.inspectionId}
-                  className="bg-white border border-red-100 rounded-md p-3 shadow-sm space-y-3"
-                >
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 border-b border-red-100 pb-2">
-                    <div className="space-y-1 text-sm">
-                      <p className="text-sm font-semibold text-gray-900">
-                        Inspeção {inspectionAlerts.inspectionId}
-                      </p>
-                      <div className="flex flex-wrap gap-3 text-xs text-gray-600">
-                        <span>Equipamento: {equipmentName}</span>
-                        <span>
-                          Operador: {operatorName}
-                          {operatorMatricula ? ` (${operatorMatricula})` : ""}
-                        </span>
-                        <span>Alertas: {totalAlerts}</span>
-                        <span>
-                          Último registro:{" "}
-                          {format(new Date(latestDate), "dd/MM/yyyy HH:mm", {
-                            locale: ptBR,
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <Badge
-                        variant={hasPending ? "destructive" : "secondary"}
-                        className="px-2 py-0 text-xs"
-                      >
-                        {hasPending ? "Pendência" : "Acompanhando"}
-                      </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                        disabled={!equipmentMatch}
-                        onClick={() =>
-                          handleOpenMaintenanceDialog({
-                            equipmentId: equipmentMatch?.id,
-                            inspectionId: inspectionAlerts.inspectionId,
-                          })
-                        }
-                      >
-                        Gerenciar OS
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {inspectionAlerts.alerts.map((alert) => {
-                      const alreadySeen = alert.seenByLeaders?.includes(leaderId);
-                      return (
-                        <div
-                          key={alert.id}
-                          className="rounded-md border border-red-100 bg-red-50/60 px-3 py-2"
-                        >
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
-                            <div className="space-y-1">
-                              <p className="text-sm font-medium text-gray-900">
-                                {alert.question}
-                              </p>
-                              <div className="flex flex-wrap gap-2 text-xs text-gray-700">
-                                <span>
-                                  Resposta:{" "}
-                                  <span className="text-red-600 font-semibold">
-                                    {alert.answer}
-                                  </span>
-                                </span>
-                                <span>
-                                  Registrado em:{" "}
-                                  {format(new Date(alert.createdAt), "dd/MM/yyyy HH:mm", {
-                                    locale: ptBR,
-                                  })}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2">
-                              <Badge
-                                variant={alreadySeen ? "secondary" : "destructive"}
-                                className="px-2 py-0 text-xs"
-                              >
-                                {alreadySeen ? "Acompanhando" : "Pendente"}
-                              </Badge>
-                              {!alreadySeen && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleAcknowledgeAlert(alert.id)}
-                                >
-                                  Marcar como recebido
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap items-center gap-4 mb-4">
-        <Card>
+      <div className="mb-4 grid gap-4 md:grid-cols-3">
+        <Card className="border border-red-100 shadow-sm">
           <CardHeader className="pb-2 bg-red-50">
             <CardTitle className="text-sm font-medium text-red-700">
               Problemas Identificados
@@ -1429,7 +1422,7 @@ const LeaderDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-green-100 shadow-sm">
           <CardHeader className="pb-2 bg-green-50">
             <CardTitle className="text-sm font-medium text-green-700">
               Total de Inspeções
@@ -1445,7 +1438,7 @@ const LeaderDashboard = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-blue-100 shadow-sm">
           <CardHeader className="pb-2 bg-blue-50">
             <CardTitle className="text-sm font-medium text-blue-700">
               Taxa de Problemas
@@ -2153,6 +2146,10 @@ const LeaderDashboard = () => {
             <CheckCircle className="h-4 w-4" />
             Inspeções
           </TabsTrigger>
+          <TabsTrigger value="board" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            Painel do setor
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="problems">
@@ -2315,7 +2312,13 @@ const LeaderDashboard = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-blue-700 hover:bg-blue-50"
-                                onClick={() => handleOpenInspectionDetails(inspection)}
+                                onClick={() => {
+                                  if (inspection.id) {
+                                    navigate(`/leader/checklists/${inspection.id}`);
+                                    return;
+                                  }
+                                  handleOpenInspectionDetails(inspection);
+                                }}
                               >
                                 Ver inspeção
                               </Button>
@@ -2342,6 +2345,126 @@ const LeaderDashboard = () => {
                 </Table>
               )}
             </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="board">
+          <Card>
+            <CardHeader>
+              <CardTitle>Painel por setor</CardTitle>
+              <CardDescription>
+                Visão consolidada por setor e equipamento. Clique em uma linha para abrir a inspeção.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Setores</p>
+                  <p className="text-xl font-semibold text-gray-900">{boardStats.sectorCount}</p>
+                </div>
+                <div className="rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Equipamentos</p>
+                  <p className="text-xl font-semibold text-gray-900">{boardStats.equipmentCount}</p>
+                </div>
+                <div className="rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">Inspeções hoje</p>
+                  <p className="text-xl font-semibold text-gray-900">{boardStats.inspectionsToday}</p>
+                </div>
+                <div className="rounded-md border bg-gray-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">NOK hoje</p>
+                  <p className="text-xl font-semibold text-red-700">{boardStats.inspectionsWithProblemsToday}</p>
+                </div>
+              </div>
+
+              {boardBySector.length === 0 ? (
+                <div className="rounded-md border border-dashed p-6 text-center text-sm text-gray-500">
+                  Nenhuma inspeção encontrada para os setores liberados.
+                </div>
+              ) : (
+                <div className="overflow-x-auto pb-2">
+                  <div className="flex min-w-max gap-4">
+                    {boardBySector.map((sectorEntry) => (
+                      <div key={sectorEntry.sector} className="w-[320px] shrink-0 rounded-lg border bg-white">
+                        <div className="border-b bg-red-50 px-4 py-3">
+                          <p className="text-lg font-bold text-red-800">{sectorEntry.sector}</p>
+                          <p className="text-xs text-red-700">{sectorEntry.equipments.length} equipamento(s)</p>
+                        </div>
+                        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
+                          {sectorEntry.equipments.map((equipmentEntry) => (
+                            <div key={equipmentEntry.id} className="rounded-md border bg-gray-50">
+                              <div className="border-b bg-white px-3 py-2">
+                                <p className="font-semibold text-gray-900">{equipmentEntry.name}</p>
+                                <p className="text-xs text-gray-500">KP: {equipmentEntry.kp}</p>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto">
+                                {equipmentEntry.inspections.length === 0 ? (
+                                  <p className="px-3 py-3 text-xs text-gray-500">Sem inspeções registradas.</p>
+                                ) : (
+                                  equipmentEntry.inspections.map((inspectionEntry) => {
+                                    const rowClass = !inspectionEntry.hasProblems && inspectionEntry.isToday
+                                      ? "bg-green-100"
+                                      : inspectionEntry.hasProblems && inspectionEntry.hasOpenOrder
+                                      ? "bg-amber-100"
+                                      : inspectionEntry.hasProblems
+                                      ? "bg-red-100"
+                                      : "bg-white";
+
+                                    const dotClass = !inspectionEntry.hasProblems
+                                      ? inspectionEntry.isToday
+                                        ? "bg-green-500"
+                                        : "bg-gray-300"
+                                      : inspectionEntry.hasOpenOrder
+                                      ? "bg-yellow-500"
+                                      : "bg-red-500";
+
+                                    return (
+                                      <button
+                                        key={inspectionEntry.id}
+                                        type="button"
+                                        onClick={() => {
+                                          const inspectionId = inspectionEntry.inspection?.id;
+                                          if (inspectionId) {
+                                            navigate(`/leader/checklists/${inspectionId}`);
+                                            return;
+                                          }
+                                          handleOpenInspectionDetails(inspectionEntry.inspection);
+                                        }}
+                                        className={`flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 ${rowClass}`}
+                                      >
+                                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
+                                        <span className="flex-1 text-gray-800">{inspectionEntry.label}</span>
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex flex-wrap items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-sm border bg-green-100" />
+                <span>Check list OK hoje</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-sm border bg-red-100" />
+                <span>Check list NOK hoje</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-sm border bg-amber-100" />
+                <span>Check list NOK com OS</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                <span>Check list NOK sem OS</span>
+              </div>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

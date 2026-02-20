@@ -31,6 +31,21 @@ const LeaderLogin = () => {
   const [resetLoading, setResetLoading] = useState(false);
 
   const DEFAULT_PASSWORD_HASH = btoa("1234");
+  const LOCAL_SUPER_EMAIL = "teste@local";
+  const LOCAL_SUPER_PASSWORD = "teste123";
+  const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
+
+  const isPrivateHost = (hostname: string) => {
+    if (!hostname) return false;
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return true;
+    if (/^10\./.test(hostname)) return true;
+    if (/^192\.168\./.test(hostname)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)) return true;
+    return false;
+  };
+
+  const isLocalMode = () =>
+    typeof window !== "undefined" && isPrivateHost(window.location.hostname);
 
   useEffect(() => {
     // Check if already logged in
@@ -56,6 +71,34 @@ const LeaderLogin = () => {
     setLoading(true);
 
     try {
+      const isLocalSuperUser =
+        isLocalMode() &&
+        email.trim().toLowerCase() === LOCAL_SUPER_EMAIL &&
+        password === LOCAL_SUPER_PASSWORD;
+
+      if (isLocalSuperUser) {
+        localStorage.setItem("checklistafm-leader-auth", "true");
+        localStorage.setItem("checklistafm-leader-id", "__local_super__");
+        localStorage.setItem("checklistafm-leader-sector", "TODOS");
+        localStorage.setItem(
+          LOCAL_PROFILE_KEY,
+          JSON.stringify({
+            id: "__local_super__",
+            name: "Usuario Local",
+            email: LOCAL_SUPER_EMAIL,
+            sector: "TODOS",
+          }),
+        );
+
+        toast({
+          title: "Login local realizado",
+          description: "Acesso local liberado com permissao total.",
+        });
+        setErrorMessage(null);
+        navigate("/leader/dashboard");
+        return;
+      }
+
       // Wait for leaders data to load if still loading
       if (leadersLoading) {
         toast({

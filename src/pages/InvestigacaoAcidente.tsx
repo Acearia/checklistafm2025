@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -91,173 +91,173 @@ const CUSTOM_CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-custom";
 
 const DEFAULT_AGENTES_CAUSADORES = `
 ATO INSEGURO
-AÃ‡Ã•ES
-USAR EQUIPAMENTO DE MANEIRA IMPRÃ“PRIA
+AÇÕES
+USAR EQUIPAMENTO DE MANEIRA IMPRÓPRIA
 Usar Material ou Equipamento Fora de Sua Finalidade
-Sobrecarregar (AndaiMe, VeÃ­culo)
-Usar Equipamento de Maneira ImprÃ³pria
-NIC, Usar Equipamento de Maneira ImprÃ³pria
+Sobrecarregar (AndaiMe, Veículo)
+Usar Equipamento de Maneira Imprópria
+NIC, Usar Equipamento de Maneira Imprópria
 USAR EQUIPAMENTO INSEGURO
-TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÃ‡A
-Desligar ou Remover Dispositivo de SeguranÃ§a
-Bloquear, Tampar, Amarrar, Dispositivo de SeguranÃ§a
-Desregular Dispositivo de SeguranÃ§a
-Substituir Dispositivo de SeguranÃ§a por Outro
-NIC, Tornar Inoperante ou Ineficiente Dispositivo SeguranÃ§a
-USAR MÃƒO OU PARTE DO CORPO IMPROPRIAMENTE
+TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÇA
+Desligar ou Remover Dispositivo de Segurança
+Bloquear, Tampar, Amarrar, Dispositivo de Segurança
+Desregular Dispositivo de Segurança
+Substituir Dispositivo de Segurança por Outro
+NIC, Tornar Inoperante ou Ineficiente Dispositivo Segurança
+USAR MÃO OU PARTE DO CORPO IMPROPRIAMENTE
 Manusear Objeto de Maneira Insegura
 Manusear Objeto de Maneira Errada
-Usar MÃ£o em Vez de Ferramenta
-NIC, Usar MÃ£o ou Outra Parte do Corpo Impropriamente
-ASSUMIR POSIÃ‡ÃƒO OU POSTURA INSEGURA
+Usar Mão em Vez de Ferramenta
+NIC, Usar Mão ou Outra Parte do Corpo Impropriamente
+ASSUMIR POSIÇÃO OU POSTURA INSEGURA
 Entrar em Tanque, Silo ou Outro Compartimento Confinado
 Expor-se Desnecessariamente ao Alcance de Objeto ou
-Expor-se Desnecessariamente, Ã  Carga Suspensa ou Oscilante
-Movimentar Carga de Maneira ImprÃ³pria
-Transportar em PosiÃ§Ã£o Insegura
-NIC, Assumir PosiÃ§Ã£o ou Postura Insegura
+Expor-se Desnecessariamente, à Carga Suspensa ou Oscilante
+Movimentar Carga de Maneira Imprópria
+Transportar em Posição Insegura
+NIC, Assumir Posição ou Postura Insegura
 TRABALHAR OU OPERAR EM VELOCIDADE INSEGURA
 Correr
 Operar com Velocidade Insegura
 Abastecer Depressa Demais
-Saltar de Ponto Elevado de VeÃ­culo, de Plataforma
-Jogar Objeto em Vez de CarregÃ¡-lo ou PassÃ¡-lo
+Saltar de Ponto Elevado de Veículo, de Plataforma
+Jogar Objeto em Vez de Carregá-lo ou Passá-lo
 NIC, Trabalhar ou Operar em Velocidade Insegura
 LIMPAR, LUBRIFICAR, REGULAR OU CONSERTAR EQUIPAMENTO EM
 Limpar, Lubrificar ou Regular Equipamento em Movimento
-Trabalhar em Equipamento ElÃ©trico Energizado
-Calefatar ou Vedar Equipamento Sob PressÃ£o
+Trabalhar em Equipamento Elétrico Energizado
+Calefatar ou Vedar Equipamento Sob Pressão
 Soldar, Consertar Tanque, Recipiente ou Equipamento Sem
 NIC, Limpar, Lubrificar, Regular ou Consertar Equipamento
 COLOCAR, MISTURAR DE MANEIRA INSEGURA
 Colocar Material, Ferramenta, Sucata, de Maneira Insegura
-Colocar de Maneira Insegura VeÃ­culo ou Equipamento
-Misturar ou Injetar SubstÃ¢ncia de Modo a Criar Risco de
+Colocar de Maneira Insegura Veículo ou Equipamento
+Misturar ou Injetar Substância de Modo a Criar Risco de
 NIC, Colocar, Misturar, de Maneira Insegura
-FAZER BRINCADEIRA OU EXIBIÃ‡ÃƒO
+FAZER BRINCADEIRA OU EXIBIÇÃO
 AGREDIR PESSOAS
 DIRIGIR INCORRETAMENTE
 Dirigir em Velocidade Inadequada (Alta ou Baixa)
-NÃ£o Manter DistÃ¢ncia
+Não Manter Distância
 Ultrapassar Ilegalmente
-Entrar ou Sair de VeÃ­culo do Lado do TrÃ¢nsito
-Desrespeitar a SinalizaÃ§Ã£o de TrÃ¢nsito
+Entrar ou Sair de Veículo do Lado do Trânsito
+Desrespeitar a Sinalização de Trânsito
 Desrespeitar Regras Preferenciais
-NÃ£o Sinalizar Para Parar, Dobrar ou Dar Marcha RÃ©
+Não Sinalizar Para Parar, Dobrar ou Dar Marcha Ré
 Dobrar Irregularmente
 NIC, Dirigir Incorretamente
-OMISSÃ•ES
+OMISSÕES
 DEIXAR DE USAR VESTIMENTA SEGURA
-DEIXAR DE USAR EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL DISPONÃVEL
-Ã“culos
+DEIXAR DE USAR EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL DISPONÍVEL
+Óculos
 Luvas
-MÃ¡scara
+Máscara
 Capacete
-CalÃ§ado
+Calçado
 Avental
-Cinto de SeguranÃ§a
+Cinto de Segurança
 Protetor Auditivo
-NIC, Deixar de Usar o Equipamento de ProteÃ§Ã£o Individual
+NIC, Deixar de Usar o Equipamento de Proteção Individual
 DEIXAR DE PRENDER, DESLIGAR OU DE SINALIZAR
-Deixar de Desligar Equipamento que NÃ£o Esteja Sendo Usado
-Deixar de Trancar, Bloquear ou Prender VeÃ­culo,
-Deixar de Colocar Cartaz, Aviso, Etiqueta de AdvertÃªncia
+Deixar de Desligar Equipamento que Não Esteja Sendo Usado
+Deixar de Trancar, Bloquear ou Prender Veículo,
+Deixar de Colocar Cartaz, Aviso, Etiqueta de Advertência
 Deixar de Sinalizar ao Soltar ou Movimentar Carga
 Deixar de Sinalizar ao Dar Partida ou Parar
 NIC, Deixar de Prender, de Desligar ou de Sinalizar
-DEIXAR DE VERIFICAR A AUSÃŠNCIA DE TENSÃƒO EM EQUIP. ELÃ‰TRICO
+DEIXAR DE VERIFICAR A AUSÊNCIA DE TENSÃO EM EQUIP. ELÉTRICO
 DEIXAR DE ATERRAR
-DESCUIDAR-SE NA OBSERVAÃ‡ÃƒO DO AMBIENTE
+DESCUIDAR-SE NA OBSERVAÇÃO DO AMBIENTE
 NIC, ATO INSEGURO
 ATO INSEGURO INEXISTENTE
-CONDIÃ‡ÃƒO INSEGURA
+CONDIÇÃO INSEGURA
 RISCO RELATIVO AO AMBIENTE
-PROBLEMAS COM ESPAÃ‡O E CIRCULAÃ‡ÃƒO
-InsuficiÃªncia de EspaÃ§o Para o Trabalho
-InsuficiÃªncia de EspaÃ§o p/ MovimentaÃ§Ã£o de Objetos e Pessoas
-Passagem e SaÃ­da Inadequada por Motivos Outros que nÃ£o a
-Controle Inadequado de TrÃ¢nsito
-NIC, Problemas de EspaÃ§o e CirculaÃ§Ã£o
-EXISTÃŠNCIA DE RUÃDO
-EXISTÃŠNCIA DE VIBRAÃ‡ÃƒO
-ILUMINAÃ‡ÃƒO INADEQUADA
+PROBLEMAS COM ESPAÇO E CIRCULAÇÃO
+Insuficiência de Espaço Para o Trabalho
+Insuficiência de Espaço p/ Movimentação de Objetos e Pessoas
+Passagem e Saída Inadequada por Motivos Outros que não a
+Controle Inadequado de Trânsito
+NIC, Problemas de Espaço e Circulação
+EXISTÊNCIA DE RUÍDO
+EXISTÊNCIA DE VIBRAÇÃO
+ILUMINAÇÃO INADEQUADA
 ORDEM E LIMPEZA INADEQUADA
 NIC, Risco Relativo ao Ambiente
 DEFEITO DE AGENTE
 MAL PROJETADO
-MAL CONSTITUÃDO, CONSTRUÃDO OU MONTADO
-CONSTITUÃDO POR MATERIAL INADEQUADO
-ÃSPERO
+MAL CONSTITUÍDO, CONSTRUÍDO OU MONTADO
+CONSTITUÍDO POR MATERIAL INADEQUADO
+ÁSPERO
 ESCORREGADIO
-NÃƒO AFIADO
+NÃO AFIADO
 PONTIAGUDO, CORTANTE
-GASTO, RACHADO, ESGARÃ‡ADO, QUEBRADO
+GASTO, RACHADO, ESGARÇADO, QUEBRADO
 NIC, Defeito do Agente
-COLOCAÃ‡ÃƒO PERIGOSA
-POSIÃ‡ÃƒO INADEQUADA
+COLOCAÇÃO PERIGOSA
+POSIÇÃO INADEQUADA
 EMPILHAMENTO INADEQUADO
-MÃ FIXAÃ‡ÃƒO CONTRA MOVIMENTO INDESEJÃVEL
-NIC, ColocaÃ§Ã£o Perigosa
-PROTEÃ‡ÃƒO COLETIVA INADEQUADA OU INEXISTENTE
-SEM PROTEÃ‡ÃƒO (EXCETUADOS OS RISCOS ELÃ‰TRICOS E DE RADIAÃ‡ÃƒO)
-COM PROTEÃ‡ÃƒO INADEQUADA
+MÁ FIXAÇÃO CONTRA MOVIMENTO INDESEJÁVEL
+NIC, Colocação Perigosa
+PROTEÇÃO COLETIVA INADEQUADA OU INEXISTENTE
+SEM PROTEÇÃO (EXCETUADOS OS RISCOS ELÉTRICOS E DE RADIAÇÃO)
+COM PROTEÇÃO INADEQUADA
 FALTA DE ESCORAMENTO OU ESCORAMENTO INADEQUADO EM
-NÃƒO ELETRICAMENTE ATERRADO
-NÃƒO ELÃ‰TRICAMENTE ISOLADO
-CONEXÃƒO ELÃ‰TRICA, CHAVES ELÃ‰TRICAS DESCOBERTAS
-EQUIPAMENTO ELÃ‰TRICO SEM IDENTIFICAÃ‡ÃƒO OU
-SEM BLINDAGEM PARA RADIAÃ‡ÃƒO
-COM BLINDAGEM INADEQUADA PARA RADIAÃ‡ÃƒO
-MATERIAL RADIOATIVO SEM IDENTIFICAÃ‡ÃƒO OU
-NIC, ProteÃ§Ã£o Coletiva Inadequada ou Inexistente
-MÃ‰TODO OU PROCEDIMENTO ARRISCADO
+NÃO ELETRICAMENTE ATERRADO
+NÃO ELÉTRICAMENTE ISOLADO
+CONEXÃO ELÉTRICA, CHAVES ELÉTRICAS DESCOBERTAS
+EQUIPAMENTO ELÉTRICO SEM IDENTIFICAÇÃO OU
+SEM BLINDAGEM PARA RADIAÇÃO
+COM BLINDAGEM INADEQUADA PARA RADIAÇÃO
+MATERIAL RADIOATIVO SEM IDENTIFICAÇÃO OU
+NIC, Proteção Coletiva Inadequada ou Inexistente
+MÉTODO OU PROCEDIMENTO ARRISCADO
 USO DE MATERIAL OU EQUIPAMENTO POTENCIALMENTE PERIGOSO
-EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÃ“PRIO
-EMPREGO DE MÃ‰TODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
-ESCOLHA IMPRÃ“PRIA DE PESSOAL
+EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÓPRIO
+EMPREGO DE MÉTODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
+ESCOLHA IMPRÓPRIA DE PESSOAL
 AJUDA INADEQUADA EM CASO DE LEVANTAMENTO DE OBJETO PESADO
-NIC, MÃ©todo ou Procedimento Arriscado
-RISCO RELATIVO AO VESTIÃRIO OU EQUIP. PROTEÃ‡ÃƒO INDIVIDUAL
-FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL
-VESTUÃRIO IMPRÃ“PRIO OU INADEQUADO
-NIC, Risco Relativo ao VestiÃ¡rio ou EPI
+NIC, Método ou Procedimento Arriscado
+RISCO RELATIVO AO VESTIÁRIO OU EQUIP. PROTEÇÃO INDIVIDUAL
+FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL
+VESTUÁRIO IMPRÓPRIO OU INADEQUADO
+NIC, Risco Relativo ao Vestiário ou EPI
 RISCO INERENTE A AMBIENTE DE TRABALHO EXTERNO
-RISCO INERENTE A DEPENDÃŠNCIAS INSEGURAS DE TERCEIROS
+RISCO INERENTE A DEPENDÊNCIAS INSEGURAS DE TERCEIROS
 RISCO INERENTE A MATERIAL OU EQUIP. INSEGURO DE TERCEIROS
 OUTROS RISCOS RELACIONADOS COM A PROPRIEDADE OU
 RISCO DE NATUREZA
 NIC, Risco Inerente a Ambiente de Trabalho Externo
-RISCO RELACIONADO COM AMBIENTE PÃšBLICO
-RISCO RELACIONADO COM O TRANSPORTE PÃšBLICO
-RISCO RELACIONADO COM O TRÃ‚NSITO
-NIC, Risco Relacionado com Ambiente PÃºblico
-NIC, CondiÃ§Ã£o Insegura
-CONDIÃ‡ÃƒO INSEGURA INEXISTENTE
-FATOR PESSOAL DE INSEGURANÃ‡A
-FALTA DE CONHECIMENTO OU EXPERIÃŠNCIA
+RISCO RELACIONADO COM AMBIENTE PÚBLICO
+RISCO RELACIONADO COM O TRANSPORTE PÚBLICO
+RISCO RELACIONADO COM O TRÂNSITO
+NIC, Risco Relacionado com Ambiente Público
+NIC, Condição Insegura
+CONDIÇÃO INSEGURA INEXISTENTE
+FATOR PESSOAL DE INSEGURANÇA
+FALTA DE CONHECIMENTO OU EXPERIÊNCIA
 FALTA DE CONHECIMENTO
-FALTA DE EXPERIÃŠNCIA OU ESPECIALIZAÃ‡ÃƒO
-DESAJUSTAMENTO FÃSICO
+FALTA DE EXPERIÊNCIA OU ESPECIALIZAÇÃO
+DESAJUSTAMENTO FÍSICO
 Deformidade
-HÃ©rnia Preexistente
+Hérnia Preexistente
 Debilidade Muscular
-Debilidade EsquelÃ©tica
-Debilidade OrgÃ¢nica
-DeficiÃªncia Visual
-DeficiÃªncia Auditiva
-DeficiÃªncia Olfativa
-DoenÃ§a Degenerativa
-Insensibilidade CutÃ¢nea
+Debilidade Esquelética
+Debilidade Orgânica
+Deficiência Visual
+Deficiência Auditiva
+Deficiência Olfativa
+Doença Degenerativa
+Insensibilidade Cutânea
 Fadiga
-NIC, Desajustamento FÃ­sico
+NIC, Desajustamento Físico
 DESAJUSTAMENTO EMOCIONAL OU MENTAL
 Alcoolismo e Toxicomania
 Agressividade
 Excitabilidade, Impulsividade
-AlienaÃ§Ã£o Mental (Loucura)
-DistÃºrbio Emocional
-DistÃºrbio Cerebral, AusÃªncia
-DeficiÃªncia Intelectual
+Alienação Mental (Loucura)
+Distúrbio Emocional
+Distúrbio Cerebral, Ausência
+Deficiência Intelectual
 NIC, Desajustamento Emocional ou Mental
 NIC, Fator Pessoal
 FATOR PESSOAL INEXISTENTE
