@@ -1184,7 +1184,7 @@ const LeaderDashboard = () => {
 
   const getLeaderBoardDotClass = (entry: InspectionBoardInspectionEntry<Inspection>) => {
     if (!entry.hasProblems) {
-      return entry.isToday ? "bg-green-500" : "bg-gray-300";
+      return entry.isToday ? "bg-green-500" : "bg-green-400";
     }
     return entry.hasOpenOrder ? "bg-yellow-500" : "bg-red-500";
   };
@@ -1347,39 +1347,49 @@ const LeaderDashboard = () => {
   }
 
   return (
-    <div className="space-y-6 pb-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard de Líderes</h1>
-          <p className="text-sm text-muted-foreground">
-            {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : "Dashboard"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={handleRefreshData} variant="outline" className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Atualizar
-          </Button>
-          <Button onClick={exportReportToPDF} variant="outline" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Exportar PDF
-          </Button>
-          <Button
-            onClick={() => {
-              localStorage.removeItem("checklistafm-leader-auth");
-              localStorage.removeItem("checklistafm-leader-id");
-              localStorage.removeItem("checklistafm-leader-sector");
-              localStorage.removeItem(LOCAL_PROFILE_KEY);
-              navigate("/leader/login");
-            }}
-            variant="outline"
-            className="flex items-center gap-2 text-red-700 hover:text-red-800"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1700px] space-y-6 px-4 pb-6 sm:px-6 lg:px-8">
+      <Card className="border border-red-200 bg-gradient-to-r from-red-700 via-red-700 to-red-600 text-white shadow-md">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Dashboard de Líderes</h1>
+            <p className="text-sm text-red-100">
+              {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : "Dashboard"}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={handleRefreshData}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Atualizar
+            </Button>
+            <Button
+              onClick={exportReportToPDF}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <FileText className="h-4 w-4" />
+              Exportar PDF
+            </Button>
+            <Button
+              onClick={() => {
+                localStorage.removeItem("checklistafm-leader-auth");
+                localStorage.removeItem("checklistafm-leader-id");
+                localStorage.removeItem("checklistafm-leader-sector");
+                localStorage.removeItem(LOCAL_PROFILE_KEY);
+                navigate("/leader/login");
+              }}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-transparent text-white hover:bg-red-600 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <InspectionBoardPanel
         title="Painel por setor"
@@ -1394,53 +1404,53 @@ const LeaderDashboard = () => {
         }}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de Inspeções</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700">Total de Inspeções</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{leaderSectorSummary.total}</div>
+            <div className="text-2xl font-bold text-slate-900">{leaderSectorSummary.total}</div>
             <p className="text-xs text-muted-foreground">Realizadas no setor</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Operadores</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700">Operadores</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sectorOperatorsList.length}</div>
+            <div className="text-2xl font-bold text-slate-900">{sectorOperatorsList.length}</div>
             <p className="text-xs text-muted-foreground">Vinculados ao setor</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Equipamentos</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700">Equipamentos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sectorEquipments.length}</div>
+            <div className="text-2xl font-bold text-slate-900">{sectorEquipments.length}</div>
             <p className="text-xs text-muted-foreground">Monitorados no setor</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Setores</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700">Setores</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{leaderSectorSummary.sectors.length}</div>
+            <div className="text-2xl font-bold text-slate-900">{leaderSectorSummary.sectors.length}</div>
             <p className="text-xs text-muted-foreground">Sob sua gestão</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Inspeções com Problemas</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-700">Inspeções com Problemas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{leaderSectorSummary.totalWithProblems}</div>
+            <div className="text-2xl font-bold text-red-700">{leaderSectorSummary.totalWithProblems}</div>
             <p className="text-xs text-muted-foreground">
               Alertas pendentes: {pendingAlertsCount}
             </p>
@@ -1448,7 +1458,7 @@ const LeaderDashboard = () => {
         </Card>
       </div>
 
-      <Card>
+      <Card className="border border-slate-200 bg-white shadow-sm">
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1549,7 +1559,7 @@ const LeaderDashboard = () => {
         </CardContent>
       </Card>
 
-      <Card className="border border-gray-200 bg-white">
+      <Card className="border border-slate-200 bg-white shadow-sm">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
             <Wrench className="h-4 w-4 text-blue-600" />
@@ -1633,7 +1643,7 @@ const LeaderDashboard = () => {
     </CardContent>
   </Card>
   
-      <Card className="border border-gray-200 bg-white">
+      <Card className="border border-slate-200 bg-white shadow-sm">
         <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <CardTitle className="text-base font-semibold">Equipamentos do Setor</CardTitle>
@@ -2028,7 +2038,7 @@ const LeaderDashboard = () => {
         </Alert>
       )}
 
-      <Card className="border border-gray-200 bg-white mb-4">
+      <Card className="mb-4 border border-slate-200 bg-white shadow-sm">
         <CardHeader className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <CardTitle className="text-base font-semibold">Operadores do Setor</CardTitle>
@@ -2220,23 +2230,23 @@ const LeaderDashboard = () => {
       </div>
 
       <Tabs defaultValue="inspections" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="problems" className="flex items-center gap-2">
+        <TabsList className="grid h-auto w-full max-w-[560px] grid-cols-3 bg-slate-100 p-1">
+          <TabsTrigger value="problems" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-red-700">
             <AlertTriangle className="h-4 w-4" />
             Problemas
           </TabsTrigger>
-          <TabsTrigger value="chart" className="flex items-center gap-2">
+          <TabsTrigger value="chart" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-red-700">
             <Wrench className="h-4 w-4" />
             Gráfico
           </TabsTrigger>
-          <TabsTrigger value="inspections" className="flex items-center gap-2">
+          <TabsTrigger value="inspections" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-red-700">
             <CheckCircle className="h-4 w-4" />
             Inspeções
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="problems">
-          <Card>
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>Problemas Identificados</CardTitle>
               <CardDescription>
@@ -2298,7 +2308,7 @@ const LeaderDashboard = () => {
         </TabsContent>
 
         <TabsContent value="chart">
-          <Card>
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>Problemas por Equipamento</CardTitle>
               <CardDescription>
@@ -2327,7 +2337,7 @@ const LeaderDashboard = () => {
         </TabsContent>
 
         <TabsContent value="inspections">
-          <Card>
+          <Card className="border border-slate-200 bg-white shadow-sm">
             <CardHeader>
               <CardTitle>Inspeções Recentes</CardTitle>
               <CardDescription>
