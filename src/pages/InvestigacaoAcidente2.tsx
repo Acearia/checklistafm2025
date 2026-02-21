@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 type SignatureKey = "ass_tst" | "ass_gestor" | "ass_acomp";
 
@@ -208,6 +209,7 @@ const SIGNATURE_LABELS: Record<SignatureKey, string> = {
 };
 
 const InvestigacaoAcidente2 = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { sectors, leaders, operators } = useSupabaseData(["sectors", "leaders", "operators"]);
 
@@ -386,6 +388,9 @@ const InvestigacaoAcidente2 = () => {
       setSignatures(createInitialSignatures());
       setAttachments([]);
       setPreviewNumber(nextCounter + 1);
+      setTimeout(() => {
+        navigate("/");
+      }, 800);
     } catch (error) {
       console.error("Erro ao salvar regra de ouro:", error);
       toast({

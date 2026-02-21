@@ -742,11 +742,16 @@ const AdminInspections = () => {
                         <TableCell className="text-right">
                           <Button
                             onClick={() => {
-                              if (inspection.id) {
-                                navigate(`/admin/checklists/${inspection.id}`);
+                              const inspectionId = inspection.id ?? inspection.inspection_id;
+                              if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
+                                navigate(`/admin/checklists/${String(inspectionId)}`);
                                 return;
                               }
-                              handleViewDetails(inspection);
+                              toast({
+                                title: "Inspeção sem ID",
+                                description: "Não foi possível abrir os detalhes desta inspeção.",
+                                variant: "destructive",
+                              });
                             }}
                             variant="ghost"
                             size="sm"
@@ -776,12 +781,22 @@ const AdminInspections = () => {
             getRowClass={getAdminBoardRowClass}
             getDotClass={getAdminBoardDotClass}
             onInspectionClick={(inspection) => {
-              const inspectionData = inspection as { id?: string };
-              if (inspectionData?.id) {
-                navigate(`/admin/checklists/${inspectionData.id}`);
+              const inspectionData = inspection as {
+                id?: string | number | null;
+                inspection_id?: string | number | null;
+              };
+              const inspectionId = inspectionData?.id ?? inspectionData?.inspection_id;
+
+              if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
+                navigate(`/admin/checklists/${String(inspectionId)}`);
                 return;
               }
-              handleViewDetails(inspection);
+
+              toast({
+                title: "Inspeção sem ID",
+                description: "Não foi possível abrir os detalhes desta inspeção.",
+                variant: "destructive",
+              });
             }}
           />
         </TabsContent>

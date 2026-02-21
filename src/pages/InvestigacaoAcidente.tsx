@@ -36,6 +36,7 @@ import {
   listInvestigatorAccounts,
   verifyInvestigatorCredentials,
 } from "@/lib/adminCredentials";
+import { useNavigate } from "react-router-dom";
 
 type MaoDeObra = "Direta" | "Indireta";
 type TipoAcidente = "Tipico" | "Trajeto" | "Terceiros" | "Danos Morais" | "Ambiental";
@@ -523,6 +524,7 @@ const getNextNumeroOcorrencia = (records: InvestigacaoAcidenteRecord[]) => {
 };
 
 const InvestigacaoAcidente = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
   const [form, setForm] = useState<InvestigacaoAcidenteForm>(INITIAL_FORM);
@@ -762,6 +764,9 @@ const InvestigacaoAcidente = () => {
 
   const handleWhatsappDialogChange = (open: boolean) => {
     setWhatsappDialogOpen(open);
+    if (!open) {
+      navigate("/");
+    }
   };
 
   const handleOpenWhatsapp = () => {
@@ -1978,6 +1983,9 @@ const InvestigacaoAcidente = () => {
               </Button>
               <Button type="button" onClick={handleOpenWhatsapp}>
                 Abrir WhatsApp
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => handleWhatsappDialogChange(false)}>
+                Finalizar e ir para início
               </Button>
             </DialogFooter>
           </DialogContent>

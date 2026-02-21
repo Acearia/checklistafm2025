@@ -456,9 +456,22 @@ const AdminDashboard = () => {
         getRowClass={getDashboardBoardRowClass}
         getDotClass={getDashboardBoardDotClass}
         onInspectionClick={(inspection) => {
-          const inspectionData = inspection as { id?: string };
-          if (!inspectionData?.id) return;
-          navigate(`/admin/checklists/${inspectionData.id}`);
+          const inspectionData = inspection as {
+            id?: string | number | null;
+            inspection_id?: string | number | null;
+          };
+          const inspectionId = inspectionData?.id ?? inspectionData?.inspection_id;
+
+          if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
+            navigate(`/admin/checklists/${String(inspectionId)}`);
+            return;
+          }
+
+          toast({
+            title: "Inspeção sem ID",
+            description: "Não foi possível abrir os detalhes desta inspeção.",
+            variant: "destructive",
+          });
         }}
       />
 

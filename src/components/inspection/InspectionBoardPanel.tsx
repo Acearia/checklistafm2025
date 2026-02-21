@@ -27,27 +27,27 @@ const InspectionBoardPanel = <TInspection,>({
   getDotClass,
 }: InspectionBoardPanelProps<TInspection>) => {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="border border-slate-200 bg-white shadow-sm">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-xl text-slate-900">{title}</CardTitle>
+        <CardDescription className="text-sm text-slate-600">{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-md border bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Setores</p>
-            <p className="text-xl font-semibold text-gray-900">{boardStats.sectorCount}</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Setores</p>
+            <p className="text-xl font-semibold text-slate-900">{boardStats.sectorCount}</p>
           </div>
-          <div className="rounded-md border bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Equipamentos</p>
-            <p className="text-xl font-semibold text-gray-900">{boardStats.equipmentCount}</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Equipamentos</p>
+            <p className="text-xl font-semibold text-slate-900">{boardStats.equipmentCount}</p>
           </div>
-          <div className="rounded-md border bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">Inspeções hoje</p>
-            <p className="text-xl font-semibold text-gray-900">{boardStats.inspectionsToday}</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Inspeções hoje</p>
+            <p className="text-xl font-semibold text-slate-900">{boardStats.inspectionsToday}</p>
           </div>
-          <div className="rounded-md border bg-gray-50 p-3">
-            <p className="text-xs uppercase tracking-wide text-gray-500">NOK hoje</p>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+            <p className="text-xs uppercase tracking-wide text-slate-500">NOK hoje</p>
             <p className="text-xl font-semibold text-red-700">{boardStats.inspectionsWithProblemsToday}</p>
           </div>
         </div>
@@ -60,23 +60,28 @@ const InspectionBoardPanel = <TInspection,>({
           <div className="overflow-x-auto pb-2">
             <div className="flex min-w-max gap-4">
               {boardBySector.map((sectorEntry) => (
-                <div key={sectorEntry.sector} className="w-[320px] shrink-0 rounded-lg border bg-white">
-                  <div className="border-b bg-red-50 px-4 py-3">
-                    <p className="text-lg font-bold text-red-800">{sectorEntry.sector}</p>
-                    <p className="text-xs text-red-700">
+                <div
+                  key={sectorEntry.sector}
+                  className="w-[320px] shrink-0 rounded-lg border border-slate-200 bg-white shadow-sm"
+                >
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <p className="text-base font-semibold uppercase tracking-wide text-slate-800">
+                      {sectorEntry.sector}
+                    </p>
+                    <p className="text-xs text-slate-600">
                       {sectorEntry.equipments.length} equipamento(s)
                     </p>
                   </div>
                   <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
                     {sectorEntry.equipments.map((equipmentEntry) => (
-                      <div key={equipmentEntry.id} className="rounded-md border bg-gray-50">
-                        <div className="border-b bg-white px-3 py-2">
-                          <p className="font-semibold text-gray-900">{equipmentEntry.name}</p>
-                          <p className="text-xs text-gray-500">KP: {equipmentEntry.kp}</p>
+                      <div key={equipmentEntry.id} className="rounded-md border border-slate-200 bg-white">
+                        <div className="border-b border-slate-200 bg-slate-50/70 px-3 py-2">
+                          <p className="font-semibold text-slate-900">{equipmentEntry.name}</p>
+                          <p className="text-xs text-slate-500">KP: {equipmentEntry.kp}</p>
                         </div>
                         <div className="max-h-48 overflow-y-auto">
                           {equipmentEntry.inspections.length === 0 ? (
-                            <p className="px-3 py-3 text-xs text-gray-500">
+                            <p className="px-3 py-3 text-xs text-slate-500">
                               Sem inspeções registradas.
                             </p>
                           ) : (
@@ -85,12 +90,12 @@ const InspectionBoardPanel = <TInspection,>({
                                 key={inspectionEntry.id}
                                 type="button"
                                 onClick={() => onInspectionClick(inspectionEntry.inspection)}
-                                className={`flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 ${getRowClass(inspectionEntry)}`}
+                                className={`flex w-full items-center gap-2 border-b border-slate-200 px-3 py-2 text-left text-sm transition-colors hover:bg-slate-50 ${getRowClass(inspectionEntry)}`}
                               >
                                 <span
                                   className={`h-2.5 w-2.5 shrink-0 rounded-full ${getDotClass(inspectionEntry)}`}
                                 />
-                                <span className="flex-1 text-gray-800">{inspectionEntry.label}</span>
+                                <span className="flex-1 text-slate-800">{inspectionEntry.label}</span>
                               </button>
                             ))
                           )}
@@ -104,22 +109,22 @@ const InspectionBoardPanel = <TInspection,>({
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-wrap items-center gap-4 text-sm">
+      <CardFooter className="flex flex-wrap items-center gap-4 border-t border-slate-200 text-sm">
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm border bg-green-100" />
-          <span>Check list OK hoje</span>
+          <span>Checklist OK hoje</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm border bg-red-100" />
-          <span>Check list NOK hoje</span>
+          <span>Checklist NOK hoje</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm border bg-amber-100" />
-          <span>Check list NOK com OS</span>
+          <span>Checklist NOK com OS</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-          <span>Check list NOK sem OS</span>
+          <span>Checklist NOK sem OS</span>
         </div>
       </CardFooter>
     </Card>

@@ -1176,7 +1176,9 @@ const LeaderDashboard = () => {
 
   const getLeaderBoardRowClass = (entry: InspectionBoardInspectionEntry<Inspection>) => {
     if (!entry.hasProblems && entry.isToday) return "bg-green-100";
-    if (entry.hasProblems) return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    if (entry.hasProblems && entry.isToday) {
+      return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    }
     return "bg-white";
   };
 
@@ -1388,10 +1390,6 @@ const LeaderDashboard = () => {
         getRowClass={getLeaderBoardRowClass}
         getDotClass={getLeaderBoardDotClass}
         onInspectionClick={(inspection) => {
-          if (inspection.id) {
-            navigate(`/leader/checklists/${inspection.id}`);
-            return;
-          }
           handleOpenInspectionDetails(inspection);
         }}
       />
@@ -2397,13 +2395,7 @@ const LeaderDashboard = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-blue-700 hover:bg-blue-50"
-                                onClick={() => {
-                                  if (inspection.id) {
-                                    navigate(`/leader/checklists/${inspection.id}`);
-                                    return;
-                                  }
-                                  handleOpenInspectionDetails(inspection);
-                                }}
+                                onClick={() => handleOpenInspectionDetails(inspection)}
                               >
                                 Ver inspeção
                               </Button>
