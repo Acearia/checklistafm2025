@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import SignatureCanvas from "@/components/SignatureCanvas";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 
 interface ChecklistItem {
   id: string;
@@ -72,6 +73,12 @@ const ChecklistDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { id } = useParams();
+  const {
+    inspections: supabaseInspections,
+    operators: supabaseOperators,
+    equipment: supabaseEquipment,
+    loading: supabaseLoading,
+  } = useSupabaseData(["inspections", "operators", "equipment"]);
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [observations, setObservations] = useState("");
@@ -81,14 +88,90 @@ const ChecklistDetail = () => {
   const [canEdit, setCanEdit] = useState(true);
   const isLeaderView = location.pathname.includes("/leader");
   const returnPath = isLeaderView ? "/leader/dashboard" : "/admin/inspections";
+
+  const normalizeSupabaseInspection = (
+    rawInspection: any,
+  ): Inspection => {
+    const equipmentData =
+      rawInspection?.equipment ||
+      supabaseEquipment.find((item: any) => item.id === rawInspection?.equipment_id) ||
+      null;
+
+    const operatorData =
+      rawInspection?.operator ||
+      supabaseOperators.find((item: any) => item.matricula === rawInspection?.operator_matricula) ||
+      null;
+
+    const checklistAnswers = Array.isArray(rawInspection?.checklist_answers)
+      ? rawInspection.checklist_answers
+      : [];
+
+    const checklist: ChecklistItem[] = checklistAnswers.map((answer: any, index: number) => {
+      const normalizedAnswer = String(answer?.answer ?? "").trim().toLowerCase();
+      return {
+        id: String(answer?.id ?? `item-${index + 1}`),
+        question: String(answer?.question ?? `Pergunta ${index + 1}`),
+        required: Boolean(answer?.required),
+        answer:
+          normalizedAnswer === "sim"
+            ? "Sim"
+            : normalizedAnswer === "não" || normalizedAnswer === "nao"
+              ? "Não"
+              : "",
+      };
+    });
+
+    return {
+      id: String(rawInspection?.id ?? rawInspection?.inspection_id ?? ""),
+      equipment: {
+        id: String(equipmentData?.id ?? rawInspection?.equipment_id ?? ""),
+        name: String(equipmentData?.name ?? "N/A"),
+        kp: String(equipmentData?.kp ?? "N/A"),
+        sector: String(equipmentData?.sector ?? "N/A"),
+        bridgeNumber: equipmentData?.bridgeNumber || equipmentData?.bridge_number || undefined,
+      },
+      operator: {
+        id: String(operatorData?.id ?? rawInspection?.operator_id ?? rawInspection?.operator_matricula ?? ""),
+        name: String(operatorData?.name ?? "N/A"),
+        registration: String(operatorData?.matricula ?? rawInspection?.operator_matricula ?? "N/A"),
+      },
+      submissionDate: String(
+        rawInspection?.submission_date ||
+          rawInspection?.inspection_date ||
+          rawInspection?.created_at ||
+          new Date().toISOString(),
+      ),
+      checklist,
+      observations: String(rawInspection?.comments ?? ""),
+      signature: rawInspection?.signature || undefined,
+      status: "completed",
+      hasIssues: checklist.some((item) => item.answer === "Não"),
+    };
+  };
   
   useEffect(() => {
+    if (!id) {
+      setIsLoading(false);
+      toast({
+        title: "Checklist inválido",
+        description: "ID da inspeção não informado.",
+        variant: "destructive",
+      });
+      navigate(returnPath);
+      return;
+    }
+
+    if (supabaseLoading) {
+      setIsLoading(true);
+      return;
+    }
+
     const loadInspection = () => {
       setIsLoading(true);
       
       try {
         const storedInspections = localStorage.getItem('checklistafm-inspections');
-        if (storedInspections && id) {
+        if (storedInspections) {
           const inspections: Inspection[] = JSON.parse(storedInspections);
           const foundInspection = inspections.find(insp => insp.id === id);
           
@@ -98,22 +181,31 @@ const ChecklistDetail = () => {
             setArchived(foundInspection.status === "archived");
             setSignature(foundInspection.signature || null);
             setCanEdit(foundInspection.status !== "archived");
-          } else {
-            toast({
-              title: "Checklist não encontrado",
-              description: "O checklist solicitado não foi encontrado",
-              variant: "destructive"
-            });
-            navigate(returnPath);
+            return;
           }
-        } else {
-          toast({
-            title: "Erro ao carregar dados",
-            description: "Não foi possível carregar os dados do checklist",
-            variant: "destructive"
-          });
-          navigate(returnPath);
         }
+
+        const foundSupabaseInspection = (supabaseInspections as any[]).find((insp: any) => {
+          const rawId = insp?.id ?? insp?.inspection_id;
+          return String(rawId) === id;
+        });
+
+        if (foundSupabaseInspection) {
+          const normalized = normalizeSupabaseInspection(foundSupabaseInspection);
+          setInspection(normalized);
+          setObservations(normalized.observations || "");
+          setArchived(false);
+          setSignature(normalized.signature || null);
+          setCanEdit(false);
+          return;
+        }
+
+        toast({
+          title: "Checklist não encontrado",
+          description: "O checklist solicitado não foi encontrado",
+          variant: "destructive"
+        });
+        navigate(returnPath);
       } catch (error) {
         console.error("Erro ao carregar inspeção:", error);
         toast({
@@ -127,7 +219,16 @@ const ChecklistDetail = () => {
     };
     
     loadInspection();
-  }, [id, navigate, toast, returnPath]);
+  }, [
+    id,
+    navigate,
+    toast,
+    returnPath,
+    supabaseInspections,
+    supabaseOperators,
+    supabaseEquipment,
+    supabaseLoading,
+  ]);
   
   const handleAnswerChange = (itemId: string, value: "Sim" | "Não") => {
     if (!inspection || !canEdit) return;
