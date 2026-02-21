@@ -15,7 +15,8 @@ import {
   X,
   ArrowLeft,
   Database,
-  ShieldAlert
+  ShieldAlert,
+  ClipboardCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -130,6 +131,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
               <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
               <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="Investigacoes" />
+              <SidebarLink to="/admin/regras-ouro" icon={<ClipboardCheck size={20} />} label="Regras de Ouro" />
               <SidebarLink to="/admin/operators" icon={<User size={20} />} label="Operadores" />
               <SidebarLink to="/admin/investigadores" icon={<User size={20} />} label="Investigadores" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />

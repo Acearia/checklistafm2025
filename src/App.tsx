@@ -18,6 +18,7 @@ import AdminReports from "./pages/AdminReports";
 import AdminGroups from "./pages/AdminGroups";
 import AdminInvestigators from "./pages/AdminInvestigators";
 import AdminInvestigacoes from "./pages/AdminInvestigacoes";
+import AdminRegrasOuro from "./pages/AdminRegrasOuro";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
 import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
 import LeaderLogin from "./pages/LeaderLogin";
@@ -57,6 +58,7 @@ function App() {
           <Route path="equipment" element={<AdminEquipment />} />
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="investigacoes" element={<AdminInvestigacoes />} />
+          <Route path="regras-ouro" element={<AdminRegrasOuro />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
           <Route path="leaders" element={<AdminLeaders />} />
