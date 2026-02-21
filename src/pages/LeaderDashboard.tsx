@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+﻿import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter,
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -56,11 +55,17 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import InspectionBoardPanel from "@/components/inspection/InspectionBoardPanel";
 import { format, startOfDay, endOfDay, subDays, subMonths, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import { loadChecklistAlerts, saveChecklistAlerts } from "@/lib/checklistTemplate";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
+import {
+  buildInspectionBoard,
+  calculateInspectionBoardStats,
+  type InspectionBoardInspectionEntry,
+} from "@/lib/inspectionBoard";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { operatorService, type Operator as SupabaseOperator } from "@/lib/supabase-service";
@@ -108,14 +113,6 @@ interface ProblemEntry {
 }
 
 const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
-
-const getInspectionDateValue = (inspection: Inspection) =>
-  inspection.submission_date || inspection.inspection_date || "";
-
-const isSameCalendarDay = (date: Date, reference: Date) =>
-  date.getDate() === reference.getDate() &&
-  date.getMonth() === reference.getMonth() &&
-  date.getFullYear() === reference.getFullYear();
 
 const LeaderDashboard = () => {
   const navigate = useNavigate();
@@ -1051,150 +1048,48 @@ const LeaderDashboard = () => {
     };
   }, [filteredInspections, filteredProblems]);
 
-  const boardBySector = useMemo(() => {
-    const sectorMap = new Map<
-      string,
-      Map<
-        string,
-        {
-          id: string;
-          name: string;
-          kp: string;
-          inspections: Array<{
-            id: string;
-            label: string;
-            isToday: boolean;
-            hasProblems: boolean;
-            hasOpenOrder: boolean;
-            inspection: Inspection;
-          }>;
-        }
-      >
-    >();
-    const today = new Date();
+  const boardBySector = useMemo(
+    () =>
+      buildInspectionBoard({
+        equipments: sectorEquipments,
+        inspections,
+        getInspectionEquipmentId: (inspection, index) =>
+          inspection.equipmentId ||
+          `${inspection.equipment.name}-${inspection.equipment.kp}-${inspection.id || index}`,
+        getInspectionEquipmentMeta: (inspection) => inspection.equipment,
+        getInspectionDate: (inspection) =>
+          inspection.submission_date || inspection.inspection_date,
+        getInspectionHasProblems: (inspection) =>
+          inspection.checklist_answers.some((answer) =>
+            shouldTriggerAlert(
+              answer.question,
+              answer.answer,
+              { onYes: answer.alertOnYes, onNo: answer.alertOnNo },
+            ),
+          ),
+        getInspectionHasOpenOrder: (inspection) =>
+          openOrdersByInspection.has(inspection.id),
+      }),
+    [sectorEquipments, inspections, openOrdersByInspection],
+  );
 
-    const ensureEquipment = (
-      sectorName: string,
-      equipmentId: string,
-      equipmentName: string,
-      equipmentKp: string,
-    ) => {
-      const normalizedSector = sectorName || "Sem setor";
-      const normalizedId = equipmentId || `equip-${equipmentName}`;
-      const normalizedName = equipmentName || normalizedId;
-      const normalizedKp = equipmentKp || "-";
+  const boardStats = useMemo(
+    () => calculateInspectionBoardStats(boardBySector),
+    [boardBySector],
+  );
 
-      let sectorEquipmentsMap = sectorMap.get(normalizedSector);
-      if (!sectorEquipmentsMap) {
-        sectorEquipmentsMap = new Map();
-        sectorMap.set(normalizedSector, sectorEquipmentsMap);
-      }
+  const getLeaderBoardRowClass = (entry: InspectionBoardInspectionEntry<Inspection>) => {
+    if (!entry.hasProblems && entry.isToday) return "bg-green-100";
+    if (entry.hasProblems) return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    return "bg-white";
+  };
 
-      let equipmentEntry = sectorEquipmentsMap.get(normalizedId);
-      if (!equipmentEntry) {
-        equipmentEntry = {
-          id: normalizedId,
-          name: normalizedName,
-          kp: normalizedKp,
-          inspections: [],
-        };
-        sectorEquipmentsMap.set(normalizedId, equipmentEntry);
-      }
-
-      return equipmentEntry;
-    };
-
-    sectorEquipments.forEach((equipment) => {
-      ensureEquipment(
-        equipment.sector || "Sem setor",
-        equipment.id,
-        equipment.name || equipment.id,
-        equipment.kp || "-",
-      );
-    });
-
-    inspections.forEach((inspection, index) => {
-      const equipmentId =
-        inspection.equipmentId ||
-        `${inspection.equipment.name}-${inspection.equipment.kp}-${index}`;
-      const equipmentEntry = ensureEquipment(
-        inspection.equipment.sector || "Sem setor",
-        equipmentId,
-        inspection.equipment.name || equipmentId,
-        inspection.equipment.kp || "-",
-      );
-
-      const dateValue = getInspectionDateValue(inspection);
-      const parsedDate = dateValue ? new Date(dateValue) : null;
-      const isValidDate = Boolean(parsedDate && !Number.isNaN(parsedDate.getTime()));
-      const label = isValidDate
-        ? format(parsedDate as Date, "dd/MM/yyyy HH:mm", { locale: ptBR })
-        : "Sem data";
-
-      const hasProblems = inspection.checklist_answers.some((answer) =>
-        shouldTriggerAlert(
-          answer.question,
-          answer.answer,
-          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
-        )
-      );
-
-      equipmentEntry.inspections.push({
-        id: inspection.id || `${equipmentEntry.id}-${index}`,
-        label,
-        isToday: isValidDate ? isSameCalendarDay(parsedDate as Date, today) : false,
-        hasProblems,
-        hasOpenOrder: openOrdersByInspection.has(inspection.id),
-        inspection,
-      });
-    });
-
-    return Array.from(sectorMap.entries())
-      .map(([sector, equipmentMap]) => ({
-        sector,
-        equipments: Array.from(equipmentMap.values())
-          .map((equipmentEntry) => ({
-            ...equipmentEntry,
-            inspections: equipmentEntry.inspections
-              .sort((a, b) => {
-                const dateA = getInspectionDateValue(a.inspection);
-                const dateB = getInspectionDateValue(b.inspection);
-                return (
-                  new Date(dateB || 0).getTime() - new Date(dateA || 0).getTime()
-                );
-              })
-              .slice(0, 12),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-      }))
-      .sort((a, b) => a.sector.localeCompare(b.sector, "pt-BR"));
-  }, [sectorEquipments, inspections, openOrdersByInspection]);
-
-  const boardStats = useMemo(() => {
-    let equipmentCount = 0;
-    let inspectionsToday = 0;
-    let inspectionsWithProblemsToday = 0;
-
-    boardBySector.forEach((sector) => {
-      sector.equipments.forEach((equipmentEntry) => {
-        equipmentCount += 1;
-        equipmentEntry.inspections.forEach((inspectionEntry) => {
-          if (!inspectionEntry.isToday) return;
-          inspectionsToday += 1;
-          if (inspectionEntry.hasProblems) {
-            inspectionsWithProblemsToday += 1;
-          }
-        });
-      });
-    });
-
-    return {
-      sectorCount: boardBySector.length,
-      equipmentCount,
-      inspectionsToday,
-      inspectionsWithProblemsToday,
-    };
-  }, [boardBySector]);
+  const getLeaderBoardDotClass = (entry: InspectionBoardInspectionEntry<Inspection>) => {
+    if (!entry.hasProblems) {
+      return entry.isToday ? "bg-green-500" : "bg-gray-300";
+    }
+    return entry.hasOpenOrder ? "bg-yellow-500" : "bg-red-500";
+  };
 
   const filteredProblemsByEquipment = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1404,6 +1299,22 @@ const LeaderDashboard = () => {
         </div>
       </div>
       
+      <InspectionBoardPanel
+        title="Painel por setor"
+        description="Visão consolidada por setor e equipamento. Clique em uma linha para abrir a inspeção."
+        emptyMessage="Nenhuma inspeção encontrada para os setores liberados."
+        boardBySector={boardBySector}
+        boardStats={boardStats}
+        getRowClass={getLeaderBoardRowClass}
+        getDotClass={getLeaderBoardDotClass}
+        onInspectionClick={(inspection) => {
+          if (inspection.id) {
+            navigate(`/leader/checklists/${inspection.id}`);
+            return;
+          }
+          handleOpenInspectionDetails(inspection);
+        }}
+      />
 
       <div className="mb-4 grid gap-4 md:grid-cols-3">
         <Card className="border border-red-100 shadow-sm">
@@ -2132,7 +2043,7 @@ const LeaderDashboard = () => {
         </Popover>
       </div>
 
-      <Tabs defaultValue="problems" className="space-y-4">
+      <Tabs defaultValue="inspections" className="space-y-4">
         <TabsList>
           <TabsTrigger value="problems" className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" />
@@ -2145,10 +2056,6 @@ const LeaderDashboard = () => {
           <TabsTrigger value="inspections" className="flex items-center gap-2">
             <CheckCircle className="h-4 w-4" />
             Inspeções
-          </TabsTrigger>
-          <TabsTrigger value="board" className="flex items-center gap-2">
-            <Wrench className="h-4 w-4" />
-            Painel do setor
           </TabsTrigger>
         </TabsList>
 
@@ -2348,128 +2255,11 @@ const LeaderDashboard = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="board">
-          <Card>
-            <CardHeader>
-              <CardTitle>Painel por setor</CardTitle>
-              <CardDescription>
-                Visão consolidada por setor e equipamento. Clique em uma linha para abrir a inspeção.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Setores</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.sectorCount}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Equipamentos</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.equipmentCount}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Inspeções hoje</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.inspectionsToday}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">NOK hoje</p>
-                  <p className="text-xl font-semibold text-red-700">{boardStats.inspectionsWithProblemsToday}</p>
-                </div>
-              </div>
-
-              {boardBySector.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-gray-500">
-                  Nenhuma inspeção encontrada para os setores liberados.
-                </div>
-              ) : (
-                <div className="overflow-x-auto pb-2">
-                  <div className="flex min-w-max gap-4">
-                    {boardBySector.map((sectorEntry) => (
-                      <div key={sectorEntry.sector} className="w-[320px] shrink-0 rounded-lg border bg-white">
-                        <div className="border-b bg-red-50 px-4 py-3">
-                          <p className="text-lg font-bold text-red-800">{sectorEntry.sector}</p>
-                          <p className="text-xs text-red-700">{sectorEntry.equipments.length} equipamento(s)</p>
-                        </div>
-                        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
-                          {sectorEntry.equipments.map((equipmentEntry) => (
-                            <div key={equipmentEntry.id} className="rounded-md border bg-gray-50">
-                              <div className="border-b bg-white px-3 py-2">
-                                <p className="font-semibold text-gray-900">{equipmentEntry.name}</p>
-                                <p className="text-xs text-gray-500">KP: {equipmentEntry.kp}</p>
-                              </div>
-                              <div className="max-h-48 overflow-y-auto">
-                                {equipmentEntry.inspections.length === 0 ? (
-                                  <p className="px-3 py-3 text-xs text-gray-500">Sem inspeções registradas.</p>
-                                ) : (
-                                  equipmentEntry.inspections.map((inspectionEntry) => {
-                                    const rowClass = !inspectionEntry.hasProblems && inspectionEntry.isToday
-                                      ? "bg-green-100"
-                                      : inspectionEntry.hasProblems && inspectionEntry.hasOpenOrder
-                                      ? "bg-amber-100"
-                                      : inspectionEntry.hasProblems
-                                      ? "bg-red-100"
-                                      : "bg-white";
-
-                                    const dotClass = !inspectionEntry.hasProblems
-                                      ? inspectionEntry.isToday
-                                        ? "bg-green-500"
-                                        : "bg-gray-300"
-                                      : inspectionEntry.hasOpenOrder
-                                      ? "bg-yellow-500"
-                                      : "bg-red-500";
-
-                                    return (
-                                      <button
-                                        key={inspectionEntry.id}
-                                        type="button"
-                                        onClick={() => {
-                                          const inspectionId = inspectionEntry.inspection?.id;
-                                          if (inspectionId) {
-                                            navigate(`/leader/checklists/${inspectionId}`);
-                                            return;
-                                          }
-                                          handleOpenInspectionDetails(inspectionEntry.inspection);
-                                        }}
-                                        className={`flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 ${rowClass}`}
-                                      >
-                                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-                                        <span className="flex-1 text-gray-800">{inspectionEntry.label}</span>
-                                      </button>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-green-100" />
-                <span>Check list OK hoje</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-red-100" />
-                <span>Check list NOK hoje</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-amber-100" />
-                <span>Check list NOK com OS</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <span>Check list NOK sem OS</span>
-              </div>
-            </CardFooter>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default LeaderDashboard;
+
+

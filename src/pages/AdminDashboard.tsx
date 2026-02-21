@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+﻿import React, { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
   CardContent, 
@@ -9,11 +9,17 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, PieChart } from "@/components/ui/charts";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle, RefreshCw, Users, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import InspectionBoardPanel from "@/components/inspection/InspectionBoardPanel";
+import {
+  buildInspectionBoard,
+  calculateInspectionBoardStats,
+  type InspectionBoardInspectionEntry,
+} from "@/lib/inspectionBoard";
 import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import {
@@ -27,6 +33,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { 
     operators, 
@@ -337,6 +344,73 @@ const AdminDashboard = () => {
     }
   }, [sectorSummary.sectors, sectorFilter]);
 
+  const openOrdersByInspection = useMemo(
+    () =>
+      new Set(
+        maintenanceOrders
+          .filter((order) => order.status === "open")
+          .map((order) => order.inspectionId),
+      ),
+    [maintenanceOrders],
+  );
+
+  const boardBySector = useMemo(
+    () =>
+      buildInspectionBoard({
+        equipments: equipment,
+        inspections,
+        getInspectionEquipmentId: (inspection) =>
+          inspection?.equipment_id || inspection?.equipment?.id,
+        getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
+        getInspectionDate: (inspection) =>
+          inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
+        getInspectionHasProblems: (inspection) => {
+          const answers = Array.isArray(inspection?.checklist_answers)
+            ? inspection.checklist_answers
+            : [];
+          return answers.some((answer: any, index: number) => {
+            const answerWithRules = applyAlertRuleToItem({
+              ...answer,
+              question:
+                answer?.question && String(answer.question).trim().length > 0
+                  ? answer.question
+                  : `Pergunta ${index + 1}`,
+            });
+
+            return shouldTriggerAlert(
+              answerWithRules.question,
+              answerWithRules.answer,
+              {
+                onYes: answerWithRules.alertOnYes,
+                onNo: answerWithRules.alertOnNo,
+              },
+            );
+          });
+        },
+        getInspectionHasOpenOrder: (inspection) =>
+          openOrdersByInspection.has(inspection?.id),
+      }),
+    [equipment, inspections, openOrdersByInspection],
+  );
+
+  const boardStats = useMemo(
+    () => calculateInspectionBoardStats(boardBySector),
+    [boardBySector],
+  );
+
+  const getDashboardBoardRowClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
+    if (!entry.hasProblems && entry.isToday) return "bg-green-100";
+    if (entry.hasProblems && entry.isToday) {
+      return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    }
+    return "bg-white";
+  };
+
+  const getDashboardBoardDotClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
+    if (!entry.hasProblems) return "bg-green-500";
+    return entry.hasOpenOrder ? "bg-yellow-500" : "bg-red-500";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -372,6 +446,21 @@ const AdminDashboard = () => {
           </Link>
         </div>
       </div>
+
+      <InspectionBoardPanel
+        title="Painel geral de inspeções (encarregados e líderes)"
+        description="Visão consolidada de todos os setores e equipamentos. Clique em uma linha para abrir os detalhes da inspeção."
+        emptyMessage="Nenhuma inspeção encontrada para montar o painel geral."
+        boardBySector={boardBySector}
+        boardStats={boardStats}
+        getRowClass={getDashboardBoardRowClass}
+        getDotClass={getDashboardBoardDotClass}
+        onInspectionClick={(inspection) => {
+          const inspectionData = inspection as { id?: string };
+          if (!inspectionData?.id) return;
+          navigate(`/admin/checklists/${inspectionData.id}`);
+        }}
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
@@ -690,3 +779,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+

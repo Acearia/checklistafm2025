@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -31,23 +31,19 @@ import { Eye, Download, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Badge } from "@/components/ui/badge";
+import InspectionBoardPanel from "@/components/inspection/InspectionBoardPanel";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import {
+  buildInspectionBoard,
+  calculateInspectionBoardStats,
+  type InspectionBoardInspectionEntry,
+} from "@/lib/inspectionBoard";
 import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
-
-type InspectionLike = any;
-
-const getInspectionDateValue = (inspection: InspectionLike) =>
-  inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null;
-
-const isSameDay = (date: Date, reference: Date) =>
-  date.getDate() === reference.getDate() &&
-  date.getMonth() === reference.getMonth() &&
-  date.getFullYear() === reference.getFullYear();
 
 const AdminInspections = () => {
   const navigate = useNavigate();
@@ -304,154 +300,28 @@ const AdminInspections = () => {
     );
   });
 
-  const boardBySector = useMemo(() => {
-    const sectorMap = new Map<
-      string,
-      Map<
-        string,
-        {
-          id: string;
-          name: string;
-          kp: string;
-          inspections: Array<{
-            id: string;
-            label: string;
-            isToday: boolean;
-            hasProblems: boolean;
-            hasOpenOrder: boolean;
-            inspection: InspectionLike;
-          }>;
-        }
-      >
-    >();
-    const today = new Date();
+  const boardBySector = useMemo(
+    () =>
+      buildInspectionBoard({
+        equipments: equipment || [],
+        inspections: processedInspections,
+        getInspectionEquipmentId: (inspection) =>
+          String(inspection?.equipment_id || inspection?.equipment?.id || ""),
+        getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
+        getInspectionDate: (inspection) =>
+          inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
+        getInspectionHasProblems: (inspection) =>
+          Number(inspection?.problemCount || 0) > 0,
+        getInspectionHasOpenOrder: (inspection) =>
+          Boolean(inspection?.hasOpenOrder),
+      }),
+    [equipment, processedInspections],
+  );
 
-    const ensureEquipment = (
-      sectorName: string,
-      equipmentId: string,
-      equipmentName: string,
-      equipmentKp: string,
-    ) => {
-      const normalizedSector = sectorName || "Sem setor";
-      const normalizedId = equipmentId || `equip-${equipmentName}`;
-      const normalizedName = equipmentName || normalizedId;
-      const normalizedKp = equipmentKp || "-";
-
-      let sectorEquipments = sectorMap.get(normalizedSector);
-      if (!sectorEquipments) {
-        sectorEquipments = new Map();
-        sectorMap.set(normalizedSector, sectorEquipments);
-      }
-
-      let equipmentEntry = sectorEquipments.get(normalizedId);
-      if (!equipmentEntry) {
-        equipmentEntry = {
-          id: normalizedId,
-          name: normalizedName,
-          kp: normalizedKp,
-          inspections: [],
-        };
-        sectorEquipments.set(normalizedId, equipmentEntry);
-      }
-      return equipmentEntry;
-    };
-
-    (equipment || []).forEach((equipmentItem: any) => {
-      ensureEquipment(
-        String(equipmentItem?.sector || "Sem setor"),
-        String(equipmentItem?.id || ""),
-        String(equipmentItem?.name || equipmentItem?.id || "Equipamento"),
-        String(equipmentItem?.kp || equipmentItem?.bridgeNumber || "-"),
-      );
-    });
-
-    processedInspections.forEach((inspection: any) => {
-      const equipmentId = String(
-        inspection?.equipment_id || inspection?.equipment?.id || "",
-      );
-      const equipmentInfo = equipmentById.get(equipmentId);
-      const sectorName = String(
-        equipmentInfo?.sector || inspection?.equipment?.sector || "Sem setor",
-      );
-      const equipmentName = String(
-        equipmentInfo?.name || inspection?.equipment?.name || equipmentId || "Equipamento",
-      );
-      const equipmentKp = String(
-        equipmentInfo?.kp ||
-          inspection?.equipment?.kp ||
-          inspection?.equipment?.bridgeNumber ||
-          "-",
-      );
-
-      const equipmentEntry = ensureEquipment(
-        sectorName,
-        equipmentId,
-        equipmentName,
-        equipmentKp,
-      );
-      const dateValue = getInspectionDateValue(inspection);
-      const parsedDate = dateValue ? new Date(dateValue) : null;
-      const isValidDate = Boolean(parsedDate && !Number.isNaN(parsedDate.getTime()));
-      const label = isValidDate
-        ? format(parsedDate as Date, "dd/MM/yyyy HH:mm", { locale: ptBR })
-        : "Sem data";
-
-      equipmentEntry.inspections.push({
-        id: String(inspection?.id || `${equipmentEntry.id}-${label}`),
-        label,
-        isToday: isValidDate ? isSameDay(parsedDate as Date, today) : false,
-        hasProblems: Number((inspection as any).problemCount || 0) > 0,
-        hasOpenOrder: Boolean((inspection as any).hasOpenOrder),
-        inspection,
-      });
-    });
-
-    return Array.from(sectorMap.entries())
-      .map(([sector, equipmentMap]) => ({
-        sector,
-        equipments: Array.from(equipmentMap.values())
-          .map((equipmentEntry) => ({
-            ...equipmentEntry,
-            inspections: equipmentEntry.inspections
-              .sort((a, b) => {
-                const dateA = getInspectionDateValue(a.inspection);
-                const dateB = getInspectionDateValue(b.inspection);
-                return (
-                  new Date(dateB || 0).getTime() - new Date(dateA || 0).getTime()
-                );
-              })
-              .slice(0, 12),
-          }))
-          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
-      }))
-      .sort((a, b) => a.sector.localeCompare(b.sector, "pt-BR"));
-  }, [equipment, processedInspections, equipmentById]);
-
-  const boardStats = useMemo(() => {
-    let equipmentCount = 0;
-    let inspectionsToday = 0;
-    let inspectionsWithProblemsToday = 0;
-
-    boardBySector.forEach((sector) => {
-      sector.equipments.forEach((equipmentEntry) => {
-        equipmentCount += 1;
-        equipmentEntry.inspections.forEach((inspectionEntry) => {
-          if (!inspectionEntry.isToday) return;
-          inspectionsToday += 1;
-          if (inspectionEntry.hasProblems) {
-            inspectionsWithProblemsToday += 1;
-          }
-        });
-      });
-    });
-
-    return {
-      sectorCount: boardBySector.length,
-      equipmentCount,
-      inspectionsToday,
-      inspectionsWithProblemsToday,
-    };
-  }, [boardBySector]);
+  const boardStats = useMemo(
+    () => calculateInspectionBoardStats(boardBySector),
+    [boardBySector],
+  );
 
   const sectorSummary = useMemo(() => {
     if (!processedInspections || processedInspections.length === 0) {
@@ -526,6 +396,19 @@ const AdminInspections = () => {
       totalWithoutProblems: inspectionsWithoutProblemsTotal,
     };
   }, [processedInspections, equipment]);
+
+  const getAdminBoardRowClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
+    if (!entry.hasProblems && entry.isToday) return "bg-green-100";
+    if (entry.hasProblems && entry.isToday) {
+      return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    }
+    return "bg-white";
+  };
+
+  const getAdminBoardDotClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
+    if (!entry.hasProblems) return "bg-green-500";
+    return entry.hasOpenOrder ? "bg-yellow-500" : "bg-red-500";
+  };
 
   if (loading) {
     return (
@@ -884,125 +767,23 @@ const AdminInspections = () => {
         </TabsContent>
 
         <TabsContent value="painel" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Painel geral de inspeções (encarregados e líderes)</CardTitle>
-              <CardDescription>
-                Visão consolidada de todos os setores e equipamentos. Clique em uma linha para abrir os detalhes da inspeção.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Setores</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.sectorCount}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Equipamentos</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.equipmentCount}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">Inspeções hoje</p>
-                  <p className="text-xl font-semibold text-gray-900">{boardStats.inspectionsToday}</p>
-                </div>
-                <div className="rounded-md border bg-gray-50 p-3">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">NOK hoje</p>
-                  <p className="text-xl font-semibold text-red-700">{boardStats.inspectionsWithProblemsToday}</p>
-                </div>
-              </div>
-
-              {boardBySector.length === 0 ? (
-                <div className="rounded-md border border-dashed p-6 text-center text-sm text-gray-500">
-                  Nenhuma inspeção encontrada para montar o painel geral.
-                </div>
-              ) : (
-                <div className="overflow-x-auto pb-2">
-                  <div className="flex min-w-max gap-4">
-                    {boardBySector.map((sectorEntry) => (
-                      <div key={sectorEntry.sector} className="w-[320px] shrink-0 rounded-lg border bg-white">
-                        <div className="border-b bg-red-50 px-4 py-3">
-                          <p className="text-lg font-bold text-red-800">{sectorEntry.sector}</p>
-                          <p className="text-xs text-red-700">
-                            {sectorEntry.equipments.length} equipamento(s)
-                          </p>
-                        </div>
-                        <div className="max-h-[70vh] space-y-3 overflow-y-auto p-3">
-                          {sectorEntry.equipments.map((equipmentEntry) => (
-                            <div key={equipmentEntry.id} className="rounded-md border bg-gray-50">
-                              <div className="border-b bg-white px-3 py-2">
-                                <p className="font-semibold text-gray-900">{equipmentEntry.name}</p>
-                                <p className="text-xs text-gray-500">KP: {equipmentEntry.kp}</p>
-                              </div>
-                              <div className="max-h-48 overflow-y-auto">
-                                {equipmentEntry.inspections.length === 0 ? (
-                                  <p className="px-3 py-3 text-xs text-gray-500">
-                                    Sem inspeções registradas.
-                                  </p>
-                                ) : (
-                                  equipmentEntry.inspections.map((inspectionEntry) => {
-                                    const rowClass = !inspectionEntry.hasProblems && inspectionEntry.isToday
-                                      ? "bg-green-100"
-                                      : inspectionEntry.hasProblems && inspectionEntry.isToday
-                                        ? inspectionEntry.hasOpenOrder
-                                          ? "bg-amber-100"
-                                          : "bg-red-100"
-                                        : "bg-white";
-
-                                    const dotClass = !inspectionEntry.hasProblems
-                                      ? "bg-green-500"
-                                      : inspectionEntry.hasOpenOrder
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500";
-
-                                    return (
-                                      <button
-                                        key={inspectionEntry.id}
-                                        type="button"
-                                        onClick={() => {
-                                          const inspectionId = inspectionEntry.inspection?.id;
-                                          if (inspectionId) {
-                                            navigate(`/admin/checklists/${inspectionId}`);
-                                            return;
-                                          }
-                                          handleViewDetails(inspectionEntry.inspection);
-                                        }}
-                                        className={`flex w-full items-center gap-2 border-b px-3 py-2 text-left text-sm transition-colors hover:bg-gray-100 ${rowClass}`}
-                                      >
-                                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
-                                        <span className="flex-1 text-gray-800">{inspectionEntry.label}</span>
-                                      </button>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex flex-wrap items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-green-100" />
-                <span>Check list OK hoje</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-red-100" />
-                <span>Check list NOK hoje</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-sm border bg-amber-100" />
-                <span>Check list NOK com OS</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                <span>Check list NOK sem OS</span>
-              </div>
-            </CardFooter>
-          </Card>
+          <InspectionBoardPanel
+            title="Painel geral de inspeções (encarregados e líderes)"
+            description="Visão consolidada de todos os setores e equipamentos. Clique em uma linha para abrir os detalhes da inspeção."
+            emptyMessage="Nenhuma inspeção encontrada para montar o painel geral."
+            boardBySector={boardBySector}
+            boardStats={boardStats}
+            getRowClass={getAdminBoardRowClass}
+            getDotClass={getAdminBoardDotClass}
+            onInspectionClick={(inspection) => {
+              const inspectionData = inspection as { id?: string };
+              if (inspectionData?.id) {
+                navigate(`/admin/checklists/${inspectionData.id}`);
+                return;
+              }
+              handleViewDetails(inspection);
+            }}
+          />
         </TabsContent>
       </Tabs>
 
@@ -1210,3 +991,4 @@ const AdminInspections = () => {
 };
 
 export default AdminInspections;
+

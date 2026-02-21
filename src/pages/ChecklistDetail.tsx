@@ -1,4 +1,4 @@
-
+﻿
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
@@ -79,11 +79,10 @@ const ChecklistDetail = () => {
   const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   const [signature, setSignature] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(true);
-  const [isLeaderView, setIsLeaderView] = useState(false);
+  const isLeaderView = location.pathname.includes("/leader");
+  const returnPath = isLeaderView ? "/leader/dashboard" : "/admin/inspections";
   
   useEffect(() => {
-    setIsLeaderView(location.pathname.includes("/leader"));
-    
     const loadInspection = () => {
       setIsLoading(true);
       
@@ -105,7 +104,7 @@ const ChecklistDetail = () => {
               description: "O checklist solicitado não foi encontrado",
               variant: "destructive"
             });
-            navigate(isLeaderView ? "/leader/dashboard" : "/admin/inspections");
+            navigate(returnPath);
           }
         } else {
           toast({
@@ -113,7 +112,7 @@ const ChecklistDetail = () => {
             description: "Não foi possível carregar os dados do checklist",
             variant: "destructive"
           });
-          navigate(isLeaderView ? "/leader/dashboard" : "/admin/inspections");
+          navigate(returnPath);
         }
       } catch (error) {
         console.error("Erro ao carregar inspeção:", error);
@@ -128,7 +127,7 @@ const ChecklistDetail = () => {
     };
     
     loadInspection();
-  }, [id, navigate, toast, location.pathname]);
+  }, [id, navigate, toast, returnPath]);
   
   const handleAnswerChange = (itemId: string, value: "Sim" | "Não") => {
     if (!inspection || !canEdit) return;
@@ -230,7 +229,7 @@ const ChecklistDetail = () => {
         <h2 className="text-xl font-bold">Checklist não encontrado</h2>
         <p className="text-muted-foreground mt-2">O checklist solicitado não está disponível</p>
         <Button 
-          onClick={() => navigate(isLeaderView ? "/leader/dashboard" : "/admin/inspections")} 
+          onClick={() => navigate(returnPath)} 
           className="mt-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -257,7 +256,7 @@ const ChecklistDetail = () => {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => navigate(isLeaderView ? "/leader/dashboard" : "/admin/inspections")}
+            onClick={() => navigate(returnPath)}
             className="mr-2"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
@@ -436,7 +435,7 @@ const ChecklistDetail = () => {
         <CardFooter className="flex justify-between border-t pt-6">
           <Button 
             variant="outline" 
-            onClick={() => navigate(isLeaderView ? "/leader/dashboard" : "/admin/inspections")}
+            onClick={() => navigate(returnPath)}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Voltar
@@ -479,3 +478,4 @@ const ChecklistDetail = () => {
 };
 
 export default ChecklistDetail;
+
