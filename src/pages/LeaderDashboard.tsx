@@ -50,7 +50,6 @@ import {
   FileText,
   RefreshCw,
   AlertTriangle,
-  Bell,
   Calendar as CalendarIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -167,6 +166,7 @@ const LeaderDashboard = () => {
   const [showEquipmentList, setShowEquipmentList] = useState(false);
   const [showOperatorList, setShowOperatorList] = useState(false);
   const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
+  const [sectorSummaryFilter, setSectorSummaryFilter] = useState<"all" | "with-os" | "without-os">("all");
   const [searchTerm, setSearchTerm] = useState("");
   const normalizeSector = (value?: string | null) =>
     value
@@ -1078,6 +1078,102 @@ const LeaderDashboard = () => {
     [boardBySector],
   );
 
+  const leaderSectorSummary = useMemo(() => {
+    if (!inspections || inspections.length === 0) {
+      return {
+        sectors: [] as Array<{
+          sector: string;
+          totalInspections: number;
+          inspectionsWithProblems: number;
+          inspectionsWithoutOS: number;
+        }>,
+        total: 0,
+        totalWithProblems: 0,
+        totalWithoutOS: 0,
+        totalWithoutProblems: 0,
+      };
+    }
+
+    const summaryMap = new Map<
+      string,
+      {
+        sector: string;
+        totalInspections: number;
+        inspectionsWithProblems: number;
+        inspectionsWithoutOS: number;
+      }
+    >();
+
+    let inspectionsWithProblemsTotal = 0;
+    let inspectionsWithoutOSTotal = 0;
+
+    inspections.forEach((inspection) => {
+      const sectorName = inspection.equipment?.sector || "Sem setor";
+      const hasProblems = inspection.checklist_answers.some((answer) =>
+        shouldTriggerAlert(
+          answer.question,
+          answer.answer,
+          { onYes: answer.alertOnYes, onNo: answer.alertOnNo },
+        ),
+      );
+      const hasOpenOrder = openOrdersByInspection.has(inspection.id);
+
+      if (hasProblems) {
+        inspectionsWithProblemsTotal += 1;
+        if (!hasOpenOrder) {
+          inspectionsWithoutOSTotal += 1;
+        }
+      }
+
+      const existing = summaryMap.get(sectorName);
+      if (existing) {
+        existing.totalInspections += 1;
+        if (hasProblems) {
+          existing.inspectionsWithProblems += 1;
+          if (!hasOpenOrder) {
+            existing.inspectionsWithoutOS += 1;
+          }
+        }
+      } else {
+        summaryMap.set(sectorName, {
+          sector: sectorName,
+          totalInspections: 1,
+          inspectionsWithProblems: hasProblems ? 1 : 0,
+          inspectionsWithoutOS: hasProblems && !hasOpenOrder ? 1 : 0,
+        });
+      }
+    });
+
+    const sectors = Array.from(summaryMap.values()).sort((a, b) =>
+      a.sector.localeCompare(b.sector, "pt-BR"),
+    );
+
+    return {
+      sectors,
+      total: inspections.length,
+      totalWithProblems: inspectionsWithProblemsTotal,
+      totalWithoutOS: inspectionsWithoutOSTotal,
+      totalWithoutProblems: Math.max(inspections.length - inspectionsWithProblemsTotal, 0),
+    };
+  }, [inspections, openOrdersByInspection]);
+
+  const filteredLeaderSectors = useMemo(() => {
+    switch (sectorSummaryFilter) {
+      case "without-os":
+        return leaderSectorSummary.sectors.filter(
+          (sector) => sector.inspectionsWithoutOS > 0,
+        );
+      case "with-os":
+        return leaderSectorSummary.sectors.filter(
+          (sector) =>
+            sector.inspectionsWithProblems > 0 &&
+            sector.inspectionsWithProblems > sector.inspectionsWithoutOS,
+        );
+      default:
+        return leaderSectorSummary.sectors;
+    }
+  }, [leaderSectorSummary.sectors, sectorSummaryFilter]);
+
   const getLeaderBoardRowClass = (entry: InspectionBoardInspectionEntry<Inspection>) => {
     if (!entry.hasProblems && entry.isToday) return "bg-green-100";
     if (entry.hasProblems) return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
@@ -1250,47 +1346,31 @@ const LeaderDashboard = () => {
 
   return (
     <div className="space-y-6 pb-4">
-      <div className="flex flex-col items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="w-full text-center text-gray-900 sm:w-auto">
-          <h1 className="text-2xl font-bold">
-            Dashboard de Líderes
-          </h1>
-          <p>
-            {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : 'Dashboard'}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard de Líderes</h1>
+          <p className="text-sm text-muted-foreground">
+            {currentLeader ? `${currentLeader.name} - ${currentLeader.sector}` : "Dashboard"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
-          <div
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-red-200 bg-red-50 text-red-700"
-            aria-label="Inspeções com problemas"
-            title="Inspeções com problemas"
-          >
-            <Bell className="h-5 w-5" aria-hidden="true" />
-            <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-semibold text-white">
-              {pendingAlertsCount}
-            </span>
-          </div>
-          <Button 
-            onClick={exportReportToPDF} 
-            variant="outline" 
-            className="flex items-center gap-2"
-          >
-            <FileText className="h-4 w-4" />
-            Exportar PDF
-          </Button>
+        <div className="flex flex-wrap items-center gap-3">
           <Button onClick={handleRefreshData} variant="outline" className="flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             Atualizar
           </Button>
-          <Button 
+          <Button onClick={exportReportToPDF} variant="outline" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Exportar PDF
+          </Button>
+          <Button
             onClick={() => {
               localStorage.removeItem("checklistafm-leader-auth");
               localStorage.removeItem("checklistafm-leader-id");
               localStorage.removeItem("checklistafm-leader-sector");
               localStorage.removeItem(LOCAL_PROFILE_KEY);
               navigate("/leader/login");
-            }} 
-            variant="outline" 
+            }}
+            variant="outline"
             className="flex items-center gap-2 text-red-700 hover:text-red-800"
           >
             <LogOut className="h-4 w-4" />
@@ -1298,7 +1378,7 @@ const LeaderDashboard = () => {
           </Button>
         </div>
       </div>
-      
+
       <InspectionBoardPanel
         title="Painel por setor"
         description="Visão consolidada por setor e equipamento. Clique em uma linha para abrir a inspeção."
@@ -1316,62 +1396,160 @@ const LeaderDashboard = () => {
         }}
       />
 
-      <div className="mb-4 grid gap-4 md:grid-cols-3">
-        <Card className="border border-red-100 shadow-sm">
-          <CardHeader className="pb-2 bg-red-50">
-            <CardTitle className="text-sm font-medium text-red-700">
-              Problemas Identificados
-            </CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Total de Inspeções</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-700">
-              {filteredStats.pendingActions}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Em {filteredStats.problemInspections} inspeções com problemas
-            </p>
+            <div className="text-2xl font-bold">{leaderSectorSummary.total}</div>
+            <p className="text-xs text-muted-foreground">Realizadas no setor</p>
           </CardContent>
         </Card>
 
-        <Card className="border border-green-100 shadow-sm">
-          <CardHeader className="pb-2 bg-green-50">
-            <CardTitle className="text-sm font-medium text-green-700">
-              Total de Inspeções
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Operadores</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">
-              {filteredStats.totalInspections}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Inspeções realizadas no setor
-            </p>
+            <div className="text-2xl font-bold">{sectorOperatorsList.length}</div>
+            <p className="text-xs text-muted-foreground">Vinculados ao setor</p>
           </CardContent>
         </Card>
 
-        <Card className="border border-blue-100 shadow-sm">
-          <CardHeader className="pb-2 bg-blue-50">
-            <CardTitle className="text-sm font-medium text-blue-700">
-              Taxa de Problemas
-            </CardTitle>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Equipamentos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700">
-              {filteredStats.totalInspections > 0
-                ? Math.round(
-                    (filteredStats.problemInspections /
-                      filteredStats.totalInspections) *
-                      100
-                  )
-                : 0}
-              %
-            </div>
+            <div className="text-2xl font-bold">{sectorEquipments.length}</div>
+            <p className="text-xs text-muted-foreground">Monitorados no setor</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Setores</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{leaderSectorSummary.sectors.length}</div>
+            <p className="text-xs text-muted-foreground">Sob sua gestão</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Inspeções com Problemas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{leaderSectorSummary.totalWithProblems}</div>
             <p className="text-xs text-muted-foreground">
-              Inspeções com problemas identificados
+              Alertas pendentes: {pendingAlertsCount}
             </p>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Resumo por Setor</CardTitle>
+              <CardDescription>
+                Total de checklists e quantos apresentaram problemas em cada setor
+              </CardDescription>
+            </div>
+            <Select
+              value={sectorSummaryFilter}
+              onValueChange={(value) =>
+                setSectorSummaryFilter(value as "all" | "with-os" | "without-os")
+              }
+            >
+              <SelectTrigger className="w-full bg-white sm:w-60">
+                <SelectValue placeholder="Filtrar setores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os setores</SelectItem>
+                <SelectItem value="without-os">Sem abertura de OS</SelectItem>
+                <SelectItem value="with-os">Com OS registrada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {leaderSectorSummary.sectors.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhuma inspeção registrada até o momento.
+            </p>
+          ) : filteredLeaderSectors.length === 0 ? (
+            <p className="text-sm text-gray-600">
+              Nenhum setor encontrado para o filtro selecionado.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
+                    <th className="pb-2">Setor</th>
+                    <th className="pb-2 text-center">Checklists</th>
+                    <th className="pb-2 text-center">Com problemas</th>
+                    <th className="pb-2 text-center">Com OS</th>
+                    <th className="pb-2 text-center">% com problemas</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {filteredLeaderSectors.map((sector) => {
+                    const percentage =
+                      sector.totalInspections === 0
+                        ? 0
+                        : Math.round(
+                            (sector.inspectionsWithProblems / sector.totalInspections) * 100,
+                          );
+                    const openedOs = Math.max(
+                      sector.inspectionsWithProblems - sector.inspectionsWithoutOS,
+                      0,
+                    );
+
+                    return (
+                      <tr key={sector.sector} className="border-t border-gray-200 last:border-b">
+                        <td className="py-3 font-medium text-gray-800">{sector.sector}</td>
+                        <td className="py-3 text-center text-gray-700">
+                          {sector.totalInspections.toLocaleString("pt-BR")}
+                        </td>
+                        <td className="py-3 text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              sector.inspectionsWithProblems > 0
+                                ? "bg-red-100 text-red-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {sector.inspectionsWithProblems.toLocaleString("pt-BR")}
+                          </span>
+                        </td>
+                        <td className="py-3 text-center">
+                          <span
+                            className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                              openedOs > 0
+                                ? "bg-green-100 text-green-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {openedOs.toLocaleString("pt-BR")}
+                          </span>
+                        </td>
+                        <td className="py-3 text-center text-xs text-muted-foreground">
+                          {percentage}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border border-gray-200 bg-white">
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
