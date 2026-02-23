@@ -114,17 +114,17 @@ const Index = () => {
       setPasswordSetupDialogOpen(true);
       toast({
         title: "Defina uma senha",
-        description: "Crie uma senha de 4 dígitos para continuar.",
+        description: "Crie uma senha com no mínimo 4 dígitos para continuar.",
       });
       return;
     }
 
-    if (!senhaInformada || senhaInformada.length !== 4) {
+    if (!/^\d{4,}$/.test(senhaInformada)) {
       setValidatedOperator(null);
-      setPasswordError("Informe a senha de 4 dígitos para continuar.");
+      setPasswordError("Informe uma senha numérica com no mínimo 4 dígitos.");
       toast({
         title: "Senha obrigatória",
-        description: "Digite a senha de 4 dígitos.",
+        description: "Digite uma senha numérica com no mínimo 4 dígitos.",
         variant: "destructive",
       });
       return;
@@ -153,7 +153,7 @@ const Index = () => {
       setPasswordSetupDialogOpen(true);
       toast({
         title: "Troque sua senha",
-        description: "Defina uma nova senha de 4 dígitos para continuar.",
+        description: "Defina uma nova senha com no mínimo 4 dígitos para continuar.",
       });
       return;
     }
@@ -190,8 +190,8 @@ const Index = () => {
       return;
     }
 
-    if (!newPassword || newPassword.length !== 4) {
-      setPasswordSetupError("A senha deve ter 4 dígitos.");
+    if (!/^\d{4,}$/.test(newPassword)) {
+      setPasswordSetupError("A senha deve ter no mínimo 4 dígitos numéricos.");
       return;
     }
 
@@ -269,13 +269,12 @@ const Index = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Senha (4 dígitos)
+                Senha (mínimo 4 dígitos)
               </label>
               <Input
                 type="password"
                 placeholder="••••"
                 value={senha}
-                maxLength={4}
                 onChange={(e) => {
                   const value = e.target.value.replace(/\D/g, '');
                   setSenha(value);
@@ -481,14 +480,13 @@ const Index = () => {
           <DialogHeader>
             <DialogTitle>Definir senha de acesso</DialogTitle>
             <DialogDescription>
-              Crie uma senha de 4 dígitos para o operador {passwordSetupOperator?.name || ""}.
+              Crie uma senha com no mínimo 4 dígitos para o operador {passwordSetupOperator?.name || ""}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <Input
               type="password"
-              placeholder="Nova senha (4 dígitos)"
-              maxLength={4}
+              placeholder="Nova senha (mínimo 4 dígitos)"
               value={newPassword}
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, "");
@@ -499,7 +497,6 @@ const Index = () => {
             <Input
               type="password"
               placeholder="Confirmar senha"
-              maxLength={4}
               value={confirmPassword}
               onChange={(e) => {
                 const value = e.target.value.replace(/\D/g, "");

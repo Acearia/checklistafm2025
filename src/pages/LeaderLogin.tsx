@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { leaderService } from "@/lib/supabase-service";
+import { verifyAdminCredentials } from "@/lib/adminCredentials";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 const LeaderLogin = () => {
-  const [email, setEmail] = useState("");
+  const [matricula, setMatricula] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -31,6 +32,7 @@ const LeaderLogin = () => {
   const [resetLoading, setResetLoading] = useState(false);
 
   const DEFAULT_PASSWORD_HASH = btoa("1234");
+  const LOCAL_SUPER_MATRICULA = "0000";
   const LOCAL_SUPER_EMAIL = "teste@local";
   const LOCAL_SUPER_PASSWORD = "teste123";
   const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
@@ -48,7 +50,6 @@ const LeaderLogin = () => {
     typeof window !== "undefined" && isPrivateHost(window.location.hostname);
 
   useEffect(() => {
-    // Check if already logged in
     const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
     if (isAuthenticated) {
       navigate("/leader/dashboard");
@@ -57,23 +58,25 @@ const LeaderLogin = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!email || !password) {
+
+    if (!matricula || !password) {
       toast({
         title: "Erro",
-        description: "Por favor, informe email e senha",
+        description: "Por favor, informe matrícula e senha",
         variant: "destructive",
       });
-      setErrorMessage("Informe email e senha para continuar.");
+      setErrorMessage("Informe matrícula e senha para continuar.");
       return;
     }
 
     setLoading(true);
 
     try {
+      const normalizedMatricula = matricula.trim();
       const isLocalSuperUser =
         isLocalMode() &&
-        email.trim().toLowerCase() === LOCAL_SUPER_EMAIL &&
+        (normalizedMatricula === LOCAL_SUPER_MATRICULA ||
+          normalizedMatricula.toLowerCase() === LOCAL_SUPER_EMAIL) &&
         password === LOCAL_SUPER_PASSWORD;
 
       if (isLocalSuperUser) {
@@ -84,22 +87,21 @@ const LeaderLogin = () => {
           LOCAL_PROFILE_KEY,
           JSON.stringify({
             id: "__local_super__",
-            name: "Usuario Local",
-            email: LOCAL_SUPER_EMAIL,
+            name: "Usuário Local",
+            email: "supervisor@local",
             sector: "TODOS",
           }),
         );
 
         toast({
           title: "Login local realizado",
-          description: "Acesso local liberado com permissao total.",
+          description: "Acesso local liberado com permissão total.",
         });
         setErrorMessage(null);
         navigate("/leader/dashboard");
         return;
       }
 
-      // Wait for leaders data to load if still loading
       if (leadersLoading) {
         toast({
           title: "Aguarde",
@@ -108,13 +110,15 @@ const LeaderLogin = () => {
         setLoading(false);
         return;
       }
-      
-      // Find leader by email and validate password
-      const leader = leaders.find(l => l.email.toLowerCase() === email.toLowerCase());
 
-      // Simple password validation (in production, use proper hashing)
-      const passwordHash = btoa(password); // Base64 encoding for simplicity
-      
+      const leader = leaders.find((item) => {
+        const leaderMatricula = String(item.operator_matricula || "").trim();
+        if (leaderMatricula && leaderMatricula === normalizedMatricula) return true;
+        return item.email.toLowerCase() === normalizedMatricula.toLowerCase();
+      });
+
+      const passwordHash = btoa(password);
+
       if (leader && leader.password_hash === passwordHash) {
         if (leader.password_hash === DEFAULT_PASSWORD_HASH) {
           setPendingLeaderId(leader.id);
@@ -129,14 +133,12 @@ const LeaderLogin = () => {
           return;
         }
 
-        // Simulate login delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Set authentication data
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
         localStorage.setItem("checklistafm-leader-auth", "true");
         localStorage.setItem("checklistafm-leader-id", leader.id);
         localStorage.setItem("checklistafm-leader-sector", leader.sector);
-        
+
         toast({
           title: "Login realizado com sucesso",
           description: `Bem-vindo(a), ${leader.name}`,
@@ -144,7 +146,34 @@ const LeaderLogin = () => {
         setErrorMessage(null);
         navigate("/leader/dashboard");
       } else {
-        const message = leader ? "Senha incorreta. Verifique e tente novamente." : "Email não encontrado. Verifique suas credenciais.";
+        const adminAccess = await verifyAdminCredentials(normalizedMatricula, password);
+        if (adminAccess?.role === "seguranca") {
+          const securityId = `__seguranca__${adminAccess.username}`;
+          localStorage.setItem("checklistafm-leader-auth", "true");
+          localStorage.setItem("checklistafm-leader-id", securityId);
+          localStorage.setItem("checklistafm-leader-sector", "TODOS");
+          localStorage.setItem(
+            LOCAL_PROFILE_KEY,
+            JSON.stringify({
+              id: securityId,
+              name: `Supervisor ${adminAccess.username}`,
+              email: `${adminAccess.username}@local`,
+              sector: "TODOS",
+            }),
+          );
+
+          toast({
+            title: "Login realizado com sucesso",
+            description: "Acesso de supervisor liberado.",
+          });
+          setErrorMessage(null);
+          navigate("/leader/dashboard");
+          return;
+        }
+
+        const message = leader
+          ? "Senha incorreta. Verifique e tente novamente."
+          : "Matrícula não encontrada. Verifique suas credenciais.";
         setErrorMessage(message);
         toast({
           title: "Erro",
@@ -196,7 +225,7 @@ const LeaderLogin = () => {
 
       localStorage.setItem("checklistafm-leader-auth", "true");
       localStorage.setItem("checklistafm-leader-id", pendingLeaderId);
-      const pendingLeader = leaders.find((leader) => leader.id === pendingLeaderId);
+      const pendingLeader = leaders.find((leaderItem) => leaderItem.id === pendingLeaderId);
       if (pendingLeader) {
         localStorage.setItem("checklistafm-leader-sector", pendingLeader.sector);
       }
@@ -234,23 +263,23 @@ const LeaderLogin = () => {
           <CardHeader className="space-y-1 text-center">
             <CardTitle className="text-2xl font-bold">Painel de Líderes</CardTitle>
             <CardDescription>
-              Acesse o painel de líderes usando seu email
+              Acesse o painel de líderes usando sua matrícula
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Input
-                  id="email"
-                  placeholder="Seu email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  id="matricula"
+                  placeholder="Sua matrícula"
+                  type="text"
+                  value={matricula}
+                  onChange={(e) => setMatricula(e.target.value)}
+                  autoComplete="username"
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Input
                   id="password"
@@ -266,16 +295,16 @@ const LeaderLogin = () => {
                 )}
               </div>
 
-               <Button
-                 className="w-full bg-red-700 hover:bg-red-800"
-                 type="submit"
-                 disabled={loading || leadersLoading}
-               >
-                 {(loading || leadersLoading) ? (
-                   <span className="flex items-center gap-2">
-                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                     {leadersLoading ? "Carregando..." : "Entrando..."}
-                   </span>
+              <Button
+                className="w-full bg-red-700 hover:bg-red-800"
+                type="submit"
+                disabled={loading || leadersLoading}
+              >
+                {(loading || leadersLoading) ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    {leadersLoading ? "Carregando..." : "Entrando..."}
+                  </span>
                 ) : (
                   "Entrar"
                 )}

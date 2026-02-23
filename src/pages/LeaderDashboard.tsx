@@ -826,6 +826,15 @@ const LeaderDashboard = () => {
       return;
     }
 
+    if (!/^\d{4,}$/.test(trimmedPassword)) {
+      toast({
+        title: "Senha inválida",
+        description: "A senha do operador deve ter no mínimo 4 dígitos numéricos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsResettingPassword(true);
       await operatorService.update(operatorToReset.id, { senha: trimmedPassword });

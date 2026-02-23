@@ -657,10 +657,10 @@ const InvestigacaoAcidente = () => {
       return;
     }
 
-    if (senha && !/^\d{4}$/.test(senha)) {
+    if (senha && !/^\d{4,}$/.test(senha)) {
       toast({
         title: "Senha invalida",
-        description: "A senha inicial deve ter 4 digitos numericos.",
+        description: "A senha inicial deve ter no minimo 4 digitos numericos.",
         variant: "destructive",
       });
       return;

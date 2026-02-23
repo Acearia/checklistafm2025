@@ -280,7 +280,7 @@ const AdminOperators = () => {
         setor: data.setor || null,
       };
 
-      if (data.senha && data.senha.trim().length === 4) {
+      if (data.senha && /^\d{4,}$/.test(data.senha.trim())) {
         // Marca para troca obrigatória na próxima entrada
         updates.senha = `${data.senha.trim()}|RESET`;
       }

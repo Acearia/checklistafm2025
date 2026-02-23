@@ -1,4 +1,3 @@
-
 import React, { useEffect } from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,19 +15,18 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
-const formSchema = z
-  .object({
-    id: z.string(),
-    name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
-    cargo: z.string().optional(),
-    setor: z.string().optional(),
-    senha: z
-      .string()
-      .optional()
-      .refine((val) => !val || (val.length === 4 && /^\d+$/.test(val)), {
-        message: "Senha deve ter exatamente 4 dígitos numéricos",
-      }),
-  });
+const formSchema = z.object({
+  id: z.string(),
+  name: z.string().min(2, { message: "Nome deve ter pelo menos 2 caracteres" }),
+  cargo: z.string().optional(),
+  setor: z.string().optional(),
+  senha: z
+    .string()
+    .optional()
+    .refine((val) => !val || (val.length >= 4 && /^\d+$/.test(val)), {
+      message: "Senha deve ter no mínimo 4 dígitos numéricos",
+    }),
+});
 
 const NONE_SECTOR_VALUE = "__none";
 
@@ -51,17 +49,16 @@ interface EditOperatorDialogProps {
   sectors?: SectorOption[];
 }
 
-export function EditOperatorDialog({ 
-  open, 
-  onOpenChange, 
+export function EditOperatorDialog({
+  open,
+  onOpenChange,
   operator,
   onEditOperator,
   sectors = [],
 }: EditOperatorDialogProps) {
-  // Check if operator exists to avoid null reference errors
   const operatorData = operator || { id: "", name: "", cargo: "", setor: "", senha: "" };
   const [selectedSectors, setSelectedSectors] = React.useState<string[]>([]);
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -73,7 +70,6 @@ export function EditOperatorDialog({
     },
   });
 
-  // Update form values when the operator changes
   useEffect(() => {
     if (operator) {
       form.reset({
@@ -87,9 +83,8 @@ export function EditOperatorDialog({
   }, [operator, form]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Ensure name is required and not empty
     if (!values.name.trim()) return;
-    
+
     const sectorsValue =
       selectedSectors.length > 0
         ? selectedSectors.join(", ")
@@ -104,14 +99,14 @@ export function EditOperatorDialog({
       setor: sectorsValue,
       senha: values.senha,
     });
-    
+
     form.reset();
     onOpenChange(false);
   }
 
   const toggleSector = (name: string) => {
     setSelectedSectors((prev) =>
-      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name],
     );
   };
 
@@ -177,7 +172,7 @@ export function EditOperatorDialog({
             <FormField
               control={form.control}
               name="setor"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
                   <FormLabel>Setores (selecione um ou mais)</FormLabel>
                   <div className="flex flex-col gap-2 max-h-48 overflow-auto border rounded-md p-2">
@@ -208,15 +203,15 @@ export function EditOperatorDialog({
               name="senha"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha (4 dígitos - deixe em branco para não alterar)</FormLabel>
+                  <FormLabel>Senha (mínimo 4 dígitos - deixe em branco para não alterar)</FormLabel>
                   <FormControl>
-                    <Input 
+                    <Input
                       type="password"
                       placeholder="••••"
-                      maxLength={4}
+                      maxLength={20}
                       {...field}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
+                        const value = e.target.value.replace(/\D/g, "");
                         field.onChange(value);
                       }}
                     />

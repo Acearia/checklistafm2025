@@ -1,5 +1,4 @@
-
-import React, { useEffect } from "react";
+import React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -25,7 +24,7 @@ const formSchema = z.object({
   setor: z.string().optional(),
   senha: z
     .string()
-    .regex(/^\d{4}$/, { message: "Senha deve ter exatamente 4 dígitos numéricos" })
+    .regex(/^\d{4,}$/, { message: "Senha deve ter no mínimo 4 dígitos numéricos" })
     .or(z.literal(""))
     .optional(),
 });
@@ -44,9 +43,9 @@ interface AddOperatorDialogProps {
   sectors?: SectorOption[];
 }
 
-export function AddOperatorDialog({ 
-  open, 
-  onOpenChange, 
+export function AddOperatorDialog({
+  open,
+  onOpenChange,
   onAddOperator,
   sectors = [],
 }: AddOperatorDialogProps) {
@@ -64,24 +63,23 @@ export function AddOperatorDialog({
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Ensure name and id are required and not empty
     if (!values.name.trim() || !values.id.trim()) return;
+
     const sectorsValue =
       selectedSectors.length > 0
         ? selectedSectors.join(", ")
         : values.setor === NONE_SECTOR_VALUE
           ? undefined
           : values.setor;
-    
-    // Now we're sure name and id are non-empty strings as required by the type
+
     onAddOperator({
       id: values.id,
       name: values.name,
       cargo: values.cargo,
       setor: sectorsValue,
-      senha: values.senha && values.senha.length === 4 ? values.senha : undefined,
+      senha: values.senha && values.senha.length >= 4 ? values.senha : undefined,
     });
-    
+
     form.reset();
     setSelectedSectors([]);
     onOpenChange(false);
@@ -89,7 +87,7 @@ export function AddOperatorDialog({
 
   const toggleSector = (name: string) => {
     setSelectedSectors((prev) =>
-      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name]
+      prev.includes(name) ? prev.filter((s) => s !== name) : [...prev, name],
     );
   };
 
@@ -124,10 +122,10 @@ export function AddOperatorDialog({
                 <FormItem>
                   <FormLabel>Matrícula* (4 dígitos)</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="1234" 
+                    <Input
+                      placeholder="1234"
                       maxLength={4}
-                      {...field} 
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -163,7 +161,7 @@ export function AddOperatorDialog({
             <FormField
               control={form.control}
               name="setor"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
                   <FormLabel>Setores (selecione um ou mais)</FormLabel>
                   <div className="flex flex-col gap-2 max-h-48 overflow-auto border rounded-md p-2">
@@ -194,15 +192,15 @@ export function AddOperatorDialog({
               name="senha"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Senha (4 dígitos, opcional)</FormLabel>
+                  <FormLabel>Senha (mínimo 4 dígitos, opcional)</FormLabel>
                   <FormControl>
-                    <Input 
+                    <Input
                       type="password"
                       placeholder="••••"
-                      maxLength={4}
+                      maxLength={20}
                       value={field.value ?? ""}
                       onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '');
+                        const value = e.target.value.replace(/\D/g, "");
                         field.onChange(value);
                       }}
                     />

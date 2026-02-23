@@ -1,12 +1,11 @@
 
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Checklist from "./pages/Checklist";
 import NotFound from "./pages/NotFound";
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./components/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminOperators from "./pages/AdminOperators";
 import AdminEquipment from "./pages/AdminEquipment";
 import AdminInspections from "./pages/AdminInspections";
 import AdminChecklistsOverview from "./pages/AdminChecklistsOverview";
@@ -16,9 +15,9 @@ import AdminSectors from "./pages/AdminSectors";
 import AdminSettings from "./pages/AdminSettings";
 import AdminReports from "./pages/AdminReports";
 import AdminGroups from "./pages/AdminGroups";
-import AdminInvestigators from "./pages/AdminInvestigators";
 import AdminInvestigacoes from "./pages/AdminInvestigacoes";
 import AdminRegrasOuro from "./pages/AdminRegrasOuro";
+import AdminUsers from "./pages/AdminUsers";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
 import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
 import LeaderLogin from "./pages/LeaderLogin";
@@ -54,7 +53,8 @@ function App() {
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
-          <Route path="operators" element={<AdminOperators />} />
+          <Route path="operators" element={<Navigate to="/admin/users" replace />} />
+          <Route path="users" element={<AdminUsers />} />
           <Route path="equipment" element={<AdminEquipment />} />
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="investigacoes" element={<AdminInvestigacoes />} />
@@ -64,7 +64,7 @@ function App() {
           <Route path="leaders" element={<AdminLeaders />} />
           <Route path="sectors" element={<AdminSectors />} />
           <Route path="groups" element={<AdminGroups />} />
-          <Route path="investigadores" element={<AdminInvestigators />} />
+          <Route path="investigadores" element={<Navigate to="/admin/users" replace />} />
           <Route path="checklists/:id" element={<ChecklistDetail />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="reports" element={<AdminReports />} />
