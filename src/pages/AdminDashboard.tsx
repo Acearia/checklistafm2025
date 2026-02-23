@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
+import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const AdminDashboard = () => {
@@ -84,6 +84,12 @@ const AdminDashboard = () => {
   });
   const [maintenanceOrders, setMaintenanceOrders] = useState<MaintenanceOrder[]>([]);
   const [sectorFilter, setSectorFilter] = useState<"all" | "with-os" | "without-os">("all");
+  const [boardDateFrom, setBoardDateFrom] = useState(() =>
+    format(subDays(new Date(), 6), "yyyy-MM-dd"),
+  );
+  const [boardDateTo, setBoardDateTo] = useState(() =>
+    format(new Date(), "yyyy-MM-dd"),
+  );
 
   useEffect(() => {
     if (!loading) {
@@ -354,11 +360,32 @@ const AdminDashboard = () => {
     [maintenanceOrders],
   );
 
+  const boardInspections = useMemo(() => {
+    const fromDate = boardDateFrom ? startOfDay(new Date(boardDateFrom)) : null;
+    const toDate = boardDateTo ? endOfDay(new Date(boardDateTo)) : null;
+
+    return inspections.filter((inspection: any) => {
+      const dateValue =
+        inspection?.submission_date ||
+        inspection?.created_at ||
+        inspection?.inspection_date ||
+        null;
+      if (!dateValue) return false;
+
+      const inspectionDate = new Date(dateValue);
+      if (Number.isNaN(inspectionDate.getTime())) return false;
+
+      const matchesFrom = !fromDate || inspectionDate >= fromDate;
+      const matchesTo = !toDate || inspectionDate <= toDate;
+      return matchesFrom && matchesTo;
+    });
+  }, [inspections, boardDateFrom, boardDateTo]);
+
   const boardBySector = useMemo(
     () =>
       buildInspectionBoard({
         equipments: equipment,
-        inspections,
+        inspections: boardInspections,
         getInspectionEquipmentId: (inspection) =>
           inspection?.equipment_id || inspection?.equipment?.id,
         getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
@@ -390,7 +417,7 @@ const AdminDashboard = () => {
         getInspectionHasOpenOrder: (inspection) =>
           openOrdersByInspection.has(inspection?.id),
       }),
-    [equipment, inspections, openOrdersByInspection],
+    [equipment, boardInspections, openOrdersByInspection],
   );
 
   const boardStats = useMemo(
@@ -455,6 +482,23 @@ const AdminDashboard = () => {
         boardStats={boardStats}
         getRowClass={getDashboardBoardRowClass}
         getDotClass={getDashboardBoardDotClass}
+        dateFrom={boardDateFrom}
+        dateTo={boardDateTo}
+        onDateFromChange={setBoardDateFrom}
+        onDateToChange={setBoardDateTo}
+        onApplyToday={() => {
+          const today = format(new Date(), "yyyy-MM-dd");
+          setBoardDateFrom(today);
+          setBoardDateTo(today);
+        }}
+        onApplyLast7Days={() => {
+          setBoardDateFrom(format(subDays(new Date(), 6), "yyyy-MM-dd"));
+          setBoardDateTo(format(new Date(), "yyyy-MM-dd"));
+        }}
+        onClearDateFilter={() => {
+          setBoardDateFrom("");
+          setBoardDateTo("");
+        }}
         onInspectionClick={(inspection) => {
           const inspectionData = inspection as {
             id?: string | number | null;

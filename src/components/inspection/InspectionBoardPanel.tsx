@@ -1,4 +1,6 @@
-﻿import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+﻿import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import type {
   InspectionBoardInspectionEntry,
   InspectionBoardSectorEntry,
@@ -14,6 +16,13 @@ interface InspectionBoardPanelProps<TInspection> {
   onInspectionClick: (inspection: TInspection) => void;
   getRowClass: (entry: InspectionBoardInspectionEntry<TInspection>) => string;
   getDotClass: (entry: InspectionBoardInspectionEntry<TInspection>) => string;
+  dateFrom?: string;
+  dateTo?: string;
+  onDateFromChange?: (value: string) => void;
+  onDateToChange?: (value: string) => void;
+  onApplyToday?: () => void;
+  onApplyLast7Days?: () => void;
+  onClearDateFilter?: () => void;
 }
 
 const InspectionBoardPanel = <TInspection,>({
@@ -25,12 +34,52 @@ const InspectionBoardPanel = <TInspection,>({
   onInspectionClick,
   getRowClass,
   getDotClass,
+  dateFrom,
+  dateTo,
+  onDateFromChange,
+  onDateToChange,
+  onApplyToday,
+  onApplyLast7Days,
+  onClearDateFilter,
 }: InspectionBoardPanelProps<TInspection>) => {
+  const hasDateControls = Boolean(onDateFromChange && onDateToChange);
+
   return (
     <Card className="border border-slate-200 bg-white shadow-sm">
       <CardHeader className="space-y-1">
         <CardTitle className="text-xl text-slate-900">{title}</CardTitle>
         <CardDescription className="text-sm text-slate-600">{description}</CardDescription>
+        {hasDateControls && (
+          <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-2.5">
+            <div className="min-w-[150px] flex-1 space-y-1">
+              <p className="text-xs font-medium text-slate-600">De</p>
+              <Input
+                type="date"
+                value={dateFrom || ""}
+                onChange={(event) => onDateFromChange?.(event.target.value)}
+              />
+            </div>
+            <div className="min-w-[150px] flex-1 space-y-1">
+              <p className="text-xs font-medium text-slate-600">Até</p>
+              <Input
+                type="date"
+                value={dateTo || ""}
+                onChange={(event) => onDateToChange?.(event.target.value)}
+              />
+            </div>
+            <div className="flex w-full flex-wrap gap-2 pt-1 sm:w-auto sm:pt-0">
+              <Button type="button" variant="outline" size="sm" onClick={onApplyToday}>
+                Hoje
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={onApplyLast7Days}>
+                7 dias
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={onClearDateFilter}>
+                Limpar
+              </Button>
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -132,4 +181,3 @@ const InspectionBoardPanel = <TInspection,>({
 };
 
 export default InspectionBoardPanel;
-

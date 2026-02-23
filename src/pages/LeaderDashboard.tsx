@@ -168,6 +168,12 @@ const LeaderDashboard = () => {
   const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
   const [sectorSummaryFilter, setSectorSummaryFilter] = useState<"all" | "with-os" | "without-os">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [boardDateFrom, setBoardDateFrom] = useState(() =>
+    format(subDays(new Date(), 6), "yyyy-MM-dd"),
+  );
+  const [boardDateTo, setBoardDateTo] = useState(() =>
+    format(new Date(), "yyyy-MM-dd"),
+  );
   const normalizeSector = (value?: string | null) =>
     value
       ? value
@@ -1057,11 +1063,28 @@ const LeaderDashboard = () => {
     };
   }, [filteredInspections, filteredProblems]);
 
+  const boardInspections = useMemo(() => {
+    const from = boardDateFrom ? startOfDay(new Date(`${boardDateFrom}T00:00:00`)) : null;
+    const to = boardDateTo ? endOfDay(new Date(`${boardDateTo}T00:00:00`)) : null;
+
+    return inspections.filter((inspection) => {
+      const dateValue = inspection.submission_date || inspection.inspection_date;
+      if (!dateValue) return false;
+
+      const inspectionDate = new Date(dateValue);
+      if (Number.isNaN(inspectionDate.getTime())) return false;
+      if (from && inspectionDate < from) return false;
+      if (to && inspectionDate > to) return false;
+
+      return true;
+    });
+  }, [inspections, boardDateFrom, boardDateTo]);
+
   const boardBySector = useMemo(
     () =>
       buildInspectionBoard({
         equipments: sectorEquipments,
-        inspections,
+        inspections: boardInspections,
         getInspectionEquipmentId: (inspection, index) =>
           inspection.equipmentId ||
           `${inspection.equipment.name}-${inspection.equipment.kp}-${inspection.id || index}`,
@@ -1079,7 +1102,7 @@ const LeaderDashboard = () => {
         getInspectionHasOpenOrder: (inspection) =>
           openOrdersByInspection.has(inspection.id),
       }),
-    [sectorEquipments, inspections, openOrdersByInspection],
+    [sectorEquipments, boardInspections, openOrdersByInspection],
   );
 
   const boardStats = useMemo(
@@ -1406,6 +1429,23 @@ const LeaderDashboard = () => {
         emptyMessage="Nenhuma inspeção encontrada para os setores liberados."
         boardBySector={boardBySector}
         boardStats={boardStats}
+        dateFrom={boardDateFrom}
+        dateTo={boardDateTo}
+        onDateFromChange={setBoardDateFrom}
+        onDateToChange={setBoardDateTo}
+        onApplyToday={() => {
+          const today = format(new Date(), "yyyy-MM-dd");
+          setBoardDateFrom(today);
+          setBoardDateTo(today);
+        }}
+        onApplyLast7Days={() => {
+          setBoardDateFrom(format(subDays(new Date(), 6), "yyyy-MM-dd"));
+          setBoardDateTo(format(new Date(), "yyyy-MM-dd"));
+        }}
+        onClearDateFilter={() => {
+          setBoardDateFrom("");
+          setBoardDateTo("");
+        }}
         getRowClass={getLeaderBoardRowClass}
         getDotClass={getLeaderBoardDotClass}
         onInspectionClick={(inspection) => {
