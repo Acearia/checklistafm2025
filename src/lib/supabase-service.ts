@@ -39,6 +39,22 @@ export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
 export type InspectionInsert = TablesInsert<"inspections">;
 
+const notifyInspectionEmail = async (inspectionId: string) => {
+  if (!inspectionId) return;
+
+  try {
+    const { error } = await supabase.functions.invoke("send-inspection-email", {
+      body: { inspectionId },
+    });
+
+    if (error) {
+      console.error("[inspectionService] Falha ao enviar e-mail de inspeção:", error);
+    }
+  } catch (error) {
+    console.error("[inspectionService] Erro ao acionar função de e-mail:", error);
+  }
+};
+
 // Operators
 const isMissingSenhaColumnError = (error: any) => {
   if (typeof error?.message !== "string") return false;
@@ -257,7 +273,7 @@ export const inspectionService = {
     return data || [];
   },
 
-  async create(inspection: InspectionInsert) {
+  async create(inspection: InspectionInsert, options?: { notifyEmail?: boolean }) {
     const { data, error } = await supabase
       .from("inspections")
       .insert(inspection)
@@ -269,6 +285,9 @@ export const inspectionService = {
       .single();
     
     if (error) throw error;
+    if (options?.notifyEmail !== false && data?.id) {
+      void notifyInspectionEmail(data.id);
+    }
     return data;
   },
 
@@ -540,7 +559,7 @@ export const migrationService = {
               signature: inspection.signature,
               photos: inspection.photos || [],
               checklist_answers: inspection.checklist || []
-            });
+            }, { notifyEmail: false });
           }
         }
       }
