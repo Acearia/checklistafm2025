@@ -406,7 +406,7 @@ const InvestigacaoAcidente2 = () => {
   const signatureTargetLabel = signatureDialog ? SIGNATURE_LABELS[signatureDialog] : "";
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6 lg:space-y-6">
       <Card className="border-blue-100 bg-gradient-to-br from-white via-white to-blue-50/40">
         <CardHeader>
           <div className="flex items-start gap-3">
@@ -424,12 +424,12 @@ const InvestigacaoAcidente2 = () => {
         </CardHeader>
       </Card>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-5 lg:space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Dados da Regra de Ouro</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>ID</Label>
               <Input value={formatInspectionNumber(previewNumber)} readOnly />
@@ -556,9 +556,9 @@ const InvestigacaoAcidente2 = () => {
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
-                  <div className="grid items-center gap-3 p-4 md:grid-cols-[90px_1fr_130px]">
+                  <div className="grid items-center gap-3 p-4 lg:grid-cols-[74px_1fr_112px]">
                     <div className="text-center">
-                      <div className="text-4xl font-bold leading-none text-black">{item.numero}</div>
+                      <div className="text-3xl font-bold leading-none text-black sm:text-4xl">{item.numero}</div>
                     </div>
 
                     <div className="space-y-1">
@@ -582,7 +582,7 @@ const InvestigacaoAcidente2 = () => {
                   </div>
 
                   {showExtra && (
-                    <div className="grid gap-3 border-t border-blue-100 px-4 pb-4 pt-3 md:grid-cols-2">
+                    <div className="grid gap-3 border-t border-blue-100 px-4 pb-4 pt-3 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor={`comentario-${item.id}`}>Comentários ({item.id})</Label>
                         <Textarea
@@ -625,7 +625,7 @@ const InvestigacaoAcidente2 = () => {
               Assine digitalmente os três responsáveis, igual ao padrão de inspeção.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {(Object.keys(SIGNATURE_LABELS) as SignatureKey[]).map((key) => (
               <div key={key} className="rounded-lg border p-3">
                 <p className="mb-2 text-sm font-medium text-gray-700">{SIGNATURE_LABELS[key]}</p>
@@ -671,7 +671,7 @@ const InvestigacaoAcidente2 = () => {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" className="min-w-[220px]" disabled={isSaving}>
+          <Button type="submit" className="w-full sm:w-auto sm:min-w-[220px]" disabled={isSaving}>
             <Upload className="mr-2 h-4 w-4" />
             {isSaving ? "Salvando..." : "Enviar Regra de Ouro"}
           </Button>
@@ -679,7 +679,7 @@ const InvestigacaoAcidente2 = () => {
       </form>
 
       <Dialog open={Boolean(signatureDialog)} onOpenChange={(open) => !open && setSignatureDialog(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{signatureTargetLabel}</DialogTitle>
             <DialogDescription>Use o dedo ou o mouse para registrar a assinatura.</DialogDescription>

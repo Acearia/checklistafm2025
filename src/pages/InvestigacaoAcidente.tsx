@@ -1151,7 +1151,7 @@ const InvestigacaoAcidente = () => {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 pb-12">
+    <div className="mx-auto w-full max-w-6xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6 lg:space-y-6">
       <Card className="border-red-100 bg-gradient-to-br from-white via-white to-red-50/40">
         <CardHeader>
           <div className="flex items-start gap-3">
@@ -1167,7 +1167,7 @@ const InvestigacaoAcidente = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-3">
             <Badge variant={isSigned ? "default" : "secondary"} className="justify-center">
               {isSigned ? `Assinado: ${form.investigador}` : "Assinatura pendente"}
             </Badge>
@@ -1201,7 +1201,7 @@ const InvestigacaoAcidente = () => {
         </CardContent>
       </Card>
 
-      <form id="investigacao-acidente-form" onSubmit={handleSubmit} className="space-y-6">
+      <form id="investigacao-acidente-form" onSubmit={handleSubmit} className="space-y-5 lg:space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -1210,7 +1210,7 @@ const InvestigacaoAcidente = () => {
             </CardTitle>
             <CardDescription>Dados basicos da ocorrencia.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-3">
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2 md:col-span-3">
               <Label htmlFor="titulo">Titulo *</Label>
               <Input
@@ -1264,7 +1264,7 @@ const InvestigacaoAcidente = () => {
             <CardTitle>Identificacao do Acidentado</CardTitle>
             <CardDescription>Informacoes do colaborador envolvido.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <Label htmlFor="nome_acidentado">Colaborador acidentado *</Label>
@@ -1372,7 +1372,7 @@ const InvestigacaoAcidente = () => {
             <CardTitle>Classificacao</CardTitle>
             <CardDescription>Caracteristicas do acidente e afastamento.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-4">
+          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <div className="space-y-2">
               <Label>Incidente ou acidente *</Label>
               <Select
@@ -1475,7 +1475,7 @@ const InvestigacaoAcidente = () => {
             <CardTitle>Analise de Risco</CardTitle>
             <CardDescription>Avalie gravidade, probabilidade e fatores.</CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Gravidade *</Label>
               <Select
@@ -1650,7 +1650,7 @@ const InvestigacaoAcidente = () => {
               O campo investigador e preenchido apenas apos autenticacao.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="investigador">Investigador *</Label>
               <Input id="investigador" value={form.investigador} readOnly disabled />
@@ -1712,7 +1712,7 @@ const InvestigacaoAcidente = () => {
         </Card>
 
         <Card className="border-red-100 bg-white">
-          <CardContent className="flex flex-col gap-3 pt-6 md:flex-row md:items-center md:justify-between">
+          <CardContent className="flex flex-col gap-3 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-900">Pronto para enviar?</p>
               <p className="text-sm text-gray-600">
@@ -1721,7 +1721,7 @@ const InvestigacaoAcidente = () => {
             </div>
             <Button
               type="submit"
-              className="w-full bg-red-700 hover:bg-red-800 md:w-auto"
+              className="w-full bg-red-700 hover:bg-red-800 sm:w-auto"
               disabled={isSaving}
             >
               {isSaving ? "Enviando..." : "Enviar Investigacao"}
@@ -1732,7 +1732,7 @@ const InvestigacaoAcidente = () => {
 
       <Dialog open={colaboradorDialogOpen} onOpenChange={handleColaboradorDialogChange}>
         {colaboradorDialogOpen && (
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>Adicionar colaborador (operador)</DialogTitle>
               <DialogDescription>
@@ -1830,7 +1830,7 @@ const InvestigacaoAcidente = () => {
 
       <Dialog open={signDialogOpen} onOpenChange={handleSignDialogChange}>
         {signDialogOpen && (
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Assinar Checklist</DialogTitle>
               <DialogDescription>
