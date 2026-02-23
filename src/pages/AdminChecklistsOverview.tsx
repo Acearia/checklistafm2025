@@ -392,14 +392,14 @@ const AdminChecklistsOverview = () => {
       return "bg-green-100"; // OK hoje
     } else if (!allOK && isToday) {
       if (inspection.hasMaintenanceOrder) {
-        return "bg-yellow-100"; // NOK com OS
+        return "bg-yellow-100"; // Com problema com OS
       }
-      return "bg-red-100"; // NOK hoje
+      return "bg-red-100"; // Com problema hoje
     } else if (!allOK) {
       if (inspection.hasMaintenanceOrder) {
-        return "bg-yellow-50"; // NOK com OS (não hoje)
+        return "bg-yellow-50"; // Com problema com OS (não hoje)
       }
-      return "bg-red-50"; // NOK não hoje
+      return "bg-red-50"; // Com problema não hoje
     }
     
     return ""; // default
@@ -1041,15 +1041,15 @@ const AdminChecklistsOverview = () => {
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-red-100 border border-red-300"></div>
-              <span className="text-sm">Check list "NOK" hoje</span>
+              <span className="text-sm">Check list não conforme hoje</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-yellow-100 border border-yellow-300"></div>
-              <span className="text-sm">Check list "NOK" com OS</span>
+              <span className="text-sm">Check list com OS</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-sm">Check list "NOK" sem OS</span>
+              <span className="text-sm">Check list sem OS</span>
             </div>
           </div>
         </div>
