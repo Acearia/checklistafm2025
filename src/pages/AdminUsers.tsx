@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Save, UserPlus } from "lucide-react";
+import { KeyRound, RefreshCw, Save, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { operatorService, leaderService } from "@/lib/supabase-service";
@@ -110,6 +110,7 @@ const AdminUsers = () => {
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [resettingUserMatricula, setResettingUserMatricula] = useState<string | null>(null);
   const [securityRoleTags, setSecurityRoleTags] = useState<Record<string, UnifiedRole[]>>(
     loadSecurityRoleTags(),
   );
@@ -257,6 +258,13 @@ const AdminUsers = () => {
     setSelectedRoles(new Set(user.roles));
   };
 
+  const findLeaderByMatricula = (targetMatricula: string) =>
+    leaders.find((leader) => {
+      const leaderMatricula = String(leader.operator_matricula || "").trim();
+      const fallbackMatricula = String(leader.email || "").split("@")[0].trim();
+      return leaderMatricula === targetMatricula || fallbackMatricula === targetMatricula;
+    });
+
   const saveUser = async () => {
     const matriculaTrim = matricula.trim();
     const nameTrim = name.trim();
@@ -329,11 +337,7 @@ const AdminUsers = () => {
       const existingOperator = operators.find(
         (operator) => String(operator.matricula || "").trim() === matriculaTrim,
       );
-      const existingLeader = leaders.find((leader) => {
-        const leaderMatricula = String(leader.operator_matricula || "").trim();
-        const fallbackMatricula = String(leader.email || "").split("@")[0].trim();
-        return leaderMatricula === matriculaTrim || fallbackMatricula === matriculaTrim;
-      });
+      const existingLeader = findLeaderByMatricula(matriculaTrim);
       const existingAdmin = adminAccounts.find(
         (account) => account.username === matriculaTrim,
       );
@@ -495,6 +499,116 @@ const AdminUsers = () => {
     }
   };
 
+  const handleResetUserPassword = async (user: UnifiedUser) => {
+    const hasSecurityRole = user.roles.some((role) => SECURITY_ROLES.includes(role));
+    const hasAnyResettableProfile =
+      user.roles.includes("operador") ||
+      user.roles.includes("lider") ||
+      user.roles.includes("investigador") ||
+      hasSecurityRole;
+
+    if (!hasAnyResettableProfile) {
+      toast({
+        title: "Perfil sem autenticação",
+        description: "Esse usuário não possui perfil com senha para resetar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Resetar a senha do usuário ${user.name} (${user.matricula}) para ${DEFAULT_PASSWORD}?`,
+      );
+      if (!confirmed) return;
+    }
+
+    setResettingUserMatricula(user.matricula);
+    const updatedProfiles: string[] = [];
+    const errors: string[] = [];
+
+    try {
+      if (user.roles.includes("operador")) {
+        try {
+          await operatorService.update(user.matricula, {
+            senha: `${DEFAULT_PASSWORD}|RESET`,
+          });
+          updatedProfiles.push("Operador");
+        } catch (error) {
+          console.error("Erro ao resetar senha de operador:", error);
+          errors.push("Operador");
+        }
+      }
+
+      if (user.roles.includes("lider")) {
+        const existingLeader = findLeaderByMatricula(user.matricula);
+        if (!existingLeader) {
+          errors.push("Líder");
+        } else {
+          try {
+            await leaderService.update(existingLeader.id, {
+              password_hash: encodePassword(DEFAULT_PASSWORD),
+            });
+            updatedProfiles.push("Líder");
+          } catch (error) {
+            console.error("Erro ao resetar senha de líder:", error);
+            errors.push("Líder");
+          }
+        }
+      }
+
+      if (user.roles.includes("investigador")) {
+        const ok = await upsertInvestigatorAccount(user.matricula, DEFAULT_PASSWORD);
+        if (ok) {
+          updatedProfiles.push("Investigador");
+        } else {
+          errors.push("Investigador");
+        }
+      }
+
+      if (hasSecurityRole) {
+        const { error } = await supabase
+          .from("admin_users")
+          .upsert(
+            [
+              {
+                username: user.matricula,
+                role: "seguranca",
+                password_hash: encodePassword(DEFAULT_PASSWORD),
+              },
+            ],
+            { onConflict: "username" },
+          );
+
+        if (error) {
+          console.error("Erro ao resetar senha de segurança:", error);
+          errors.push("Segurança");
+        } else {
+          updatedProfiles.push("Segurança");
+        }
+      }
+
+      if (updatedProfiles.length > 0) {
+        toast({
+          title: "Senha resetada",
+          description: `Perfis atualizados: ${updatedProfiles.join(", ")}. Senha padrão: ${DEFAULT_PASSWORD}.`,
+        });
+      }
+
+      if (errors.length > 0) {
+        toast({
+          title: "Reset parcial",
+          description: `Não foi possível resetar: ${errors.join(", ")}.`,
+          variant: "destructive",
+        });
+      }
+
+      await Promise.all([refresh(), loadAdminAccounts()]);
+    } finally {
+      setResettingUserMatricula(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -652,6 +766,7 @@ const AdminUsers = () => {
                     <TableHead>Setor</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Perfis</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -673,6 +788,21 @@ const AdminUsers = () => {
                             </Badge>
                           ))}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={resettingUserMatricula === user.matricula}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleResetUserPassword(user);
+                          }}
+                        >
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          {resettingUserMatricula === user.matricula ? "Resetando..." : "Resetar senha"}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
