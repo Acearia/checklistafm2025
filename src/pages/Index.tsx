@@ -359,24 +359,36 @@ const Index = () => {
           {isMobile ? (
             <>
               {HomeCard}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-sm text-gray-600 pt-2">
-                <Link to="/leader/login">
-                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+              <div className="grid w-full grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
+                <Link to="/leader/login" className="w-full">
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                  >
                     Acesso de Líderes
                   </Button>
                 </Link>
-                <Link to="/admin/login">
-                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                <Link to="/admin/login" className="w-full">
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                  >
                     Acesso Administrativo
                   </Button>
                 </Link>
-                <Link to="/investigacao-acidente">
-                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                <Link to="/investigacao-acidente" className="w-full">
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                  >
                     Investigação de Acidente
                   </Button>
                 </Link>
-                <Link to="/regras-de-ouro">
-                  <Button variant="ghost" className="text-gray-600 hover:text-gray-900">
+                <Link to="/regras-de-ouro" className="w-full">
+                  <Button
+                    variant="ghost"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                  >
                     Regras de Ouro
                   </Button>
                 </Link>
@@ -384,12 +396,12 @@ const Index = () => {
             </>
           ) : (
             <Tabs defaultValue="home" className="w-full">
-              <TabsList className="grid w-full grid-cols-5 bg-white/75 backdrop-blur-md rounded-lg border border-white/40">
-                <TabsTrigger value="home">Início</TabsTrigger>
-                <TabsTrigger value="leader">Líderes</TabsTrigger>
-                <TabsTrigger value="admin">Administrativo</TabsTrigger>
-                <TabsTrigger value="investigacao">Investigação</TabsTrigger>
-                <TabsTrigger value="regras-ouro">Regras de Ouro</TabsTrigger>
+              <TabsList className="grid h-auto w-full grid-cols-5 rounded-lg border border-white/40 bg-white/75 backdrop-blur-md">
+                <TabsTrigger value="home" className="px-2 py-2.5 text-[15px] md:text-base">Início</TabsTrigger>
+                <TabsTrigger value="leader" className="px-2 py-2.5 text-[15px] md:text-base">Líderes</TabsTrigger>
+                <TabsTrigger value="admin" className="px-2 py-2.5 text-[15px] md:text-base">Administrativo</TabsTrigger>
+                <TabsTrigger value="investigacao" className="px-2 py-2.5 text-[15px] md:text-base">Investigação</TabsTrigger>
+                <TabsTrigger value="regras-ouro" className="px-2 py-2.5 text-[15px] md:text-base">Regras de Ouro</TabsTrigger>
               </TabsList>
 
               <TabsContent value="home" className="mt-6">
