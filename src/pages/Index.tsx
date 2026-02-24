@@ -1,7 +1,7 @@
 ﻿
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ClipboardCheck, Search } from "lucide-react";
+import { ClipboardCheck, Search, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -376,21 +376,27 @@ const Index = () => {
                     Acesso Administrativo
                   </Button>
                 </Link>
-                <Link to="/investigacao-acidente" className="w-full">
-                  <Button
-                    variant="ghost"
-                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
-                  >
-                    Investigação de Acidente
-                  </Button>
+              </div>
+              <div className="grid w-full grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
+                <Link
+                  to="/investigacao-acidente"
+                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 shadow-sm transition-colors hover:bg-amber-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5 shrink-0" />
+                    <span className="text-base font-semibold sm:text-lg">Investigação de Acidente</span>
+                  </div>
+                  <p className="mt-1 text-sm text-amber-800">Abrir formulário de investigação.</p>
                 </Link>
-                <Link to="/regras-de-ouro" className="w-full">
-                  <Button
-                    variant="ghost"
-                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
-                  >
-                    Regras de Ouro
-                  </Button>
+                <Link
+                  to="/regras-de-ouro"
+                  className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900 shadow-sm transition-colors hover:bg-blue-100"
+                >
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="h-5 w-5 shrink-0" />
+                    <span className="text-base font-semibold sm:text-lg">Regras de Ouro</span>
+                  </div>
+                  <p className="mt-1 text-sm text-blue-800">Abrir formulário de regras de ouro.</p>
                 </Link>
               </div>
             </>
@@ -400,8 +406,8 @@ const Index = () => {
                 <TabsTrigger value="home" className="px-2 py-2.5 text-[15px] md:text-base">Início</TabsTrigger>
                 <TabsTrigger value="leader" className="px-2 py-2.5 text-[15px] md:text-base">Líderes</TabsTrigger>
                 <TabsTrigger value="admin" className="px-2 py-2.5 text-[15px] md:text-base">Administrativo</TabsTrigger>
-                <TabsTrigger value="investigacao" className="px-2 py-2.5 text-[15px] md:text-base">Investigação</TabsTrigger>
-                <TabsTrigger value="regras-ouro" className="px-2 py-2.5 text-[15px] md:text-base">Regras de Ouro</TabsTrigger>
+                <TabsTrigger value="investigacao" className="mx-0.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-2.5 text-[15px] font-semibold text-amber-900 data-[state=active]:border-amber-700 data-[state=active]:bg-amber-700 data-[state=active]:text-white md:text-base">Investigação</TabsTrigger>
+                <TabsTrigger value="regras-ouro" className="mx-0.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-2.5 text-[15px] font-semibold text-blue-900 data-[state=active]:border-blue-700 data-[state=active]:bg-blue-700 data-[state=active]:text-white md:text-base">Regras de Ouro</TabsTrigger>
               </TabsList>
 
               <TabsContent value="home" className="mt-6">

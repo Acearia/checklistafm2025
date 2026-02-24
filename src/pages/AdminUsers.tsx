@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -53,6 +46,27 @@ interface AdminAccount {
 const SECURITY_ROLES: UnifiedRole[] = ["supervisor", "tec_seguranca", "inspetor"];
 const SECURITY_ROLE_STORAGE_KEY = "checklistafm-users-security-role-tags";
 const DEFAULT_PASSWORD = "1234";
+
+const parseSectorList = (value: string): string[] => {
+  if (!value) return [];
+  return value
+    .split(/[,;/]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, list) => list.indexOf(item) === index);
+};
+
+const stringifySectorList = (values: string[]): string => {
+  return values
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item, index, list) => list.indexOf(item) === index)
+    .join(", ");
+};
+
+const mergeSectorValues = (currentValue: string, incomingValue: string) => {
+  return stringifySectorList([...parseSectorList(currentValue), ...parseSectorList(incomingValue)]);
+};
 
 const ROLE_LABEL: Record<UnifiedRole, string> = {
   operador: "Operador",
@@ -122,6 +136,7 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<UnifiedRole>>(new Set(["operador"]));
+  const selectedSetores = useMemo(() => parseSectorList(setor), [setor]);
 
   const loadAdminAccounts = async () => {
     setLoadingAccounts(true);
@@ -176,7 +191,7 @@ const AdminUsers = () => {
 
       user.name = operator.name || user.name;
       user.cargo = operator.cargo || user.cargo;
-      user.setor = operator.setor || user.setor;
+      user.setor = mergeSectorValues(user.setor, operator.setor || "");
       if (!user.roles.includes("operador")) user.roles.push("operador");
     });
 
@@ -189,7 +204,7 @@ const AdminUsers = () => {
       if (!user) return;
 
       user.name = leader.name || user.name;
-      user.setor = leader.sector || user.setor;
+      user.setor = mergeSectorValues(user.setor, leader.sector || "");
       user.email = leader.email || user.email;
       if (!user.roles.includes("lider")) user.roles.push("lider");
     });
@@ -248,6 +263,18 @@ const AdminUsers = () => {
     });
   };
 
+  const setSectorSelection = (sectorName: string, checked: boolean) => {
+    setSetor((previous) => {
+      const next = new Set(parseSectorList(previous));
+      if (checked) {
+        next.add(sectorName);
+      } else {
+        next.delete(sectorName);
+      }
+      return stringifySectorList(Array.from(next));
+    });
+  };
+
   const loadUserInForm = (user: UnifiedUser) => {
     setMatricula(user.matricula);
     setName(user.name);
@@ -269,6 +296,7 @@ const AdminUsers = () => {
     const matriculaTrim = matricula.trim();
     const nameTrim = name.trim();
     const passwordTrim = password.trim();
+    const setorNormalized = stringifySectorList(parseSectorList(setor));
     const roleList = Array.from(selectedRoles);
 
     if (!matriculaTrim || !nameTrim) {
@@ -323,7 +351,7 @@ const AdminUsers = () => {
       return;
     }
 
-    if (roleList.includes("lider") && !setor.trim()) {
+    if (roleList.includes("lider") && !setorNormalized) {
       toast({
         title: "Setor obrigatório",
         description: "Para perfil de líder, informe o setor.",
@@ -347,7 +375,7 @@ const AdminUsers = () => {
           await operatorService.update(matriculaTrim, {
             name: nameTrim,
             cargo: cargo.trim() || null,
-            setor: setor.trim() || null,
+            setor: setorNormalized || null,
             ...(passwordTrim ? { senha: passwordTrim } : {}),
           });
         } else {
@@ -355,7 +383,7 @@ const AdminUsers = () => {
             matricula: matriculaTrim,
             name: nameTrim,
             cargo: cargo.trim() || null,
-            setor: setor.trim() || null,
+            setor: setorNormalized || null,
             senha: passwordTrim || null,
           });
         }
@@ -372,7 +400,7 @@ const AdminUsers = () => {
           await leaderService.update(existingLeader.id, {
             name: nameTrim,
             email: leaderEmail,
-            sector: setor.trim(),
+            sector: setorNormalized,
             operator_matricula: matriculaTrim,
             password_hash: passwordHash,
           });
@@ -380,7 +408,7 @@ const AdminUsers = () => {
           await leaderService.create({
             name: nameTrim,
             email: leaderEmail,
-            sector: setor.trim(),
+            sector: setorNormalized,
             operator_matricula: matriculaTrim,
             password_hash: passwordHash,
           });
@@ -651,23 +679,47 @@ const AdminUsers = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Setor</Label>
-              <Select value={setor || "__NONE__"} onValueChange={(value) => setSetor(value === "__NONE__" ? "" : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o setor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__NONE__">Não informado</SelectItem>
+          <div className="space-y-2">
+            <Label>Setores</Label>
+            <div className="max-h-44 overflow-y-auto rounded-md border p-3">
+              {sectors.length === 0 ? (
+                <p className="text-sm text-gray-500">Nenhum setor cadastrado.</p>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-2">
                   {sectors.map((item) => (
-                    <SelectItem key={item.id} value={item.name}>
-                      {item.name}
-                    </SelectItem>
+                    <label key={item.id} className="flex items-center gap-2 rounded border px-3 py-2">
+                      <Checkbox
+                        checked={selectedSetores.includes(item.name)}
+                        onCheckedChange={(checked) => setSectorSelection(item.name, Boolean(checked))}
+                      />
+                      <span className="text-sm">{item.name}</span>
+                    </label>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedSetores.length === 0 ? (
+                <p className="text-xs text-gray-500">Nenhum setor selecionado.</p>
+              ) : (
+                selectedSetores.map((sectorName) => (
+                  <Badge key={sectorName} variant="secondary">
+                    {sectorName}
+                  </Badge>
+                ))
+              )}
+              {selectedSetores.length > 0 && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setSetor("")}>
+                  Limpar setores
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">
+              Um mesmo usuário pode ter mais de um setor.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Cargo</Label>
               <Input
@@ -817,3 +869,4 @@ const AdminUsers = () => {
 };
 
 export default AdminUsers;
+
