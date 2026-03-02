@@ -103,6 +103,8 @@ const CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-admin";
 const CAUSAS_STORAGE_EVENT = "checklistafm-investigacao-causas-admin-updated";
 const PDF_ASSINADO_STORAGE_KEY = "checklistafm-investigacao-pdf-assinado-admin";
 const PDF_ASSINADO_STORAGE_EVENT = "checklistafm-investigacao-pdf-assinado-admin-updated";
+const PLANO_ACAO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
+const PLANO_ACAO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
 
 const EMPTY_ANALISE_CAUSAS: AnaliseCausasData = {
   problema: "",
@@ -323,6 +325,28 @@ const parsePdfAssinadoByOcorrencia = (): Record<string, PdfAssinadoArquivo[]> =>
   }
 };
 
+const parsePlanoCountByOcorrencia = (): Record<string, number> => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(PLANO_ACAO_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return {};
+
+    const counts: Record<string, number> = {};
+    parsed.forEach((item: any) => {
+      const numeroOcorrencia = Number(item?.numero_ocorrencia) || 0;
+      if (numeroOcorrencia <= 0) return;
+      const key = String(numeroOcorrencia);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  } catch (error) {
+    console.error("Erro ao carregar contagem de planos de acao:", error);
+    return {};
+  }
+};
+
 const formatDate = (value?: string) => {
   if (!value) return "N/A";
   const date = new Date(value);
@@ -354,6 +378,7 @@ const AdminInvestigacoes = () => {
   const [pdfAssinadoByOcorrencia, setPdfAssinadoByOcorrencia] = useState<
     Record<string, PdfAssinadoArquivo[]>
   >({});
+  const [planoCountByOcorrencia, setPlanoCountByOcorrencia] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<InvestigacaoRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
@@ -383,6 +408,7 @@ const AdminInvestigacoes = () => {
     setInvestigacoes(parseInvestigacoes());
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
+    setPlanoCountByOcorrencia(parsePlanoCountByOcorrencia());
   };
 
   useEffect(() => {
@@ -394,22 +420,26 @@ const AdminInvestigacoes = () => {
         !event.key ||
         event.key === STORAGE_KEY ||
         event.key === CAUSAS_STORAGE_KEY ||
-        event.key === PDF_ASSINADO_STORAGE_KEY
+        event.key === PDF_ASSINADO_STORAGE_KEY ||
+        event.key === PLANO_ACAO_STORAGE_KEY
       ) {
         loadData();
       }
     };
     const handleCausasUpdated = () => loadData();
     const handlePdfAssinadoUpdated = () => loadData();
+    const handlePlanoAcaoUpdated = () => loadData();
 
     window.addEventListener("checklistafm-investigacao-acidente-updated", handleUpdated);
     window.addEventListener(CAUSAS_STORAGE_EVENT, handleCausasUpdated);
     window.addEventListener(PDF_ASSINADO_STORAGE_EVENT, handlePdfAssinadoUpdated);
+    window.addEventListener(PLANO_ACAO_STORAGE_EVENT, handlePlanoAcaoUpdated);
     window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("checklistafm-investigacao-acidente-updated", handleUpdated);
       window.removeEventListener(CAUSAS_STORAGE_EVENT, handleCausasUpdated);
       window.removeEventListener(PDF_ASSINADO_STORAGE_EVENT, handlePdfAssinadoUpdated);
+      window.removeEventListener(PLANO_ACAO_STORAGE_EVENT, handlePlanoAcaoUpdated);
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
@@ -537,6 +567,11 @@ const AdminInvestigacoes = () => {
     if (!selected) return [];
     return pdfAssinadoByOcorrencia[String(selected.numero_ocorrencia)] || [];
   }, [selected, pdfAssinadoByOcorrencia]);
+
+  const getPlanoCount = (numeroOcorrencia: number) => {
+    if (numeroOcorrencia <= 0) return 0;
+    return planoCountByOcorrencia[String(numeroOcorrencia)] || 0;
+  };
 
   const handleViewDetails = (record: InvestigacaoRecord) => {
     setSelected(record);
@@ -838,12 +873,39 @@ const AdminInvestigacoes = () => {
     }
   };
 
-  const handleOpenPlanoAcao = (record: InvestigacaoRecord) => {
-    if (record.numero_ocorrencia > 0) {
-      navigate(`/admin/planos-acao?ocorrencia=${record.numero_ocorrencia}`);
+  const handleStartPlanoAcao = (record: InvestigacaoRecord) => {
+    if (record.numero_ocorrencia <= 0) {
+      toast({
+        title: "Ocorrencia invalida",
+        description: "Nao foi possivel identificar a ocorrencia para iniciar o plano de acao.",
+        variant: "destructive",
+      });
       return;
     }
-    navigate("/admin/planos-acao");
+    navigate(`/plano-acao-acidente?ocorrencia=${record.numero_ocorrencia}&origem=admin`);
+  };
+
+  const handleViewPlanoAcao = (record: InvestigacaoRecord) => {
+    if (record.numero_ocorrencia <= 0) {
+      toast({
+        title: "Ocorrencia invalida",
+        description: "Nao foi possivel identificar a ocorrencia.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalPlanos = getPlanoCount(record.numero_ocorrencia);
+    if (totalPlanos <= 0) {
+      toast({
+        title: "Sem plano de acao",
+        description: "Esta ocorrencia ainda nao possui plano de acao. Clique em Iniciar plano.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    navigate(`/admin/planos-acao?ocorrencia=${record.numero_ocorrencia}`);
   };
 
   const handleExportCsv = () => {
@@ -1148,7 +1210,10 @@ const AdminInvestigacoes = () => {
                         <Button variant="ghost" size="sm" onClick={() => handleOpenAnaliseDialog(item)}>
                           Analises
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenPlanoAcao(item)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleStartPlanoAcao(item)}>
+                          Iniciar plano
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleViewPlanoAcao(item)}>
                           Ver plano de acao
                         </Button>
                       </TableCell>
@@ -1366,7 +1431,12 @@ const AdminInvestigacoes = () => {
               </Button>
             )}
             {selected && (
-              <Button type="button" variant="outline" onClick={() => handleOpenPlanoAcao(selected)}>
+              <Button type="button" variant="outline" onClick={() => handleStartPlanoAcao(selected)}>
+                Iniciar plano de acao
+              </Button>
+            )}
+            {selected && (
+              <Button type="button" variant="outline" onClick={() => handleViewPlanoAcao(selected)}>
                 Ver plano de acao
               </Button>
             )}

@@ -240,17 +240,6 @@ const AdminPlanosAcao = () => {
           <Button variant="outline" onClick={() => navigate("/admin/investigacoes")}>
             Investigacoes
           </Button>
-          <Button
-            onClick={() =>
-              navigate(
-                ocorrenciaFilter.trim()
-                  ? `/plano-acao-acidente?ocorrencia=${ocorrenciaFilter.trim()}&origem=admin`
-                  : "/plano-acao-acidente?origem=admin",
-              )
-            }
-          >
-            Novo plano de acao
-          </Button>
           <Button variant="outline" onClick={loadData}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
