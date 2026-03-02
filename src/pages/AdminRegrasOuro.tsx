@@ -71,6 +71,9 @@ interface RegraOuroRecord {
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+const FILTER_ALL = "all";
+const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
+const ANSWER_NO: QuestionResponse["resposta"] = "Não";
 
 const hasAdmAccess = () => {
   if (typeof window === "undefined") return false;
@@ -164,6 +167,78 @@ const formatFileSize = (bytes: number) => {
   return `${bytes} B`;
 };
 
+const parseEpoch = (value?: string) => {
+  const epoch = new Date(value || "").getTime();
+  return Number.isNaN(epoch) ? 0 : epoch;
+};
+
+const sortRecordsByCreatedAtDesc = (records: RegraOuroRecord[]) =>
+  [...records].sort((a, b) => parseEpoch(b.created_at) - parseEpoch(a.created_at));
+
+const normalizeAnswer = (value: unknown): QuestionResponse["resposta"] => {
+  const normalized = toSafeString(value).trim().toLocaleLowerCase("pt-BR");
+  return normalized.startsWith("n") ? ANSWER_NO : ANSWER_YES;
+};
+
+const toSafeNumber = (value: unknown) => Number(value) || 0;
+
+const buildFallbackRecordId = (prefix: string, inspectionNumber: number, createdAt: string) =>
+  `${prefix}-${inspectionNumber || 0}-${createdAt || "sem-data"}`;
+
+const hasCompleteSignatures = (
+  record: Pick<RegraOuroRecord, "ass_tst" | "ass_gestor" | "ass_acomp">,
+) => Boolean(record.ass_tst.trim() && record.ass_gestor.trim() && record.ass_acomp.trim());
+
+const countNegativeResponses = (responses: QuestionResponse[]) =>
+  responses.filter((response) => response.resposta === ANSWER_NO).length;
+
+const uniqueSortedValues = (values: string[]) =>
+  Array.from(new Set(values.filter((value) => value.trim().length > 0))).sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+
+const toLocalAttachmentMeta = (file: any): AttachmentMeta => ({
+  name: toSafeString(file?.name),
+  size: toSafeNumber(file?.size),
+  type: toSafeString(file?.type),
+  data_url: toSafeString(file?.data_url),
+  dataUrl: toSafeString(file?.dataUrl),
+  url: toSafeString(file?.url),
+  preview_url: toSafeString(file?.preview_url),
+});
+
+const toSupabaseAttachmentMeta = (file: any): AttachmentMeta => ({
+  name: toSafeString(file?.file_name),
+  size: toSafeNumber(file?.file_size),
+  type: toSafeString(file?.file_type),
+  data_url: toSafeString(file?.file_data_url),
+});
+
+const toLocalQuestionResponse = (response: any, index: number): QuestionResponse => ({
+  codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
+  numero: toSafeString(response?.numero),
+  pergunta: toSafeString(response?.pergunta),
+  resposta: normalizeAnswer(response?.resposta),
+  comentario: toSafeString(response?.comentario),
+  foto: response?.foto ? toLocalAttachmentMeta(response.foto) : null,
+});
+
+const toSupabaseQuestionResponse = (response: any, index: number): QuestionResponse => ({
+  codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
+  numero: toSafeString(response?.numero),
+  pergunta: toSafeString(response?.pergunta),
+  resposta: normalizeAnswer(response?.resposta),
+  comentario: toSafeString(response?.comentario),
+  foto: response
+    ? {
+        name: toSafeString(response?.foto_name),
+        size: toSafeNumber(response?.foto_size),
+        type: toSafeString(response?.foto_type),
+        data_url: toSafeString(response?.foto_data_url),
+      }
+    : null,
+});
+
 const parseRegrasOuro = (): RegraOuroRecord[] => {
   if (typeof window === "undefined") return [];
 
@@ -178,46 +253,19 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
       .map((item: any): RegraOuroRecord | null => {
         if (!item || typeof item !== "object") return null;
 
+        const numeroInspecao = toSafeNumber(item.numero_inspecao);
+        const createdAt = toSafeString(item.created_at);
+
         const respostas = Array.isArray(item.respostas)
-          ? item.respostas.map((response: any, index: number) => ({
-              codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
-              numero: toSafeString(response?.numero),
-              pergunta: toSafeString(response?.pergunta),
-              resposta:
-                toSafeString(response?.resposta).trim().toLocaleLowerCase("pt-BR").startsWith("n")
-                  ? "Não"
-                  : "Sim",
-              comentario: toSafeString(response?.comentario),
-              foto: response?.foto
-                ? {
-                    name: toSafeString(response.foto?.name),
-                    size: Number(response.foto?.size) || 0,
-                    type: toSafeString(response.foto?.type),
-                    data_url: toSafeString(response.foto?.data_url),
-                    dataUrl: toSafeString(response.foto?.dataUrl),
-                    url: toSafeString(response.foto?.url),
-                    preview_url: toSafeString(response.foto?.preview_url),
-                  }
-                : null,
-            }))
+          ? item.respostas.map(toLocalQuestionResponse)
           : [];
 
-        const anexos = Array.isArray(item.anexos)
-          ? item.anexos.map((file: any) => ({
-              name: toSafeString(file?.name),
-              size: Number(file?.size) || 0,
-              type: toSafeString(file?.type),
-              data_url: toSafeString(file?.data_url),
-              dataUrl: toSafeString(file?.dataUrl),
-              url: toSafeString(file?.url),
-              preview_url: toSafeString(file?.preview_url),
-            }))
-          : [];
+        const anexos = Array.isArray(item.anexos) ? item.anexos.map(toLocalAttachmentMeta) : [];
 
         return {
-          id: toSafeString(item.id) || `${Date.now()}-${Math.random()}`,
-          numero_inspecao: Number(item.numero_inspecao) || 0,
-          created_at: toSafeString(item.created_at),
+          id: toSafeString(item.id) || buildFallbackRecordId("local", numeroInspecao, createdAt),
+          numero_inspecao: numeroInspecao,
+          created_at: createdAt,
           titulo: toSafeString(item.titulo),
           setor: toSafeString(item.setor),
           gestor: toSafeString(item.gestor),
@@ -232,11 +280,7 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
       })
       .filter((item): item is RegraOuroRecord => Boolean(item));
 
-    return normalized.sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA;
-    });
+    return sortRecordsByCreatedAtDesc(normalized);
   } catch (error) {
     console.error("Erro ao carregar regras de ouro:", error);
     return [];
@@ -244,44 +288,25 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
 };
 
 const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
-  return rows
+  const mapped = rows
     .map((row): RegraOuroRecord | null => {
       if (!row || typeof row !== "object") return null;
 
+      const numeroInspecao = toSafeNumber(row.numero_inspecao);
+      const createdAt = toSafeString(row.created_at);
+
       const respostas = Array.isArray(row.responses)
-        ? row.responses.map((response: any, index: number) => ({
-            codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
-            numero: toSafeString(response?.numero),
-            pergunta: toSafeString(response?.pergunta),
-            resposta:
-              toSafeString(response?.resposta).trim().toLocaleLowerCase("pt-BR").startsWith("n")
-                ? "Não"
-                : "Sim",
-            comentario: toSafeString(response?.comentario),
-            foto: response
-              ? {
-                  name: toSafeString(response?.foto_name),
-                  size: Number(response?.foto_size) || 0,
-                  type: toSafeString(response?.foto_type),
-                  data_url: toSafeString(response?.foto_data_url),
-                }
-              : null,
-          }))
+        ? row.responses.map(toSupabaseQuestionResponse)
         : [];
 
       const anexos = Array.isArray(row.attachments)
-        ? row.attachments.map((file: any) => ({
-            name: toSafeString(file?.file_name),
-            size: Number(file?.file_size) || 0,
-            type: toSafeString(file?.file_type),
-            data_url: toSafeString(file?.file_data_url),
-          }))
+        ? row.attachments.map(toSupabaseAttachmentMeta)
         : [];
 
       return {
-        id: toSafeString(row.id) || `${Date.now()}-${Math.random()}`,
-        numero_inspecao: Number(row.numero_inspecao) || 0,
-        created_at: toSafeString(row.created_at),
+        id: toSafeString(row.id) || buildFallbackRecordId("remote", numeroInspecao, createdAt),
+        numero_inspecao: numeroInspecao,
+        created_at: createdAt,
         titulo: toSafeString(row.titulo),
         setor: toSafeString(row.setor),
         gestor: toSafeString(row.gestor),
@@ -294,12 +319,9 @@ const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
         anexos,
       };
     })
-    .filter((item): item is RegraOuroRecord => Boolean(item))
-    .sort((a, b) => {
-      const dateA = new Date(a.created_at).getTime();
-      const dateB = new Date(b.created_at).getTime();
-      return dateB - dateA;
-    });
+    .filter((item): item is RegraOuroRecord => Boolean(item));
+
+  return sortRecordsByCreatedAtDesc(mapped);
 };
 
 const AdminRegrasOuro = () => {
@@ -310,8 +332,8 @@ const AdminRegrasOuro = () => {
   const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [setorFilter, setSetorFilter] = useState("all");
-  const [tecnicoFilter, setTecnicoFilter] = useState("all");
+  const [setorFilter, setSetorFilter] = useState(FILTER_ALL);
+  const [tecnicoFilter, setTecnicoFilter] = useState(FILTER_ALL);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -327,17 +349,14 @@ const AdminRegrasOuro = () => {
 
       const remoteRecords = mapSupabaseRegrasOuro(remoteRows);
       const mergedMap = new Map<string, RegraOuroRecord>();
+      // Mantem o remoto como fonte principal e usa local apenas como fallback.
       [...remoteRecords, ...localRecords].forEach((item) => {
-        const key = item.id || `n-${item.numero_inspecao}`;
+        const key = item.id;
         if (!mergedMap.has(key)) {
           mergedMap.set(key, item);
         }
       });
-      const mergedRecords = Array.from(mergedMap.values()).sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return dateB - dateA;
-      });
+      const mergedRecords = sortRecordsByCreatedAtDesc(Array.from(mergedMap.values()));
 
       setRecords(mergedRecords);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedRecords));
@@ -381,31 +400,19 @@ const AdminRegrasOuro = () => {
   }, []);
 
   const uniqueSetores = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          records.map((item) => item.setor).filter((value) => value.trim().length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => uniqueSortedValues(records.map((item) => item.setor)),
     [records],
   );
 
   const uniqueTecnicos = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          records
-            .map((item) => item.tecnico_seg)
-            .filter((value) => value.trim().length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => uniqueSortedValues(records.map((item) => item.tecnico_seg)),
     [records],
   );
 
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
-      const matchesSetor = setorFilter === "all" || item.setor === setorFilter;
-      const matchesTecnico = tecnicoFilter === "all" || item.tecnico_seg === tecnicoFilter;
+      const matchesSetor = setorFilter === FILTER_ALL || item.setor === setorFilter;
+      const matchesTecnico = tecnicoFilter === FILTER_ALL || item.tecnico_seg === tecnicoFilter;
 
       const normalizedSearch = searchTerm.trim().toLowerCase();
       const matchesSearch =
@@ -431,15 +438,13 @@ const AdminRegrasOuro = () => {
   const summary = useMemo(() => {
     const total = records.length;
     const comPendencias = records.filter((item) =>
-      item.respostas.some((response) => response.resposta === "Não"),
+      item.respostas.some((response) => response.resposta === ANSWER_NO),
     ).length;
     const totalItensNao = records.reduce(
-      (acc, item) => acc + item.respostas.filter((response) => response.resposta === "Não").length,
+      (acc, item) => acc + countNegativeResponses(item.respostas),
       0,
     );
-    const assinadas = records.filter(
-      (item) => item.ass_tst.trim() && item.ass_gestor.trim() && item.ass_acomp.trim(),
-    ).length;
+    const assinadas = records.filter(hasCompleteSignatures).length;
 
     return { total, comPendencias, totalItensNao, assinadas };
   }, [records]);
@@ -453,14 +458,14 @@ const AdminRegrasOuro = () => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuario adm pode excluir registros.",
+        description: "Somente o usuário adm pode excluir registros.",
         variant: "destructive",
       });
       return;
     }
 
     const confirmed = window.confirm(
-      "Deseja realmente excluir esta regra de ouro? Esta acao nao pode ser desfeita.",
+      "Deseja realmente excluir esta regra de ouro? Esta ação não pode ser desfeita.",
     );
     if (!confirmed) return;
 
@@ -484,14 +489,14 @@ const AdminRegrasOuro = () => {
       }
 
       toast({
-        title: "Registro excluido",
+        title: "Registro excluído",
         description: "A regra de ouro foi removida com sucesso.",
       });
     } catch (error) {
       console.error("Erro ao excluir regra de ouro:", error);
       toast({
         title: "Erro ao excluir",
-        description: "Nao foi possivel excluir o registro.",
+        description: "Não foi possível excluir o registro.",
         variant: "destructive",
       });
     }
@@ -501,7 +506,7 @@ const AdminRegrasOuro = () => {
     if (filteredRecords.length === 0) {
       toast({
         title: "Nenhum registro",
-        description: "Nao ha dados para exportar com os filtros atuais.",
+        description: "Não há dados para exportar com os filtros atuais.",
         variant: "destructive",
       });
       return;
@@ -522,11 +527,8 @@ const AdminRegrasOuro = () => {
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
     const rows = filteredRecords.map((item) => {
-      const itensNao = item.respostas.filter((response) => response.resposta === "Não").length;
-      const assinaturas =
-        item.ass_tst.trim() && item.ass_gestor.trim() && item.ass_acomp.trim()
-          ? "completo"
-          : "pendente";
+      const itensNao = countNegativeResponses(item.respostas);
+      const assinaturas = hasCompleteSignatures(item) ? "completo" : "pendente";
 
       return [
         formatInspectionNumber(item.numero_inspecao),
@@ -556,7 +558,7 @@ const AdminRegrasOuro = () => {
     URL.revokeObjectURL(url);
 
     toast({
-      title: "Exportacao concluida",
+      title: "Exportação concluída",
       description: "Arquivo CSV gerado com sucesso.",
     });
   };
@@ -586,13 +588,13 @@ const AdminRegrasOuro = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Com pendencias</CardDescription>
+            <CardDescription>Com pendências</CardDescription>
             <CardTitle>{summary.comPendencias}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total de itens Nao</CardDescription>
+            <CardDescription>Total de itens Não</CardDescription>
             <CardTitle>{summary.totalItensNao}</CardTitle>
           </CardHeader>
         </Card>
@@ -607,21 +609,21 @@ const AdminRegrasOuro = () => {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Refine por setor, tecnico, data e busca rapida.</CardDescription>
+          <CardDescription>Refine por setor, técnico, data e busca rápida.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             <div>
-              <label className="mb-1 block text-sm font-medium">Busca rapida</label>
+              <label className="mb-1 block text-sm font-medium">Busca rápida</label>
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Titulo, setor, gestor..."
+                placeholder="Título, setor, gestor..."
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Data inicio</label>
+              <label className="mb-1 block text-sm font-medium">Data início</label>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
 
@@ -637,7 +639,7 @@ const AdminRegrasOuro = () => {
                   <SelectValue placeholder="Todos os setores" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os setores</SelectItem>
+                  <SelectItem value={FILTER_ALL}>Todos os setores</SelectItem>
                   {uniqueSetores.map((setor) => (
                     <SelectItem key={setor} value={setor}>
                       {setor}
@@ -648,13 +650,13 @@ const AdminRegrasOuro = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Tecnico</label>
+              <label className="mb-1 block text-sm font-medium">Técnico</label>
               <Select value={tecnicoFilter} onValueChange={setTecnicoFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os tecnicos" />
+                  <SelectValue placeholder="Todos os técnicos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os tecnicos</SelectItem>
+                  <SelectItem value={FILTER_ALL}>Todos os técnicos</SelectItem>
                   {uniqueTecnicos.map((tecnico) => (
                     <SelectItem key={tecnico} value={tecnico}>
                       {tecnico}
@@ -679,7 +681,7 @@ const AdminRegrasOuro = () => {
         <CardContent>
           {filteredRecords.length === 0 ? (
             <div className="rounded-md border bg-gray-50 p-8 text-center text-gray-500">
-              Nao ha registros com os filtros selecionados.
+              Não há registros com os filtros selecionados.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -688,20 +690,19 @@ const AdminRegrasOuro = () => {
                   <TableRow>
                     <TableHead>N</TableHead>
                     <TableHead>Data/Hora</TableHead>
-                    <TableHead>Titulo</TableHead>
+                    <TableHead>Título</TableHead>
                     <TableHead>Setor</TableHead>
-                    <TableHead>Tecnico</TableHead>
+                    <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
-                    <TableHead>Itens Nao</TableHead>
+                    <TableHead>Itens Não</TableHead>
                     <TableHead>Assinaturas</TableHead>
-                    <TableHead className="text-right">Acoes</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRecords.map((item) => {
-                    const itensNao = item.respostas.filter((response) => response.resposta === "Não").length;
-                    const assinaturasCompletas =
-                      item.ass_tst.trim() && item.ass_gestor.trim() && item.ass_acomp.trim();
+                    const itensNao = countNegativeResponses(item.respostas);
+                    const assinaturasCompletas = hasCompleteSignatures(item);
 
                     return (
                       <TableRow key={item.id}>
@@ -752,7 +753,7 @@ const AdminRegrasOuro = () => {
       </Card>
 
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-h-[85vh] max-w-4xl overflow-hidden">
+        <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Detalhes da Regra de Ouro</DialogTitle>
             <DialogDescription>
@@ -763,19 +764,19 @@ const AdminRegrasOuro = () => {
           </DialogHeader>
 
           {selected && (
-            <div className="space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-scroll pr-2">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Titulo:</strong> {selected.titulo || "N/A"}</p>
+                  <p><strong>Título:</strong> {selected.titulo || "N/A"}</p>
                   <p><strong>Setor:</strong> {selected.setor || "N/A"}</p>
-                  <p><strong>Tecnico:</strong> {selected.tecnico_seg || "N/A"}</p>
+                  <p><strong>Técnico:</strong> {selected.tecnico_seg || "N/A"}</p>
                   <p><strong>Gestor:</strong> {selected.gestor || "N/A"}</p>
                   <p><strong>Acompanhante:</strong> {selected.acompanhante || "N/A"}</p>
                 </div>
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Assinatura tecnico:</strong> {selected.ass_tst ? "Sim" : "Nao"}</p>
-                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Nao"}</p>
-                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Nao"}</p>
+                  <p><strong>Assinatura técnico:</strong> {selected.ass_tst ? "Sim" : "Não"}</p>
+                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Não"}</p>
+                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Não"}</p>
                   <p><strong>Anexos:</strong> {selected.anexos.length}</p>
                 </div>
               </div>
@@ -789,13 +790,13 @@ const AdminRegrasOuro = () => {
                         <p className="font-medium">
                           {response.numero} - {response.pergunta || "Pergunta"}
                         </p>
-                        <Badge variant={response.resposta === "Não" ? "destructive" : "secondary"}>
+                        <Badge variant={response.resposta === ANSWER_NO ? "destructive" : "secondary"}>
                           {response.resposta}
                         </Badge>
                       </div>
                       {response.comentario && (
                         <p className="text-gray-700">
-                          <strong>Comentario:</strong> {response.comentario}
+                          <strong>Comentário:</strong> {response.comentario}
                         </p>
                       )}
                       {response.foto && (
@@ -829,7 +830,7 @@ const AdminRegrasOuro = () => {
 
                             return (
                               <p className="text-xs text-gray-500">
-                                Visualizacao indisponivel para este registro antigo.
+                                Visualização indisponível para este registro antigo.
                               </p>
                             );
                           })()}
@@ -851,7 +852,7 @@ const AdminRegrasOuro = () => {
                       >
                         <p className="truncate">{file.name || `Arquivo ${index + 1}`}</p>
                         <p className="text-xs text-gray-500">
-                          {file.type || "tipo nao informado"} - {formatFileSize(file.size)}
+                          {file.type || "tipo não informado"} - {formatFileSize(file.size)}
                         </p>
                         {(() => {
                           const previewUrl = resolveAttachmentPreviewUrl(file);
@@ -892,7 +893,7 @@ const AdminRegrasOuro = () => {
 
                           return (
                             <p className="text-xs text-gray-500">
-                              Visualizacao indisponivel para este registro antigo.
+                              Visualização indisponível para este registro antigo.
                             </p>
                           );
                         })()}
