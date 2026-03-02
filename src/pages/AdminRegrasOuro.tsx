@@ -78,7 +78,9 @@ const hasAdmAccess = () => {
     const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
     if (!rawSession) return false;
     const parsed = JSON.parse(rawSession);
-    return String(parsed?.username || "").trim().toLowerCase() === "adm";
+    const username = String(parsed?.username || "").trim().toLowerCase();
+    const role = String(parsed?.role || "").trim().toLowerCase();
+    return username === "adm" || role === "admin";
   } catch {
     return false;
   }
