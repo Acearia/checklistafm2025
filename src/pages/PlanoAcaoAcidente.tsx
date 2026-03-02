@@ -24,6 +24,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
+import { accidentActionPlanService } from "@/lib/supabase-service";
 
 type Severidade = "Minima" | "Mediana" | "Consideravel" | "Critica";
 type Probabilidade = "Improvavel" | "Pouco Provavel" | "Provavel" | "Altamente Provavel";
@@ -95,6 +96,11 @@ const INVESTIGACAO_STORAGE_KEY = "checklistafm-investigacoes-acidente";
 const PLANO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_COUNTER_KEY = "checklistafm-plano-acao-counter";
 const PLANO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
+
+const isMissingActionPlansTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("accident_action_plans");
+};
 
 const INITIAL_FORM: PlanoAcaoForm = {
   numero_ocorrencia: 0,
@@ -248,6 +254,47 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
   }
 };
 
+const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
+  if (!item || typeof item !== "object") return null;
+
+  const comments = Array.isArray(item.comments)
+    ? item.comments.map((comentario: any) => ({
+        id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
+        texto: String(comentario?.texto || ""),
+        autor: String(comentario?.autor || "Sistema"),
+        created_at: String(comentario?.created_at || ""),
+      }))
+    : [];
+
+  return {
+    id: String(item.id || `${Date.now()}-${Math.random()}`),
+    created_at: String(item.created_at || ""),
+    updated_at: String(item.updated_at || ""),
+    numero_plano: Number(item.numero_plano) || 0,
+    numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
+    data_ocorrencia: String(item.data_ocorrencia || ""),
+    prioridade_ocorrencia:
+      (String(item.prioridade_ocorrencia || "Baixa") as PrioridadeAcao) || "Baixa",
+    descricao_ocorrencia: String(item.descricao_ocorrencia || ""),
+    origem: String(item.origem || "Acidente"),
+    descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
+    severidade: (String(item.severidade || "") as Severidade | "") || "",
+    probabilidade: (String(item.probabilidade || "") as Probabilidade | "") || "",
+    prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
+    status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
+    responsavel_execucao: String(item.responsavel_execucao || ""),
+    inicio_planejado: String(item.inicio_planejado || ""),
+    termino_planejado: String(item.termino_planejado || ""),
+    acao_iniciada: String(item.acao_iniciada || ""),
+    acao_finalizada: String(item.acao_finalizada || ""),
+    descricao_acao: String(item.descricao_acao || ""),
+    observacoes_conclusao: String(item.observacoes_conclusao || ""),
+    data_eficacia: String(item.data_eficacia || ""),
+    observacao_eficacia: String(item.observacao_eficacia || ""),
+    comentarios: comments,
+  };
+};
+
 const formatNumero = (value: number) => String(value).padStart(3, "0");
 
 const formatDate = (value: string) => {
@@ -280,20 +327,58 @@ const PlanoAcaoAcidente = () => {
   const [comentarios, setComentarios] = useState<ComentarioPlano[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  const loadData = () => {
+  const loadData = async () => {
     setInvestigacoes(parseInvestigacoes());
-    setPlanos(parsePlanos());
+    const localPlans = parsePlanos();
+
+    try {
+      const remoteRows = await accidentActionPlanService.safeGetAllWithFallback();
+      if (remoteRows.length === 0) {
+        setPlanos(localPlans);
+        return;
+      }
+
+      const remotePlans = remoteRows
+        .map((item) => mapSupabasePlan(item))
+        .filter((item): item is PlanoAcaoRecord => Boolean(item))
+        .sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at).getTime();
+          const dateB = new Date(b.updated_at || b.created_at).getTime();
+          return dateB - dateA;
+        });
+
+      const mergedMap = new Map<string, PlanoAcaoRecord>();
+      [...remotePlans, ...localPlans].forEach((item) => {
+        const key = item.id || `n-${item.numero_plano}-${item.numero_ocorrencia}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, item);
+        }
+      });
+      const mergedPlans = Array.from(mergedMap.values()).sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at).getTime();
+        const dateB = new Date(b.updated_at || b.created_at).getTime();
+        return dateB - dateA;
+      });
+
+      setPlanos(mergedPlans);
+      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(mergedPlans));
+    } catch (error) {
+      if (!isMissingActionPlansTableError(error)) {
+        console.error("Erro ao carregar planos de ação no Supabase:", error);
+      }
+      setPlanos(localPlans);
+    }
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
     const handleStorage = (event: StorageEvent) => {
       if (!event.key || event.key === INVESTIGACAO_STORAGE_KEY || event.key === PLANO_STORAGE_KEY) {
-        loadData();
+        void loadData();
       }
     };
-    const handleInvestigacaoUpdated = () => loadData();
-    const handlePlanoUpdated = () => loadData();
+    const handleInvestigacaoUpdated = () => void loadData();
+    const handlePlanoUpdated = () => void loadData();
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener("checklistafm-investigacao-acidente-updated", handleInvestigacaoUpdated);
@@ -468,7 +553,7 @@ const PlanoAcaoAcidente = () => {
     setNovoComentario("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const error = validate();
     if (error) {
       toast({
@@ -484,39 +569,62 @@ const PlanoAcaoAcidente = () => {
       const existing = parsePlanos();
       const now = new Date().toISOString();
       const fallbackPrioridade = prioridadeFromMatriz(form.severidade, form.probabilidade);
+      const currentForEdit = editingId
+        ? existing.find((item) => item.id === editingId) || null
+        : null;
 
-      if (editingId) {
-        const updated = existing.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                ...form,
-                prioridade: form.prioridade || fallbackPrioridade,
-                updated_at: now,
-                comentarios,
-              }
-            : item,
+      let payload: PlanoAcaoRecord = editingId
+        ? {
+            ...(currentForEdit || {
+              id: editingId,
+              created_at: now,
+              updated_at: now,
+              numero_plano: editingNumeroPlano || 0,
+            }),
+            ...form,
+            prioridade: form.prioridade || fallbackPrioridade,
+            updated_at: now,
+            comentarios,
+          }
+        : {
+            id:
+              typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random()}`,
+            created_at: now,
+            updated_at: now,
+            numero_plano: getNextNumeroPlano(existing),
+            ...form,
+            prioridade: form.prioridade || fallbackPrioridade,
+            comentarios,
+          };
+
+      try {
+        const savedRemote = await accidentActionPlanService.upsertFromLegacy({
+          ...payload,
+          comentarios: payload.comentarios,
+        });
+        const normalized = savedRemote ? mapSupabasePlan(savedRemote) : null;
+        if (normalized) {
+          payload = normalized;
+        }
+      } catch (error) {
+        if (!isMissingActionPlansTableError(error)) {
+          throw error;
+        }
+        console.warn(
+          "[PlanoAcaoAcidente] Tabela accident_action_plans indisponível. Salvando apenas local.",
         );
-        localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(updated));
-      } else {
-        const numeroPlano = getNextNumeroPlano(existing);
-        const payload: PlanoAcaoRecord = {
-          id:
-            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-              ? crypto.randomUUID()
-              : `${Date.now()}-${Math.random()}`,
-          created_at: now,
-          updated_at: now,
-          numero_plano: numeroPlano,
-          ...form,
-          prioridade: form.prioridade || fallbackPrioridade,
-          comentarios,
-        };
-        localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify([payload, ...existing]));
       }
 
+      const updated = editingId
+        ? existing.map((item) => (item.id === editingId ? payload : item))
+        : [payload, ...existing];
+
+      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(updated));
+
       window.dispatchEvent(new Event(PLANO_STORAGE_EVENT));
-      loadData();
+      await loadData();
       clearForm();
 
       toast({

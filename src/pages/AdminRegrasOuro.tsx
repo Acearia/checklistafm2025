@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
+import { goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentMeta {
@@ -86,6 +87,11 @@ const hasAdmAccess = () => {
   }
 };
 
+const isMissingGoldenRulesTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("golden_rules");
+};
+
 const decodePotentialMojibake = (value: string) => {
   const cp1252ReverseMap: Record<number, number> = {
     0x20ac: 0x80,
@@ -117,7 +123,7 @@ const decodePotentialMojibake = (value: string) => {
     0x0178: 0x9f,
   };
 
-  const hasMojibake = /[ÃƒÃ‚]/.test(value);
+  const hasMojibake = /[ÃÂ]/.test(value);
   const hasReplacement = /\uFFFD/.test(value);
   if (!hasMojibake && !hasReplacement) return value;
 
@@ -177,7 +183,10 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
               codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
               numero: toSafeString(response?.numero),
               pergunta: toSafeString(response?.pergunta),
-              resposta: toSafeString(response?.resposta) === "Não" ? "Não" : "Sim",
+              resposta:
+                toSafeString(response?.resposta).trim().toLocaleLowerCase("pt-BR").startsWith("n")
+                  ? "Não"
+                  : "Sim",
               comentario: toSafeString(response?.comentario),
               foto: response?.foto
                 ? {
@@ -234,6 +243,65 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
   }
 };
 
+const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
+  return rows
+    .map((row): RegraOuroRecord | null => {
+      if (!row || typeof row !== "object") return null;
+
+      const respostas = Array.isArray(row.responses)
+        ? row.responses.map((response: any, index: number) => ({
+            codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
+            numero: toSafeString(response?.numero),
+            pergunta: toSafeString(response?.pergunta),
+            resposta:
+              toSafeString(response?.resposta).trim().toLocaleLowerCase("pt-BR").startsWith("n")
+                ? "Não"
+                : "Sim",
+            comentario: toSafeString(response?.comentario),
+            foto: response
+              ? {
+                  name: toSafeString(response?.foto_name),
+                  size: Number(response?.foto_size) || 0,
+                  type: toSafeString(response?.foto_type),
+                  data_url: toSafeString(response?.foto_data_url),
+                }
+              : null,
+          }))
+        : [];
+
+      const anexos = Array.isArray(row.attachments)
+        ? row.attachments.map((file: any) => ({
+            name: toSafeString(file?.file_name),
+            size: Number(file?.file_size) || 0,
+            type: toSafeString(file?.file_type),
+            data_url: toSafeString(file?.file_data_url),
+          }))
+        : [];
+
+      return {
+        id: toSafeString(row.id) || `${Date.now()}-${Math.random()}`,
+        numero_inspecao: Number(row.numero_inspecao) || 0,
+        created_at: toSafeString(row.created_at),
+        titulo: toSafeString(row.titulo),
+        setor: toSafeString(row.setor),
+        gestor: toSafeString(row.gestor),
+        tecnico_seg: toSafeString(row.tecnico_seg),
+        acompanhante: toSafeString(row.acompanhante),
+        respostas,
+        ass_tst: toSafeString(row.ass_tst),
+        ass_gestor: toSafeString(row.ass_gestor),
+        ass_acomp: toSafeString(row.ass_acomp),
+        anexos,
+      };
+    })
+    .filter((item): item is RegraOuroRecord => Boolean(item))
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      return dateB - dateA;
+    });
+};
+
 const AdminRegrasOuro = () => {
   const { toast } = useToast();
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
@@ -247,17 +315,47 @@ const AdminRegrasOuro = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const loadData = () => {
-    setRecords(parseRegrasOuro());
+  const loadData = async () => {
+    const localRecords = parseRegrasOuro();
+
+    try {
+      const remoteRows = await goldenRuleService.safeGetAllWithFallback();
+      if (remoteRows.length === 0) {
+        setRecords(localRecords);
+        return;
+      }
+
+      const remoteRecords = mapSupabaseRegrasOuro(remoteRows);
+      const mergedMap = new Map<string, RegraOuroRecord>();
+      [...remoteRecords, ...localRecords].forEach((item) => {
+        const key = item.id || `n-${item.numero_inspecao}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, item);
+        }
+      });
+      const mergedRecords = Array.from(mergedMap.values()).sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
+
+      setRecords(mergedRecords);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedRecords));
+    } catch (error) {
+      if (!isMissingGoldenRulesTableError(error)) {
+        console.error("Erro ao carregar regras de ouro no Supabase:", error);
+      }
+      setRecords(localRecords);
+    }
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
 
-    const handleUpdated = () => loadData();
+    const handleUpdated = () => void loadData();
     const handleStorage = (event: StorageEvent) => {
       if (!event.key || event.key === STORAGE_KEY) {
-        loadData();
+        void loadData();
       }
     };
 
@@ -351,7 +449,7 @@ const AdminRegrasOuro = () => {
     setDetailsOpen(true);
   };
 
-  const handleDeleteRecord = (record: RegraOuroRecord) => {
+  const handleDeleteRecord = async (record: RegraOuroRecord) => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
@@ -367,6 +465,14 @@ const AdminRegrasOuro = () => {
     if (!confirmed) return;
 
     try {
+      try {
+        await goldenRuleService.delete(record.id);
+      } catch (error) {
+        if (!isMissingGoldenRulesTableError(error)) {
+          throw error;
+        }
+      }
+
       const updated = records.filter((item) => item.id !== record.id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       window.dispatchEvent(new Event(STORAGE_EVENT));
@@ -460,7 +566,7 @@ const AdminRegrasOuro = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Regras de Ouro</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadData}>
+          <Button variant="outline" onClick={() => void loadData()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
           </Button>

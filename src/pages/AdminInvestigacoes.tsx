@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
+import { accidentActionPlanService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentMeta {
@@ -111,6 +112,11 @@ const PDF_ASSINADO_STORAGE_EVENT = "checklistafm-investigacao-pdf-assinado-admin
 const PLANO_ACAO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_ACAO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+
+const isMissingActionPlansTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("accident_action_plans");
+};
 
 const hasAdmAccess = () => {
   if (typeof window === "undefined") return false;
@@ -372,6 +378,29 @@ const parsePlanoCountByOcorrencia = (): Record<string, number> => {
   }
 };
 
+const fetchPlanoCountByOcorrencia = async (): Promise<Record<string, number>> => {
+  try {
+    const rows = await accidentActionPlanService.safeGetAllWithFallback();
+    if (rows.length === 0) {
+      return parsePlanoCountByOcorrencia();
+    }
+
+    const counts: Record<string, number> = {};
+    rows.forEach((item: any) => {
+      const numeroOcorrencia = Number(item?.numero_ocorrencia) || 0;
+      if (numeroOcorrencia <= 0) return;
+      const key = String(numeroOcorrencia);
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    return counts;
+  } catch (error) {
+    if (!isMissingActionPlansTableError(error)) {
+      console.error("Erro ao carregar contagem de planos de ação no Supabase:", error);
+    }
+    return parsePlanoCountByOcorrencia();
+  }
+};
+
 const formatDate = (value?: string) => {
   if (!value) return "N/A";
   const date = new Date(value);
@@ -430,17 +459,17 @@ const AdminInvestigacoes = () => {
     setOcorrenciaFilter(ocorrenciaFromQuery);
   }, [ocorrenciaFromQuery]);
 
-  const loadData = () => {
+  const loadData = async () => {
     setInvestigacoes(parseInvestigacoes());
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
-    setPlanoCountByOcorrencia(parsePlanoCountByOcorrencia());
+    setPlanoCountByOcorrencia(await fetchPlanoCountByOcorrencia());
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
 
-    const handleUpdated = () => loadData();
+    const handleUpdated = () => void loadData();
     const handleStorage = (event: StorageEvent) => {
       if (
         !event.key ||
@@ -449,12 +478,12 @@ const AdminInvestigacoes = () => {
         event.key === PDF_ASSINADO_STORAGE_KEY ||
         event.key === PLANO_ACAO_STORAGE_KEY
       ) {
-        loadData();
+        void loadData();
       }
     };
-    const handleCausasUpdated = () => loadData();
-    const handlePdfAssinadoUpdated = () => loadData();
-    const handlePlanoAcaoUpdated = () => loadData();
+    const handleCausasUpdated = () => void loadData();
+    const handlePdfAssinadoUpdated = () => void loadData();
+    const handlePlanoAcaoUpdated = () => void loadData();
 
     window.addEventListener("checklistafm-investigacao-acidente-updated", handleUpdated);
     window.addEventListener(CAUSAS_STORAGE_EVENT, handleCausasUpdated);
@@ -947,7 +976,7 @@ const AdminInvestigacoes = () => {
     navigate(`/admin/planos-acao?ocorrencia=${record.numero_ocorrencia}`);
   };
 
-  const handleDeleteInvestigacao = (record: InvestigacaoRecord) => {
+  const handleDeleteInvestigacao = async (record: InvestigacaoRecord) => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
@@ -986,6 +1015,14 @@ const AdminInvestigacoes = () => {
         }
 
         try {
+          try {
+            await accidentActionPlanService.deleteByOccurrence(occurrenceNumber);
+          } catch (error) {
+            if (!isMissingActionPlansTableError(error)) {
+              throw error;
+            }
+          }
+
           const planosRaw = localStorage.getItem(PLANO_ACAO_STORAGE_KEY);
           if (planosRaw) {
             const parsedPlanos = JSON.parse(planosRaw);
@@ -1009,7 +1046,7 @@ const AdminInvestigacoes = () => {
         setDetailsOpen(false);
       }
 
-      loadData();
+      await loadData();
 
       toast({
         title: "Investigacao excluida",
@@ -1117,7 +1154,7 @@ const AdminInvestigacoes = () => {
           <Button variant="outline" onClick={() => navigate("/admin/planos-acao")}>
             Planos de acao
           </Button>
-          <Button variant="outline" onClick={loadData}>
+          <Button variant="outline" onClick={() => void loadData()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
           </Button>

@@ -5,6 +5,11 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
 export type Operator = Tables<"operators">;
 export type Equipment = Tables<"equipment">;
 export type Inspection = Tables<"inspections">;
+export type GoldenRule = Tables<"golden_rules">;
+export type GoldenRuleResponse = Tables<"golden_rule_responses">;
+export type GoldenRuleAttachment = Tables<"golden_rule_attachments">;
+export type AccidentActionPlan = Tables<"accident_action_plans">;
+export type AccidentActionPlanComment = Tables<"accident_action_plan_comments">;
 export type ChecklistItem = Tables<"checklist_items">;
 export type Sector = Tables<"sectors">;
 export type Leader = Tables<"leaders">;
@@ -38,6 +43,73 @@ export type GroupProcedure = {
 export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
 export type InspectionInsert = TablesInsert<"inspections">;
+export type GoldenRuleInsert = TablesInsert<"golden_rules">;
+export type AccidentActionPlanInsert = TablesInsert<"accident_action_plans">;
+
+export interface GoldenRuleRecordPayload {
+  id?: string;
+  numero_inspecao?: number;
+  titulo: string;
+  setor: string;
+  gestor: string;
+  tecnico_seg: string;
+  acompanhante: string;
+  ass_tst?: string | null;
+  ass_gestor?: string | null;
+  ass_acomp?: string | null;
+  created_at?: string;
+  responses: Array<{
+    codigo: string;
+    numero: string;
+    pergunta: string;
+    resposta: "Sim" | "Não" | "Nao";
+    comentario?: string;
+    foto?: {
+      name?: string;
+      size?: number;
+      type?: string;
+      data_url?: string;
+    } | null;
+  }>;
+  attachments: Array<{
+    name?: string;
+    size?: number;
+    type?: string;
+    data_url?: string;
+  }>;
+}
+
+export interface AccidentActionPlanRecordPayload {
+  id?: string;
+  numero_plano?: number;
+  created_at?: string;
+  updated_at?: string;
+  numero_ocorrencia: number;
+  data_ocorrencia?: string | null;
+  prioridade_ocorrencia?: string | null;
+  descricao_ocorrencia?: string | null;
+  origem?: string;
+  descricao_resumida_acao: string;
+  severidade?: string | null;
+  probabilidade?: string | null;
+  prioridade?: string;
+  status?: string;
+  responsavel_execucao: string;
+  inicio_planejado?: string | null;
+  termino_planejado?: string | null;
+  acao_iniciada?: string | null;
+  acao_finalizada?: string | null;
+  descricao_acao: string;
+  observacoes_conclusao?: string | null;
+  data_eficacia?: string | null;
+  observacao_eficacia?: string | null;
+  comentarios: Array<{
+    id?: string;
+    texto: string;
+    autor?: string;
+    created_at?: string;
+  }>;
+}
 
 const notifyInspectionEmail = async (inspectionId: string) => {
   if (!inspectionId) return;
@@ -53,6 +125,17 @@ const notifyInspectionEmail = async (inspectionId: string) => {
   } catch (error) {
     console.error("[inspectionService] Erro ao acionar função de e-mail:", error);
   }
+};
+
+const relationMissingError = (error: unknown, relationName: string) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes(relationName.toLowerCase());
+};
+
+const toNullableDate = (value?: string | null) => {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
 };
 
 // Operators
@@ -530,6 +613,231 @@ export const equipmentGroupService = {
     const { data, error } = await supabase.from("equipment_groups").insert(rows).select();
     if (error) throw error;
     return data;
+  },
+};
+
+export const goldenRuleService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("golden_rules")
+      .select(`
+        *,
+        responses:golden_rule_responses(*),
+        attachments:golden_rule_attachments(*)
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from("golden_rules")
+      .select(`
+        *,
+        responses:golden_rule_responses(*),
+        attachments:golden_rule_attachments(*)
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async upsertFromLegacy(payload: GoldenRuleRecordPayload) {
+    const ruleInsert: GoldenRuleInsert = {
+      id: payload.id,
+      numero_inspecao: payload.numero_inspecao,
+      titulo: payload.titulo,
+      setor: payload.setor,
+      gestor: payload.gestor,
+      tecnico_seg: payload.tecnico_seg,
+      acompanhante: payload.acompanhante,
+      ass_tst: payload.ass_tst ?? null,
+      ass_gestor: payload.ass_gestor ?? null,
+      ass_acomp: payload.ass_acomp ?? null,
+      created_at: payload.created_at,
+    };
+
+    const { data: savedRule, error: upsertError } = await supabase
+      .from("golden_rules")
+      .upsert(ruleInsert)
+      .select()
+      .single();
+
+    if (upsertError) throw upsertError;
+
+    const { error: deleteResponsesError } = await supabase
+      .from("golden_rule_responses")
+      .delete()
+      .eq("regra_id", savedRule.id);
+    if (deleteResponsesError) throw deleteResponsesError;
+
+    if (payload.responses.length > 0) {
+      const responseRows = payload.responses.map((item) => ({
+        regra_id: savedRule.id,
+        codigo: item.codigo,
+        numero: item.numero,
+        pergunta: item.pergunta,
+        resposta: item.resposta === "Nao" ? "Não" : item.resposta,
+        comentario: item.comentario || null,
+        foto_name: item.foto?.name || null,
+        foto_size: Number(item.foto?.size || 0) || null,
+        foto_type: item.foto?.type || null,
+        foto_data_url: item.foto?.data_url || null,
+      }));
+
+      const { error: insertResponsesError } = await supabase
+        .from("golden_rule_responses")
+        .insert(responseRows);
+      if (insertResponsesError) throw insertResponsesError;
+    }
+
+    const { error: deleteAttachmentsError } = await supabase
+      .from("golden_rule_attachments")
+      .delete()
+      .eq("regra_id", savedRule.id);
+    if (deleteAttachmentsError) throw deleteAttachmentsError;
+
+    if (payload.attachments.length > 0) {
+      const attachmentRows = payload.attachments.map((item) => ({
+        regra_id: savedRule.id,
+        file_name: item.name || "arquivo",
+        file_size: Number(item.size || 0),
+        file_type: item.type || null,
+        file_data_url: item.data_url || null,
+      }));
+
+      const { error: insertAttachmentsError } = await supabase
+        .from("golden_rule_attachments")
+        .insert(attachmentRows);
+      if (insertAttachmentsError) throw insertAttachmentsError;
+    }
+
+    return this.getById(savedRule.id);
+  },
+
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("golden_rules")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  async safeGetAllWithFallback() {
+    try {
+      return await this.getAll();
+    } catch (error) {
+      if (relationMissingError(error, "golden_rules")) return [];
+      throw error;
+    }
+  },
+};
+
+export const accidentActionPlanService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("accident_action_plans")
+      .select(`
+        *,
+        comments:accident_action_plan_comments(*)
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from("accident_action_plans")
+      .select(`
+        *,
+        comments:accident_action_plan_comments(*)
+      `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async upsertFromLegacy(payload: AccidentActionPlanRecordPayload) {
+    const planInsert: AccidentActionPlanInsert = {
+      id: payload.id,
+      numero_plano: payload.numero_plano,
+      numero_ocorrencia: payload.numero_ocorrencia,
+      data_ocorrencia: toNullableDate(payload.data_ocorrencia),
+      prioridade_ocorrencia: payload.prioridade_ocorrencia || null,
+      descricao_ocorrencia: payload.descricao_ocorrencia || null,
+      origem: payload.origem || "Acidente",
+      descricao_resumida_acao: payload.descricao_resumida_acao,
+      severidade: payload.severidade || null,
+      probabilidade: payload.probabilidade || null,
+      prioridade: payload.prioridade || "Baixa",
+      status: payload.status || "Aberta",
+      responsavel_execucao: payload.responsavel_execucao,
+      inicio_planejado: toNullableDate(payload.inicio_planejado),
+      termino_planejado: toNullableDate(payload.termino_planejado),
+      acao_iniciada: toNullableDate(payload.acao_iniciada),
+      acao_finalizada: toNullableDate(payload.acao_finalizada),
+      descricao_acao: payload.descricao_acao,
+      observacoes_conclusao: payload.observacoes_conclusao || null,
+      data_eficacia: toNullableDate(payload.data_eficacia),
+      observacao_eficacia: payload.observacao_eficacia || null,
+      created_at: payload.created_at,
+      updated_at: payload.updated_at,
+    };
+
+    const { data: savedPlan, error: upsertError } = await supabase
+      .from("accident_action_plans")
+      .upsert(planInsert)
+      .select()
+      .single();
+    if (upsertError) throw upsertError;
+
+    const { error: deleteCommentsError } = await supabase
+      .from("accident_action_plan_comments")
+      .delete()
+      .eq("plan_id", savedPlan.id);
+    if (deleteCommentsError) throw deleteCommentsError;
+
+    if (payload.comentarios.length > 0) {
+      const commentRows = payload.comentarios.map((item) => ({
+        id: item.id,
+        plan_id: savedPlan.id,
+        texto: item.texto,
+        autor: item.autor || "Sistema",
+        created_at: item.created_at,
+      }));
+
+      const { error: insertCommentsError } = await supabase
+        .from("accident_action_plan_comments")
+        .insert(commentRows);
+      if (insertCommentsError) throw insertCommentsError;
+    }
+
+    return this.getById(savedPlan.id);
+  },
+
+  async deleteByOccurrence(numeroOcorrencia: number) {
+    const { error } = await supabase
+      .from("accident_action_plans")
+      .delete()
+      .eq("numero_ocorrencia", numeroOcorrencia);
+    if (error) throw error;
+  },
+
+  async safeGetAllWithFallback() {
+    try {
+      return await this.getAll();
+    } catch (error) {
+      if (relationMissingError(error, "accident_action_plans")) return [];
+      throw error;
+    }
   },
 };
 

@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import { goldenRuleService } from "@/lib/supabase-service";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -212,6 +213,11 @@ const SIGNATURE_LABELS: Record<SignatureKey, string> = {
   ass_acomp: "Acompanhante da Inspeção",
 };
 
+const isMissingGoldenRulesTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("golden_rules");
+};
+
 const InvestigacaoAcidente2 = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -389,6 +395,31 @@ const InvestigacaoAcidente2 = () => {
         ass_acomp: signatures.ass_acomp || "",
         anexos: serializedAnexos,
       };
+
+      try {
+        await goldenRuleService.upsertFromLegacy({
+          id: payload.id,
+          numero_inspecao: payload.numero_inspecao,
+          titulo: payload.titulo,
+          setor: payload.setor,
+          gestor: payload.gestor,
+          tecnico_seg: payload.tecnico_seg,
+          acompanhante: payload.acompanhante,
+          ass_tst: payload.ass_tst,
+          ass_gestor: payload.ass_gestor,
+          ass_acomp: payload.ass_acomp,
+          created_at: payload.created_at,
+          responses: payload.respostas,
+          attachments: payload.anexos,
+        });
+      } catch (error) {
+        if (!isMissingGoldenRulesTableError(error)) {
+          throw error;
+        }
+        console.warn(
+          "[InvestigacaoAcidente2] Tabela golden_rules indisponível. Salvando apenas no armazenamento local.",
+        );
+      }
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify([payload, ...existingRecords]));
       window.dispatchEvent(new Event(STORAGE_EVENT));

@@ -146,6 +146,252 @@ export type Database = {
         }
         Relationships: []
       }
+      golden_rules: {
+        Row: {
+          acompanhante: string
+          ass_acomp: string | null
+          ass_gestor: string | null
+          ass_tst: string | null
+          created_at: string
+          gestor: string
+          id: string
+          numero_inspecao: number
+          setor: string
+          tecnico_seg: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          acompanhante: string
+          ass_acomp?: string | null
+          ass_gestor?: string | null
+          ass_tst?: string | null
+          created_at?: string
+          gestor: string
+          id?: string
+          numero_inspecao?: number
+          setor: string
+          tecnico_seg: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          acompanhante?: string
+          ass_acomp?: string | null
+          ass_gestor?: string | null
+          ass_tst?: string | null
+          created_at?: string
+          gestor?: string
+          id?: string
+          numero_inspecao?: number
+          setor?: string
+          tecnico_seg?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      golden_rule_responses: {
+        Row: {
+          codigo: string
+          comentario: string | null
+          created_at: string
+          foto_data_url: string | null
+          foto_name: string | null
+          foto_size: number | null
+          foto_type: string | null
+          id: string
+          numero: string
+          pergunta: string
+          regra_id: string
+          resposta: string
+        }
+        Insert: {
+          codigo: string
+          comentario?: string | null
+          created_at?: string
+          foto_data_url?: string | null
+          foto_name?: string | null
+          foto_size?: number | null
+          foto_type?: string | null
+          id?: string
+          numero: string
+          pergunta: string
+          regra_id: string
+          resposta: string
+        }
+        Update: {
+          codigo?: string
+          comentario?: string | null
+          created_at?: string
+          foto_data_url?: string | null
+          foto_name?: string | null
+          foto_size?: number | null
+          foto_type?: string | null
+          id?: string
+          numero?: string
+          pergunta?: string
+          regra_id?: string
+          resposta?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_rule_responses_regra_id_fkey"
+            columns: ["regra_id"]
+            isOneToOne: false
+            referencedRelation: "golden_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      golden_rule_attachments: {
+        Row: {
+          created_at: string
+          file_data_url: string | null
+          file_name: string
+          file_size: number
+          file_type: string | null
+          id: string
+          regra_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_data_url?: string | null
+          file_name: string
+          file_size?: number
+          file_type?: string | null
+          id?: string
+          regra_id: string
+        }
+        Update: {
+          created_at?: string
+          file_data_url?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string | null
+          id?: string
+          regra_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "golden_rule_attachments_regra_id_fkey"
+            columns: ["regra_id"]
+            isOneToOne: false
+            referencedRelation: "golden_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accident_action_plans: {
+        Row: {
+          acao_finalizada: string | null
+          acao_iniciada: string | null
+          created_at: string
+          data_eficacia: string | null
+          data_ocorrencia: string | null
+          descricao_acao: string
+          descricao_ocorrencia: string | null
+          descricao_resumida_acao: string
+          id: string
+          inicio_planejado: string | null
+          numero_ocorrencia: number
+          numero_plano: number
+          observacao_eficacia: string | null
+          observacoes_conclusao: string | null
+          origem: string
+          prioridade: string
+          prioridade_ocorrencia: string | null
+          probabilidade: string | null
+          responsavel_execucao: string
+          severidade: string | null
+          status: string
+          termino_planejado: string | null
+          updated_at: string
+        }
+        Insert: {
+          acao_finalizada?: string | null
+          acao_iniciada?: string | null
+          created_at?: string
+          data_eficacia?: string | null
+          data_ocorrencia?: string | null
+          descricao_acao: string
+          descricao_ocorrencia?: string | null
+          descricao_resumida_acao: string
+          id?: string
+          inicio_planejado?: string | null
+          numero_ocorrencia: number
+          numero_plano?: number
+          observacao_eficacia?: string | null
+          observacoes_conclusao?: string | null
+          origem?: string
+          prioridade?: string
+          prioridade_ocorrencia?: string | null
+          probabilidade?: string | null
+          responsavel_execucao: string
+          severidade?: string | null
+          status?: string
+          termino_planejado?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acao_finalizada?: string | null
+          acao_iniciada?: string | null
+          created_at?: string
+          data_eficacia?: string | null
+          data_ocorrencia?: string | null
+          descricao_acao?: string
+          descricao_ocorrencia?: string | null
+          descricao_resumida_acao?: string
+          id?: string
+          inicio_planejado?: string | null
+          numero_ocorrencia?: number
+          numero_plano?: number
+          observacao_eficacia?: string | null
+          observacoes_conclusao?: string | null
+          origem?: string
+          prioridade?: string
+          prioridade_ocorrencia?: string | null
+          probabilidade?: string | null
+          responsavel_execucao?: string
+          severidade?: string | null
+          status?: string
+          termino_planejado?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      accident_action_plan_comments: {
+        Row: {
+          autor: string
+          created_at: string
+          id: string
+          plan_id: string
+          texto: string
+        }
+        Insert: {
+          autor?: string
+          created_at?: string
+          id?: string
+          plan_id: string
+          texto: string
+        }
+        Update: {
+          autor?: string
+          created_at?: string
+          id?: string
+          plan_id?: string
+          texto?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accident_action_plan_comments_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "accident_action_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspections: {
         Row: {
           checklist_answers: Json

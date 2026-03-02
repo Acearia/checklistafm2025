@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { accidentActionPlanService } from "@/lib/supabase-service";
 
 type PrioridadeAcao = "Baixa" | "Media" | "Alta" | "Critica";
 type StatusAcao = "Aberta" | "Em andamento" | "Concluida" | "Cancelada";
@@ -49,6 +50,11 @@ interface InvestigacaoResumo {
 const INVESTIGACAO_STORAGE_KEY = "checklistafm-investigacoes-acidente";
 const PLANO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
+
+const isMissingActionPlansTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("accident_action_plans");
+};
 
 const formatNumero = (value: number) => String(value || 0).padStart(3, "0");
 
@@ -94,6 +100,23 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
     console.error("Erro ao carregar planos de acao:", error);
     return [];
   }
+};
+
+const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
+  if (!item || typeof item !== "object") return null;
+  return {
+    id: String(item.id || `${Date.now()}-${Math.random()}`),
+    created_at: String(item.created_at || ""),
+    updated_at: String(item.updated_at || ""),
+    numero_plano: Number(item.numero_plano) || 0,
+    numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
+    data_ocorrencia: String(item.data_ocorrencia || ""),
+    descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
+    prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
+    status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
+    responsavel_execucao: String(item.responsavel_execucao || ""),
+    termino_planejado: String(item.termino_planejado || ""),
+  };
 };
 
 const parseInvestigacoes = (): InvestigacaoResumo[] => {
@@ -145,22 +168,60 @@ const AdminPlanosAcao = () => {
     setOcorrenciaFilter(ocorrenciaFromQuery.replace(/\D/g, ""));
   }, [ocorrenciaFromQuery]);
 
-  const loadData = () => {
-    setRecords(parsePlanos());
+  const loadData = async () => {
+    const localRecords = parsePlanos();
     setInvestigacoes(parseInvestigacoes());
+
+    try {
+      const remoteRows = await accidentActionPlanService.safeGetAllWithFallback();
+      if (remoteRows.length === 0) {
+        setRecords(localRecords);
+        return;
+      }
+
+      const remoteRecords = remoteRows
+        .map((item) => mapSupabasePlan(item))
+        .filter((item): item is PlanoAcaoRecord => Boolean(item))
+        .sort((a, b) => {
+          const dateA = new Date(a.updated_at || a.created_at).getTime();
+          const dateB = new Date(b.updated_at || b.created_at).getTime();
+          return dateB - dateA;
+        });
+
+      const mergedMap = new Map<string, PlanoAcaoRecord>();
+      [...remoteRecords, ...localRecords].forEach((item) => {
+        const key = item.id || `n-${item.numero_plano}-${item.numero_ocorrencia}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, item);
+        }
+      });
+      const mergedRecords = Array.from(mergedMap.values()).sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at).getTime();
+        const dateB = new Date(b.updated_at || b.created_at).getTime();
+        return dateB - dateA;
+      });
+
+      setRecords(mergedRecords);
+      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(mergedRecords));
+    } catch (error) {
+      if (!isMissingActionPlansTableError(error)) {
+        console.error("Erro ao carregar planos de ação no Supabase:", error);
+      }
+      setRecords(localRecords);
+    }
   };
 
   useEffect(() => {
-    loadData();
+    void loadData();
 
     const handleStorage = (event: StorageEvent) => {
       if (!event.key || event.key === PLANO_STORAGE_KEY || event.key === INVESTIGACAO_STORAGE_KEY) {
-        loadData();
+        void loadData();
       }
     };
 
-    const handlePlanoUpdated = () => loadData();
-    const handleInvestigacaoUpdated = () => loadData();
+    const handlePlanoUpdated = () => void loadData();
+    const handleInvestigacaoUpdated = () => void loadData();
 
     window.addEventListener("storage", handleStorage);
     window.addEventListener(PLANO_STORAGE_EVENT, handlePlanoUpdated);
@@ -240,7 +301,7 @@ const AdminPlanosAcao = () => {
           <Button variant="outline" onClick={() => navigate("/admin/investigacoes")}>
             Investigacoes
           </Button>
-          <Button variant="outline" onClick={loadData}>
+          <Button variant="outline" onClick={() => void loadData()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
           </Button>
