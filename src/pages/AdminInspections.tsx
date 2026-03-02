@@ -27,7 +27,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { Eye, Download, AlertTriangle, RefreshCw } from "lucide-react";
+import { Eye, Download, AlertTriangle, RefreshCw, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Badge } from "@/components/ui/badge";
@@ -38,12 +38,28 @@ import {
   calculateInspectionBoardStats,
   type InspectionBoardInspectionEntry,
 } from "@/lib/inspectionBoard";
-import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
+import { deleteMaintenanceOrdersByInspection, loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
+import { inspectionService } from "@/lib/supabase-service";
+
+const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+
+const hasAdmAccess = () => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+    if (!rawSession) return false;
+    const parsed = JSON.parse(rawSession);
+    return String(parsed?.username || "").trim().toLowerCase() === "adm";
+  } catch {
+    return false;
+  }
+};
 
 const AdminInspections = () => {
   const navigate = useNavigate();
@@ -78,6 +94,7 @@ const AdminInspections = () => {
   const [boardDateTo, setBoardDateTo] = useState(() =>
     format(new Date(), "yyyy-MM-dd"),
   );
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
 
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
@@ -100,10 +117,77 @@ const AdminInspections = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncAdminSession = () => {
+      setIsAdmUser(hasAdmAccess());
+    };
+
+    window.addEventListener("storage", syncAdminSession);
+    return () => {
+      window.removeEventListener("storage", syncAdminSession);
+    };
+  }, []);
+
 
   const handleViewDetails = (inspection: any) => {
     setSelectedInspection(inspection);
     setIsDialogOpen(true);
+  };
+
+  const handleDeleteInspection = async (inspection: any) => {
+    if (!isAdmUser) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente o usuario adm pode excluir inspecoes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const inspectionId = inspection?.id ?? inspection?.inspection_id;
+    if (!inspectionId || String(inspectionId).trim().length === 0) {
+      toast({
+        title: "Inspecao sem ID",
+        description: "Nao foi possivel identificar a inspecao para exclusao.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Deseja realmente excluir esta inspecao? Esta acao nao pode ser desfeita.",
+    );
+    if (!confirmed) return;
+
+    try {
+      const id = String(inspectionId);
+      await inspectionService.delete(id);
+      deleteMaintenanceOrdersByInspection(id);
+
+      if (
+        selectedInspection &&
+        String(selectedInspection.id ?? selectedInspection.inspection_id ?? "") === id
+      ) {
+        setSelectedInspection(null);
+        setIsDialogOpen(false);
+      }
+
+      await refresh();
+
+      toast({
+        title: "Inspecao excluida",
+        description: "A inspecao foi removida com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao excluir inspecao:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Nao foi possivel excluir a inspecao.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExportPDF = () => {
@@ -767,25 +851,39 @@ const AdminInspections = () => {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            onClick={() => {
-                              const inspectionId = inspection.id ?? inspection.inspection_id;
-                              if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
-                                navigate(`/admin/checklists/${String(inspectionId)}`);
-                                return;
-                              }
-                              toast({
-                                title: "Inspeção sem ID",
-                                description: "Não foi possível abrir os detalhes desta inspeção.",
-                                variant: "destructive",
-                              });
-                            }}
-                            variant="ghost"
-                            size="sm"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Detalhes
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              onClick={() => {
+                                const inspectionId = inspection.id ?? inspection.inspection_id;
+                                if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
+                                  navigate(`/admin/checklists/${String(inspectionId)}`);
+                                  return;
+                                }
+                                toast({
+                                  title: "Inspeção sem ID",
+                                  description: "Não foi possível abrir os detalhes desta inspeção.",
+                                  variant: "destructive",
+                                });
+                              }}
+                              variant="ghost"
+                              size="sm"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Detalhes
+                            </Button>
+                            {isAdmUser && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => void handleDeleteInspection(inspection)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Excluir
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

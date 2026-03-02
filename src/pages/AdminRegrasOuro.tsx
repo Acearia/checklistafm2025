@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Download, Eye, RefreshCw } from "lucide-react";
+import { Download, Eye, RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +64,20 @@ interface RegraOuroRecord {
 
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
+const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+
+const hasAdmAccess = () => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+    if (!rawSession) return false;
+    const parsed = JSON.parse(rawSession);
+    return String(parsed?.username || "").trim().toLowerCase() === "adm";
+  } catch {
+    return false;
+  }
+};
 
 const decodePotentialMojibake = (value: string) => {
   const cp1252ReverseMap: Record<number, number> = {
@@ -210,6 +224,7 @@ const AdminRegrasOuro = () => {
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [setorFilter, setSetorFilter] = useState("all");
@@ -236,6 +251,19 @@ const AdminRegrasOuro = () => {
     return () => {
       window.removeEventListener(STORAGE_EVENT, handleUpdated);
       window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncAdminSession = () => {
+      setIsAdmUser(hasAdmAccess());
+    };
+
+    window.addEventListener("storage", syncAdminSession);
+    return () => {
+      window.removeEventListener("storage", syncAdminSession);
     };
   }, []);
 
@@ -306,6 +334,46 @@ const AdminRegrasOuro = () => {
   const handleViewDetails = (record: RegraOuroRecord) => {
     setSelected(record);
     setDetailsOpen(true);
+  };
+
+  const handleDeleteRecord = (record: RegraOuroRecord) => {
+    if (!isAdmUser) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente o usuario adm pode excluir registros.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Deseja realmente excluir esta regra de ouro? Esta acao nao pode ser desfeita.",
+    );
+    if (!confirmed) return;
+
+    try {
+      const updated = records.filter((item) => item.id !== record.id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      window.dispatchEvent(new Event(STORAGE_EVENT));
+      setRecords(updated);
+
+      if (selected?.id === record.id) {
+        setSelected(null);
+        setDetailsOpen(false);
+      }
+
+      toast({
+        title: "Registro excluido",
+        description: "A regra de ouro foi removida com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao excluir regra de ouro:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Nao foi possivel excluir o registro.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExportCsv = () => {
@@ -533,10 +601,24 @@ const AdminRegrasOuro = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Detalhes
-                          </Button>
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Detalhes
+                            </Button>
+                            {isAdmUser && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteRecord(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -627,6 +709,15 @@ const AdminRegrasOuro = () => {
           )}
 
           <DialogFooter>
+            {selected && isAdmUser && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => handleDeleteRecord(selected)}
+              >
+                Excluir registro
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDetailsOpen(false)}>
               Fechar
             </Button>
@@ -638,4 +729,3 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
-

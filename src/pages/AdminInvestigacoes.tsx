@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Download, Eye, RefreshCw } from "lucide-react";
+import { Download, Eye, RefreshCw, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +105,20 @@ const PDF_ASSINADO_STORAGE_KEY = "checklistafm-investigacao-pdf-assinado-admin";
 const PDF_ASSINADO_STORAGE_EVENT = "checklistafm-investigacao-pdf-assinado-admin-updated";
 const PLANO_ACAO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_ACAO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
+const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+
+const hasAdmAccess = () => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
+    if (!rawSession) return false;
+    const parsed = JSON.parse(rawSession);
+    return String(parsed?.username || "").trim().toLowerCase() === "adm";
+  } catch {
+    return false;
+  }
+};
 
 const EMPTY_ANALISE_CAUSAS: AnaliseCausasData = {
   problema: "",
@@ -371,6 +385,7 @@ const AdminInvestigacoes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
   const [investigacoes, setInvestigacoes] = useState<InvestigacaoRecord[]>([]);
   const [causasByOcorrencia, setCausasByOcorrencia] = useState<Record<string, AnaliseCausasData>>(
     {},
@@ -441,6 +456,19 @@ const AdminInvestigacoes = () => {
       window.removeEventListener(PDF_ASSINADO_STORAGE_EVENT, handlePdfAssinadoUpdated);
       window.removeEventListener(PLANO_ACAO_STORAGE_EVENT, handlePlanoAcaoUpdated);
       window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncAdminSession = () => {
+      setIsAdmUser(hasAdmAccess());
+    };
+
+    window.addEventListener("storage", syncAdminSession);
+    return () => {
+      window.removeEventListener("storage", syncAdminSession);
     };
   }, []);
 
@@ -908,6 +936,84 @@ const AdminInvestigacoes = () => {
     navigate(`/admin/planos-acao?ocorrencia=${record.numero_ocorrencia}`);
   };
 
+  const handleDeleteInvestigacao = (record: InvestigacaoRecord) => {
+    if (!isAdmUser) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente o usuario adm pode excluir investigacoes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Deseja realmente excluir esta investigacao? Esta acao nao pode ser desfeita.",
+    );
+    if (!confirmed) return;
+
+    try {
+      const nextInvestigacoes = investigacoes.filter((item) => item.id !== record.id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextInvestigacoes));
+      window.dispatchEvent(new Event("checklistafm-investigacao-acidente-updated"));
+
+      const occurrenceNumber = Number(record.numero_ocorrencia) || 0;
+      if (occurrenceNumber > 0) {
+        const occurrenceKey = String(occurrenceNumber);
+
+        const currentCausas = parseAnaliseCausasByOcorrencia();
+        if (currentCausas[occurrenceKey]) {
+          delete currentCausas[occurrenceKey];
+          localStorage.setItem(CAUSAS_STORAGE_KEY, JSON.stringify(currentCausas));
+          window.dispatchEvent(new Event(CAUSAS_STORAGE_EVENT));
+        }
+
+        const currentPdfAssinado = parsePdfAssinadoByOcorrencia();
+        if (currentPdfAssinado[occurrenceKey]) {
+          delete currentPdfAssinado[occurrenceKey];
+          localStorage.setItem(PDF_ASSINADO_STORAGE_KEY, JSON.stringify(currentPdfAssinado));
+          window.dispatchEvent(new Event(PDF_ASSINADO_STORAGE_EVENT));
+        }
+
+        try {
+          const planosRaw = localStorage.getItem(PLANO_ACAO_STORAGE_KEY);
+          if (planosRaw) {
+            const parsedPlanos = JSON.parse(planosRaw);
+            if (Array.isArray(parsedPlanos)) {
+              const nextPlanos = parsedPlanos.filter(
+                (item: any) => Number(item?.numero_ocorrencia) !== occurrenceNumber,
+              );
+              if (nextPlanos.length !== parsedPlanos.length) {
+                localStorage.setItem(PLANO_ACAO_STORAGE_KEY, JSON.stringify(nextPlanos));
+                window.dispatchEvent(new Event(PLANO_ACAO_STORAGE_EVENT));
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao limpar planos de acao vinculados:", error);
+        }
+      }
+
+      if (selected?.id === record.id) {
+        setSelected(null);
+        setDetailsOpen(false);
+      }
+
+      loadData();
+
+      toast({
+        title: "Investigacao excluida",
+        description: "A investigacao foi removida com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao excluir investigacao:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Nao foi possivel excluir a investigacao.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleExportCsv = () => {
     if (filteredInvestigacoes.length === 0) {
       toast({
@@ -1203,19 +1309,33 @@ const AdminInvestigacoes = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Detalhes
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleOpenAnaliseDialog(item)}>
-                          Analises
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleStartPlanoAcao(item)}>
-                          Iniciar plano
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleViewPlanoAcao(item)}>
-                          Ver plano de acao
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Detalhes
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleOpenAnaliseDialog(item)}>
+                            Analises
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleStartPlanoAcao(item)}>
+                            Iniciar plano
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleViewPlanoAcao(item)}>
+                            Ver plano de acao
+                          </Button>
+                          {isAdmUser && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteInvestigacao(item)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1438,6 +1558,15 @@ const AdminInvestigacoes = () => {
             {selected && (
               <Button type="button" variant="outline" onClick={() => handleViewPlanoAcao(selected)}>
                 Ver plano de acao
+              </Button>
+            )}
+            {selected && isAdmUser && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => handleDeleteInvestigacao(selected)}
+              >
+                Excluir investigacao
               </Button>
             )}
             <Button variant="outline" onClick={() => setDetailsOpen(false)} className="w-full sm:w-auto">
