@@ -112,6 +112,7 @@ const PDF_ASSINADO_STORAGE_EVENT = "checklistafm-investigacao-pdf-assinado-admin
 const PLANO_ACAO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_ACAO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+const FILTER_ALL = "all";
 
 const isMissingActionPlansTableError = (error: unknown) => {
   const message = String((error as any)?.message || "").toLowerCase();
@@ -212,6 +213,15 @@ const formatFileSize = (bytes: number) => {
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
 };
+
+const uniqueSortedValues = (values: string[]) =>
+  Array.from(new Set(values.filter((value) => value.trim().length > 0))).sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+
+const getInvestigacaoDateValue = (item: InvestigacaoRecord) => item.data_ocorrencia || item.created_at;
+
+const hasInvestigacaoAssinada = (item: InvestigacaoRecord) => item.investigador.trim().length > 0;
 
 const parseInvestigacoes = (): InvestigacaoRecord[] => {
   if (typeof window === "undefined") return [];
@@ -442,10 +452,10 @@ const AdminInvestigacoes = () => {
   const [isUploadingPdfAssinado, setIsUploadingPdfAssinado] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [tipoFilter, setTipoFilter] = useState("all");
-  const [gravidadeFilter, setGravidadeFilter] = useState("all");
-  const [investigadorFilter, setInvestigadorFilter] = useState("all");
-  const [afastamentoFilter, setAfastamentoFilter] = useState("all");
+  const [tipoFilter, setTipoFilter] = useState(FILTER_ALL);
+  const [gravidadeFilter, setGravidadeFilter] = useState(FILTER_ALL);
+  const [investigadorFilter, setInvestigadorFilter] = useState(FILTER_ALL);
+  const [afastamentoFilter, setAfastamentoFilter] = useState(FILTER_ALL);
   const [ocorrenciaFilter, setOcorrenciaFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -513,49 +523,28 @@ const AdminInvestigacoes = () => {
   }, []);
 
   const uniqueTipos = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          investigacoes
-            .map((item) => item.tipo_acidente)
-            .filter((value) => value.trim().length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => uniqueSortedValues(investigacoes.map((item) => item.tipo_acidente)),
     [investigacoes],
   );
 
   const uniqueGravidades = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          investigacoes
-            .map((item) => item.gravidade)
-            .filter((value) => value.trim().length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => uniqueSortedValues(investigacoes.map((item) => item.gravidade)),
     [investigacoes],
   );
 
   const uniqueInvestigadores = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          investigacoes
-            .map((item) => item.investigador)
-            .filter((value) => value.trim().length > 0),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    () => uniqueSortedValues(investigacoes.map((item) => item.investigador)),
     [investigacoes],
   );
 
   const filteredInvestigacoes = useMemo(() => {
     return investigacoes.filter((item) => {
-      const matchesTipo = tipoFilter === "all" || item.tipo_acidente === tipoFilter;
-      const matchesGravidade = gravidadeFilter === "all" || item.gravidade === gravidadeFilter;
+      const matchesTipo = tipoFilter === FILTER_ALL || item.tipo_acidente === tipoFilter;
+      const matchesGravidade = gravidadeFilter === FILTER_ALL || item.gravidade === gravidadeFilter;
       const matchesInvestigador =
-        investigadorFilter === "all" || item.investigador === investigadorFilter;
+        investigadorFilter === FILTER_ALL || item.investigador === investigadorFilter;
       const matchesAfastamento =
-        afastamentoFilter === "all" ||
+        afastamentoFilter === FILTER_ALL ||
         (afastamentoFilter === "com" && item.teve_afastamento) ||
         (afastamentoFilter === "sem" && !item.teve_afastamento);
 
@@ -570,7 +559,7 @@ const AdminInvestigacoes = () => {
         !ocorrenciaFilter.trim() ||
         String(item.numero_ocorrencia).includes(ocorrenciaFilter.trim());
 
-      const dateValue = item.data_ocorrencia || item.created_at;
+      const dateValue = getInvestigacaoDateValue(item);
       const itemDate = dateValue ? new Date(dateValue) : null;
       const from = dateFrom ? new Date(dateFrom) : null;
       const to = dateTo ? new Date(dateTo) : null;
@@ -606,7 +595,7 @@ const AdminInvestigacoes = () => {
     const total = investigacoes.length;
     const comAfastamento = investigacoes.filter((item) => item.teve_afastamento).length;
     const criticas = investigacoes.filter((item) => item.gravidade === "Critica").length;
-    const assinadas = investigacoes.filter((item) => item.investigador.trim().length > 0).length;
+    const assinadas = investigacoes.filter(hasInvestigacaoAssinada).length;
 
     return { total, comAfastamento, criticas, assinadas };
   }, [investigacoes]);

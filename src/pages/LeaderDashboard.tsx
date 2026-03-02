@@ -112,6 +112,31 @@ interface ProblemEntry {
 }
 
 const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
+const FILTER_ALL = "all" as const;
+
+const getInspectionDateValue = (inspection: Pick<Inspection, "submission_date" | "inspection_date">) =>
+  inspection.submission_date || inspection.inspection_date;
+
+const hasChecklistProblems = (
+  answers: Inspection["checklist_answers"] | undefined,
+) => {
+  if (!answers || answers.length === 0) return false;
+  return answers.some((answer) =>
+    shouldTriggerAlert(answer.question, answer.answer, { onYes: answer.alertOnYes, onNo: answer.alertOnNo }),
+  );
+};
+
+const formatChecklistAnswerLabel = (rawValue?: string) => {
+  const rawAnswer = (rawValue ?? "").trim();
+  const normalizedLower = rawAnswer
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (normalizedLower === "sim") return "Sim";
+  if (normalizedLower === "nao") return "Não";
+  return rawAnswer || "N/A";
+};
 
 const LeaderDashboard = () => {
   const navigate = useNavigate();
@@ -142,7 +167,7 @@ const LeaderDashboard = () => {
   const [currentLeader, setCurrentLeader] = useState<Leader | null>(null);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [problemsList, setProblemsList] = useState<ProblemEntry[]>([]);
-  const [operatorFilter, setOperatorFilter] = useState<string>("all");
+  const [operatorFilter, setOperatorFilter] = useState<string>(FILTER_ALL);
   const [timeRangeFilter, setTimeRangeFilter] = useState<string>("week");
   const [operators, setOperators] = useState<{id: string, name: string}[]>([]);
   const [checklistAlerts, setChecklistAlerts] = useState<ChecklistAlert[]>([]);
@@ -154,7 +179,7 @@ const LeaderDashboard = () => {
   const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
   const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
-  const [selectedEquipmentFilter, setSelectedEquipmentFilter] = useState<string>("all");
+  const [selectedEquipmentFilter, setSelectedEquipmentFilter] = useState<string>(FILTER_ALL);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [inspectionDialogOpen, setInspectionDialogOpen] = useState(false);
@@ -165,8 +190,8 @@ const LeaderDashboard = () => {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [showEquipmentList, setShowEquipmentList] = useState(false);
   const [showOperatorList, setShowOperatorList] = useState(false);
-  const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
-  const [sectorSummaryFilter, setSectorSummaryFilter] = useState<"all" | "with-os" | "without-os">("all");
+  const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">(FILTER_ALL);
+  const [sectorSummaryFilter, setSectorSummaryFilter] = useState<"all" | "with-os" | "without-os">(FILTER_ALL);
   const [searchTerm, setSearchTerm] = useState("");
   const [boardDateFrom, setBoardDateFrom] = useState(() =>
     format(subDays(new Date(), 6), "yyyy-MM-dd"),
@@ -336,17 +361,7 @@ const LeaderDashboard = () => {
         }
 
         const alertId = `${inspection.id}-${answer.question || index}`;
-        const rawAnswer = (answer.answer ?? "").trim();
-        const normalizedLower = rawAnswer
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .toLowerCase();
-        const answerLabel =
-          normalizedLower === "sim"
-            ? "Sim"
-            : normalizedLower === "nao"
-            ? "Não"
-            : rawAnswer || "N/A";
+        const answerLabel = formatChecklistAnswerLabel(answer.answer);
 
         generatedAlerts.push({
           id: alertId,
@@ -359,7 +374,7 @@ const LeaderDashboard = () => {
           equipmentName: inspection.equipment.name,
           sector:
             inspection.equipment.sector || currentLeader.sector || undefined,
-          createdAt: inspection.submission_date || inspection.inspection_date,
+          createdAt: getInspectionDateValue(inspection),
           seenByAdmin: false,
           seenByLeaders: [],
         });
@@ -511,17 +526,7 @@ const LeaderDashboard = () => {
             return;
           }
 
-          const rawAnswer = (answer.answer ?? "").trim();
-          const normalizedLower = rawAnswer
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase();
-          const answerLabel =
-            normalizedLower === "sim"
-              ? "Sim"
-              : normalizedLower === "nao"
-              ? "Não"
-              : rawAnswer || "N/A";
+          const answerLabel = formatChecklistAnswerLabel(answer.answer);
 
           problems.push({
             id: `${inspection.id}-${answer.question}`,
@@ -533,7 +538,7 @@ const LeaderDashboard = () => {
             operatorMatricula: inspection.operator.matricula,
             problem: answer.question,
             comments: answer.comments || inspection.comments || 'Nenhum comentário',
-            date: inspection.inspection_date,
+            date: getInspectionDateValue(inspection),
             status: 'Identificado',
             answer: answerLabel,
           });
@@ -976,14 +981,14 @@ const LeaderDashboard = () => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return inspections.filter((inspection) => {
       const matchesOperatorFilter =
-        operatorFilter === "all" ||
+        operatorFilter === FILTER_ALL ||
         inspection.operator.matricula === operatorFilter;
 
       const matchesEquipment =
-        selectedEquipmentFilter === "all" ||
+        selectedEquipmentFilter === FILTER_ALL ||
         inspection.equipmentId === selectedEquipmentFilter;
 
-      const dateValue = inspection.submission_date || inspection.inspection_date;
+      const dateValue = getInspectionDateValue(inspection);
       const inspectionDate = dateValue ? new Date(dateValue) : null;
 
       const hasOpenOrder = openOrdersByInspection.has(inspection.id);
@@ -994,16 +999,10 @@ const LeaderDashboard = () => {
         inspection.equipment.name.toLowerCase().includes(normalizedSearch) ||
         inspection.equipment.kp.toLowerCase().includes(normalizedSearch);
       const matchesOsFilter =
-        osFilter === "all" ||
+        osFilter === FILTER_ALL ||
         (osFilter === "with-open" && hasOpenOrder) ||
         (osFilter === "without-open" &&
-          inspection.checklist_answers?.some((answer) =>
-            shouldTriggerAlert(
-              answer.question,
-              answer.answer,
-              { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
-            )
-          ) &&
+          hasChecklistProblems(inspection.checklist_answers) &&
           !hasOpenOrder);
 
       return (
@@ -1020,11 +1019,11 @@ const LeaderDashboard = () => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return problemsList.filter((problem) => {
       const matchesOperatorFilter =
-        operatorFilter === "all" ||
+        operatorFilter === FILTER_ALL ||
         problem.operatorMatricula === operatorFilter;
 
       const matchesEquipment =
-        selectedEquipmentFilter === "all" ||
+        selectedEquipmentFilter === FILTER_ALL ||
         problem.equipmentId === selectedEquipmentFilter;
 
       const problemDate = problem.date ? new Date(problem.date) : null;
@@ -1037,7 +1036,7 @@ const LeaderDashboard = () => {
         problem.equipment.toLowerCase().includes(normalizedSearch) ||
         (problem.equipmentKp || "").toLowerCase().includes(normalizedSearch);
       const matchesOsFilter =
-        osFilter === "all" ||
+        osFilter === FILTER_ALL ||
         (osFilter === "with-open" && hasOpenOrder) ||
         (osFilter === "without-open" && !hasOpenOrder);
 
@@ -1068,7 +1067,7 @@ const LeaderDashboard = () => {
     const to = boardDateTo ? endOfDay(new Date(`${boardDateTo}T00:00:00`)) : null;
 
     return inspections.filter((inspection) => {
-      const dateValue = inspection.submission_date || inspection.inspection_date;
+      const dateValue = getInspectionDateValue(inspection);
       if (!dateValue) return false;
 
       const inspectionDate = new Date(dateValue);
@@ -1089,16 +1088,8 @@ const LeaderDashboard = () => {
           inspection.equipmentId ||
           `${inspection.equipment.name}-${inspection.equipment.kp}-${inspection.id || index}`,
         getInspectionEquipmentMeta: (inspection) => inspection.equipment,
-        getInspectionDate: (inspection) =>
-          inspection.submission_date || inspection.inspection_date,
-        getInspectionHasProblems: (inspection) =>
-          inspection.checklist_answers.some((answer) =>
-            shouldTriggerAlert(
-              answer.question,
-              answer.answer,
-              { onYes: answer.alertOnYes, onNo: answer.alertOnNo },
-            ),
-          ),
+        getInspectionDate: (inspection) => getInspectionDateValue(inspection),
+        getInspectionHasProblems: (inspection) => hasChecklistProblems(inspection.checklist_answers),
         getInspectionHasOpenOrder: (inspection) =>
           openOrdersByInspection.has(inspection.id),
       }),
@@ -1141,13 +1132,7 @@ const LeaderDashboard = () => {
 
     inspections.forEach((inspection) => {
       const sectorName = inspection.equipment?.sector || "Sem setor";
-      const hasProblems = inspection.checklist_answers.some((answer) =>
-        shouldTriggerAlert(
-          answer.question,
-          answer.answer,
-          { onYes: answer.alertOnYes, onNo: answer.alertOnNo },
-        ),
-      );
+      const hasProblems = hasChecklistProblems(inspection.checklist_answers);
       const hasOpenOrder = openOrdersByInspection.has(inspection.id);
 
       if (hasProblems) {
@@ -1235,7 +1220,7 @@ const LeaderDashboard = () => {
   const lastInspectionByEquipment = useMemo(() => {
     const map = new Map<string, { date: Date; operator: string }>();
     inspections.forEach((inspection) => {
-      const dateValue = inspection.submission_date || inspection.inspection_date;
+      const dateValue = getInspectionDateValue(inspection);
       if (!dateValue) return;
       const date = new Date(dateValue);
       if (Number.isNaN(date.getTime())) return;
@@ -1314,8 +1299,7 @@ const LeaderDashboard = () => {
   );
   const inspectionDetailDateLabel = useMemo(() => {
     if (!inspectionToView) return "-";
-    const dateValue =
-      inspectionToView.submission_date || inspectionToView.inspection_date;
+    const dateValue = getInspectionDateValue(inspectionToView);
     if (!dateValue) return "-";
     const date = new Date(dateValue);
     if (Number.isNaN(date.getTime())) {
@@ -2411,14 +2395,8 @@ const LeaderDashboard = () => {
                   </TableHeader>
                   <TableBody>
                     {filteredInspections.map((inspection) => {
-                      const hasProblems = inspection.checklist_answers.some((answer) =>
-                        shouldTriggerAlert(
-                          answer.question,
-                          answer.answer,
-                          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
-                        )
-                      );
-                      const dateValue = inspection.submission_date || inspection.inspection_date;
+                      const hasProblems = hasChecklistProblems(inspection.checklist_answers);
+                      const dateValue = getInspectionDateValue(inspection);
                       const inspectionDate = dateValue ? new Date(dateValue) : null;
                       const inspectionDateLabel =
                         inspectionDate && !Number.isNaN(inspectionDate.getTime())
