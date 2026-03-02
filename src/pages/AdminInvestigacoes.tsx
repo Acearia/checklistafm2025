@@ -32,12 +32,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentMeta {
   name: string;
   size: number;
   type: string;
+  data_url?: string;
+  dataUrl?: string;
+  url?: string;
+  preview_url?: string;
 }
 
 interface InvestigacaoRecord {
@@ -218,6 +223,10 @@ const parseInvestigacoes = (): InvestigacaoRecord[] => {
               name: toSafeString(file?.name),
               size: Number(file?.size) || 0,
               type: toSafeString(file?.type),
+              data_url: toSafeString(file?.data_url),
+              dataUrl: toSafeString(file?.dataUrl),
+              url: toSafeString(file?.url),
+              preview_url: toSafeString(file?.preview_url),
             }))
           : [];
 
@@ -1449,13 +1458,56 @@ const AdminInvestigacoes = () => {
                       {selected.attachments.map((file, index) => (
                         <div
                           key={`${file.name}-${index}`}
-                          className="flex items-center justify-between rounded border bg-white px-3 py-2"
+                          className="rounded border bg-white px-3 py-2"
                         >
-                          <div className="min-w-0">
+                          <div className="min-w-0 space-y-2">
                             <p className="truncate font-medium">{file.name || `Arquivo ${index + 1}`}</p>
                             <p className="text-xs text-gray-500">
                               {file.type || "tipo nao informado"} - {formatFileSize(file.size)}
                             </p>
+                            {(() => {
+                              const previewUrl = resolveAttachmentPreviewUrl(file);
+                              const isImage = previewUrl.length > 0 && isImageAttachment(file);
+
+                              if (isImage) {
+                                return (
+                                  <div className="space-y-2">
+                                    <img
+                                      src={previewUrl}
+                                      alt={file.name || `Anexo ${index + 1}`}
+                                      className="h-40 w-full rounded border object-cover"
+                                    />
+                                    <a
+                                      href={previewUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-sm text-red-700 hover:underline"
+                                    >
+                                      Abrir imagem
+                                    </a>
+                                  </div>
+                                );
+                              }
+
+                              if (previewUrl.length > 0) {
+                                return (
+                                  <a
+                                    href={previewUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-red-700 hover:underline"
+                                  >
+                                    Abrir anexo
+                                  </a>
+                                );
+                              }
+
+                              return (
+                                <p className="text-xs text-gray-500">
+                                  Visualizacao indisponivel para este registro antigo.
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                       ))}

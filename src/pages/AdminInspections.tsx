@@ -45,6 +45,7 @@ import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
 import { inspectionService } from "@/lib/supabase-service";
+import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 
@@ -1040,6 +1041,10 @@ const AdminInspections = () => {
                         selectedInspection.checklist_answers.map((item: any, index: number) => {
                           const triggersAlert = Boolean(item.triggersAlert);
                           const answer = item.answer || "N/A";
+                          const answerMedia = item?.photo || item?.foto || null;
+                          const answerPhotoSrc = answerMedia
+                            ? resolveAttachmentPreviewUrl(answerMedia)
+                            : "";
                           const highlightClasses = triggersAlert
                             ? "bg-red-50"
                             : "";
@@ -1058,6 +1063,20 @@ const AdminInspections = () => {
                                   <Badge variant="destructive" className="w-fit">
                                     Alerta
                                   </Badge>
+                                )}
+                                {answerPhotoSrc && isImageAttachment(answerMedia || {}) && (
+                                  <a
+                                    href={answerPhotoSrc}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 w-fit"
+                                  >
+                                    <img
+                                      src={answerPhotoSrc}
+                                      alt={`Evidencia ${index + 1}`}
+                                      className="h-16 w-24 rounded border object-cover"
+                                    />
+                                  </a>
                                 )}
                               </TableCell>
                               <TableCell className="text-right">
@@ -1086,7 +1105,10 @@ const AdminInspections = () => {
                     <h3 className="font-medium mb-2">Anexos</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedInspection.photos.map((photo: any, index: number) => {
-                        const src = typeof photo === "string" ? photo : photo?.data || photo?.url || "";
+                        const src =
+                          typeof photo === "string"
+                            ? photo
+                            : resolveAttachmentPreviewUrl(photo) || photo?.data || "";
                         if (!src) return null;
                         return (
                           <div key={photo.id || index} className="border rounded-md bg-gray-50 p-2">

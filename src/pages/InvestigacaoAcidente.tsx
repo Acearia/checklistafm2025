@@ -36,6 +36,7 @@ import {
   listInvestigatorAccounts,
   verifyInvestigatorCredentials,
 } from "@/lib/adminCredentials";
+import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
 import { useNavigate } from "react-router-dom";
 
 type MaoDeObra = "Direta" | "Indireta";
@@ -75,6 +76,7 @@ interface AttachmentMeta {
   name: string;
   size: number;
   type: string;
+  data_url?: string;
 }
 
 interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
@@ -1096,6 +1098,15 @@ const InvestigacaoAcidente = () => {
         `Classificação: ${classificacaoFinal}`,
       ].join("\n");
 
+      const serializedAttachments = await Promise.all(
+        attachments.map(async (file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data_url: await buildImagePreviewDataUrl(file),
+        })),
+      );
+
       const payload: InvestigacaoAcidenteRecord = {
         ...form,
         numero_ocorrencia: ocorrenciaNumero,
@@ -1106,11 +1117,7 @@ const InvestigacaoAcidente = () => {
             ? crypto.randomUUID()
             : Date.now().toString(),
         created_at: new Date().toISOString(),
-        attachments: attachments.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        })),
+        attachments: serializedAttachments,
       };
 
       localStorage.setItem(

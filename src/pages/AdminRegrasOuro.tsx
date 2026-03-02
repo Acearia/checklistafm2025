@@ -29,12 +29,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentMeta {
   name: string;
   size: number;
   type: string;
+  data_url?: string;
+  dataUrl?: string;
+  url?: string;
+  preview_url?: string;
 }
 
 interface QuestionResponse {
@@ -177,6 +182,10 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
                     name: toSafeString(response.foto?.name),
                     size: Number(response.foto?.size) || 0,
                     type: toSafeString(response.foto?.type),
+                    data_url: toSafeString(response.foto?.data_url),
+                    dataUrl: toSafeString(response.foto?.dataUrl),
+                    url: toSafeString(response.foto?.url),
+                    preview_url: toSafeString(response.foto?.preview_url),
                   }
                 : null,
             }))
@@ -187,6 +196,10 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
               name: toSafeString(file?.name),
               size: Number(file?.size) || 0,
               type: toSafeString(file?.type),
+              data_url: toSafeString(file?.data_url),
+              dataUrl: toSafeString(file?.dataUrl),
+              url: toSafeString(file?.url),
+              preview_url: toSafeString(file?.preview_url),
             }))
           : [];
 
@@ -678,9 +691,41 @@ const AdminRegrasOuro = () => {
                         </p>
                       )}
                       {response.foto && (
-                        <p className="text-xs text-gray-500">
-                          Foto: {response.foto.name || "arquivo"} ({formatFileSize(response.foto.size)})
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-xs text-gray-500">
+                            Foto: {response.foto.name || "arquivo"} ({formatFileSize(response.foto.size)})
+                          </p>
+                          {(() => {
+                            const previewUrl = resolveAttachmentPreviewUrl(response.foto);
+                            const isImage = previewUrl.length > 0 && isImageAttachment(response.foto);
+
+                            if (isImage) {
+                              return (
+                                <div className="space-y-2">
+                                  <img
+                                    src={previewUrl}
+                                    alt={response.foto?.name || `Foto ${response.numero}`}
+                                    className="h-36 w-full rounded border object-cover"
+                                  />
+                                  <a
+                                    href={previewUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-red-700 hover:underline"
+                                  >
+                                    Abrir imagem
+                                  </a>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <p className="text-xs text-gray-500">
+                                Visualizacao indisponivel para este registro antigo.
+                              </p>
+                            );
+                          })()}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -694,12 +739,55 @@ const AdminRegrasOuro = () => {
                     {selected.anexos.map((file, index) => (
                       <div
                         key={`${file.name}-${index}`}
-                        className="flex items-center justify-between rounded border bg-gray-50 px-3 py-2 text-sm"
+                        className="rounded border bg-gray-50 px-3 py-2 text-sm"
                       >
                         <p className="truncate">{file.name || `Arquivo ${index + 1}`}</p>
                         <p className="text-xs text-gray-500">
                           {file.type || "tipo nao informado"} - {formatFileSize(file.size)}
                         </p>
+                        {(() => {
+                          const previewUrl = resolveAttachmentPreviewUrl(file);
+                          const isImage = previewUrl.length > 0 && isImageAttachment(file);
+
+                          if (isImage) {
+                            return (
+                              <div className="mt-2 space-y-2">
+                                <img
+                                  src={previewUrl}
+                                  alt={file.name || `Anexo ${index + 1}`}
+                                  className="h-40 w-full rounded border object-cover"
+                                />
+                                <a
+                                  href={previewUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-red-700 hover:underline"
+                                >
+                                  Abrir imagem
+                                </a>
+                              </div>
+                            );
+                          }
+
+                          if (previewUrl.length > 0) {
+                            return (
+                              <a
+                                href={previewUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-red-700 hover:underline"
+                              >
+                                Abrir anexo
+                              </a>
+                            );
+                          }
+
+                          return (
+                            <p className="text-xs text-gray-500">
+                              Visualizacao indisponivel para este registro antigo.
+                            </p>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

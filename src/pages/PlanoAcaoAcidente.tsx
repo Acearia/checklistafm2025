@@ -23,11 +23,22 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 
 type Severidade = "Minima" | "Mediana" | "Consideravel" | "Critica";
 type Probabilidade = "Improvavel" | "Pouco Provavel" | "Provavel" | "Altamente Provavel";
 type PrioridadeAcao = "Baixa" | "Media" | "Alta" | "Critica";
 type StatusAcao = "Aberta" | "Em andamento" | "Concluida" | "Cancelada";
+
+interface AttachmentMeta {
+  name: string;
+  size: number;
+  type: string;
+  data_url?: string;
+  dataUrl?: string;
+  url?: string;
+  preview_url?: string;
+}
 
 interface InvestigacaoResumo {
   id: string;
@@ -41,6 +52,7 @@ interface InvestigacaoResumo {
   probabilidade: Probabilidade | "";
   natureza_ocorrencia: string;
   descricao_detalhada: string;
+  attachments: AttachmentMeta[];
 }
 
 interface ComentarioPlano {
@@ -158,6 +170,17 @@ const parseInvestigacoes = (): InvestigacaoResumo[] => {
           probabilidade: (String(item.probabilidade || "") as Probabilidade | "") || "",
           natureza_ocorrencia: String(item.natureza_ocorrencia || ""),
           descricao_detalhada: String(item.descricao_detalhada || ""),
+          attachments: Array.isArray(item.attachments)
+            ? item.attachments.map((attachment: any) => ({
+                name: String(attachment?.name || ""),
+                size: Number(attachment?.size) || 0,
+                type: String(attachment?.type || ""),
+                data_url: String(attachment?.data_url || ""),
+                dataUrl: String(attachment?.dataUrl || ""),
+                url: String(attachment?.url || ""),
+                preview_url: String(attachment?.preview_url || ""),
+              }))
+            : [],
         };
       })
       .filter((item): item is InvestigacaoResumo => Boolean(item))
@@ -373,6 +396,22 @@ const PlanoAcaoAcidente = () => {
   const updateField = <K extends keyof PlanoAcaoForm>(field: K, value: PlanoAcaoForm[K]) => {
     setForm((previous) => ({ ...previous, [field]: value }));
   };
+
+  const selectedInvestigacao = useMemo(
+    () =>
+      investigacoes.find((item) => item.numero_ocorrencia === Number(form.numero_ocorrencia)) || null,
+    [investigacoes, form.numero_ocorrencia],
+  );
+
+  const selectedInvestigacaoImagens = useMemo(() => {
+    if (!selectedInvestigacao) return [];
+    return selectedInvestigacao.attachments
+      .map((file) => ({
+        ...file,
+        previewUrl: resolveAttachmentPreviewUrl(file),
+      }))
+      .filter((file) => file.previewUrl.length > 0 && isImageAttachment(file));
+  }, [selectedInvestigacao]);
 
   const applyInvestigacaoToForm = (numeroOcorrencia: number) => {
     const investigacao = investigacoes.find((item) => item.numero_ocorrencia === numeroOcorrencia);
@@ -625,6 +664,40 @@ const PlanoAcaoAcidente = () => {
               onChange={(e) => updateField("descricao_ocorrencia", e.target.value)}
               placeholder="Resumo do que aconteceu na ocorrencia."
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Imagens da investigacao</Label>
+            {Number(form.numero_ocorrencia) <= 0 ? (
+              <div className="rounded-md border bg-gray-50 p-3 text-sm text-gray-500">
+                Selecione uma ocorrencia para visualizar as imagens.
+              </div>
+            ) : selectedInvestigacaoImagens.length === 0 ? (
+              <div className="rounded-md border bg-gray-50 p-3 text-sm text-gray-500">
+                Nenhuma imagem disponivel para esta ocorrencia.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {selectedInvestigacaoImagens.map((file, index) => (
+                  <a
+                    key={`${file.name}-${index}`}
+                    href={file.previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-md border bg-white p-2 transition hover:border-blue-300"
+                  >
+                    <img
+                      src={file.previewUrl}
+                      alt={file.name || `Imagem ${index + 1}`}
+                      className="h-36 w-full rounded object-cover"
+                    />
+                    <p className="mt-2 truncate text-xs text-gray-600">
+                      {file.name || `Imagem ${index + 1}`}
+                    </p>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">

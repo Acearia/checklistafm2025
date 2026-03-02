@@ -25,6 +25,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
+import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -40,6 +41,7 @@ interface AttachmentMeta {
   name: string;
   size: number;
   type: string;
+  data_url?: string;
 }
 
 interface QuestionResponse {
@@ -338,6 +340,37 @@ const InvestigacaoAcidente2 = () => {
       const parsed = JSON.parse(rawStored);
       const existingRecords = Array.isArray(parsed) ? parsed : [];
 
+      const serializedRespostas = await Promise.all(
+        QUESTION_ITEMS.map(async (item) => {
+          const current = responses[item.id];
+          const fotoDataUrl = current.photo ? await buildImagePreviewDataUrl(current.photo) : "";
+          return {
+            codigo: item.id,
+            numero: item.numero,
+            pergunta: item.texto,
+            resposta: current.answer ? "Sim" : "Não",
+            comentario: current.comment.trim(),
+            foto: current.photo
+              ? {
+                  name: current.photo.name,
+                  size: current.photo.size,
+                  type: current.photo.type,
+                  data_url: fotoDataUrl,
+                }
+              : null,
+          };
+        }),
+      );
+
+      const serializedAnexos = await Promise.all(
+        attachments.map(async (file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data_url: await buildImagePreviewDataUrl(file),
+        })),
+      );
+
       const payload: InvestigacaoChecklistRecord = {
         id:
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -350,31 +383,11 @@ const InvestigacaoAcidente2 = () => {
         gestor,
         tecnico_seg: tecnicoSeg,
         acompanhante,
-        respostas: QUESTION_ITEMS.map((item) => {
-          const current = responses[item.id];
-          return {
-            codigo: item.id,
-            numero: item.numero,
-            pergunta: item.texto,
-            resposta: current.answer ? "Sim" : "Não",
-            comentario: current.comment.trim(),
-            foto: current.photo
-              ? {
-                  name: current.photo.name,
-                  size: current.photo.size,
-                  type: current.photo.type,
-                }
-              : null,
-          };
-        }),
+        respostas: serializedRespostas,
         ass_tst: signatures.ass_tst || "",
         ass_gestor: signatures.ass_gestor || "",
         ass_acomp: signatures.ass_acomp || "",
-        anexos: attachments.map((file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-        })),
+        anexos: serializedAnexos,
       };
 
       localStorage.setItem(STORAGE_KEY, JSON.stringify([payload, ...existingRecords]));
