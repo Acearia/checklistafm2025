@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, Save, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -46,6 +46,7 @@ interface AdminAccount {
 const SECURITY_ROLES: UnifiedRole[] = ["supervisor", "tec_seguranca", "inspetor"];
 const SECURITY_ROLE_STORAGE_KEY = "checklistafm-users-security-role-tags";
 const DEFAULT_PASSWORD = "1234";
+const USER_PAGE_SIZE = 120;
 
 const parseSectorList = (value: string): string[] => {
   if (!value) return [];
@@ -126,8 +127,9 @@ const AdminUsers = () => {
   const [saving, setSaving] = useState(false);
   const [resettingUserMatricula, setResettingUserMatricula] = useState<string | null>(null);
   const [securityRoleTags, setSecurityRoleTags] = useState<Record<string, UnifiedRole[]>>(
-    loadSecurityRoleTags(),
+    () => loadSecurityRoleTags(),
   );
+  const [visibleRows, setVisibleRows] = useState(USER_PAGE_SIZE);
 
   const [matricula, setMatricula] = useState("");
   const [name, setName] = useState("");
@@ -137,6 +139,7 @@ const AdminUsers = () => {
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<UnifiedRole>>(new Set(["operador"]));
   const selectedSetores = useMemo(() => parseSectorList(setor), [setor]);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const loadAdminAccounts = async () => {
     setLoadingAccounts(true);
@@ -231,7 +234,7 @@ const AdminUsers = () => {
   }, [operators, leaders, adminAccounts, securityRoleTags]);
 
   const filteredUsers = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedSearch = deferredSearchTerm.trim().toLowerCase();
     if (!normalizedSearch) return users;
 
     return users.filter((user) =>
@@ -239,7 +242,18 @@ const AdminUsers = () => {
       user.matricula.toLowerCase().includes(normalizedSearch) ||
       user.setor.toLowerCase().includes(normalizedSearch),
     );
-  }, [users, searchTerm]);
+  }, [users, deferredSearchTerm]);
+
+  useEffect(() => {
+    setVisibleRows(USER_PAGE_SIZE);
+  }, [searchTerm]);
+
+  const displayedUsers = useMemo(
+    () => filteredUsers.slice(0, visibleRows),
+    [filteredUsers, visibleRows],
+  );
+
+  const hasMoreRows = displayedUsers.length < filteredUsers.length;
 
   const clearForm = () => {
     setMatricula("");
@@ -809,7 +823,11 @@ const AdminUsers = () => {
               Nenhum usuário encontrado.
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <p className="text-xs text-gray-500">
+                Exibindo {displayedUsers.length} de {filteredUsers.length} usuários.
+              </p>
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -822,7 +840,7 @@ const AdminUsers = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredUsers.map((user) => (
+                  {displayedUsers.map((user) => (
                     <TableRow
                       key={user.matricula}
                       className="cursor-pointer hover:bg-gray-50"
@@ -860,7 +878,19 @@ const AdminUsers = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+              {hasMoreRows && (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setVisibleRows((previous) => previous + USER_PAGE_SIZE)}
+                  >
+                    Carregar mais
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

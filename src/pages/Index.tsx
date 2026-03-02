@@ -459,13 +459,15 @@ const Index = () => {
                       <p className="text-gray-600 mb-6">Acesse o formulário de investigação.</p>
                     </div>
 
-                    <Link to="/investigacao-acidente">
-                      <Button
-                        className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
-                      >
-                        <span>Abrir Investigação</span>
-                      </Button>
-                    </Link>
+                    <div className="grid grid-cols-1 gap-3">
+                      <Link to="/investigacao-acidente">
+                        <Button
+                          className="w-full py-8 bg-blue-700 hover:bg-blue-800 text-white text-lg flex flex-col items-center gap-2"
+                        >
+                          <span>Abrir Investigação</span>
+                        </Button>
+                      </Link>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>

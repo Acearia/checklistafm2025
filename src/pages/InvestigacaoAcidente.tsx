@@ -423,7 +423,6 @@ const REQUIRED_TEXT_FIELDS: Array<keyof InvestigacaoAcidenteForm> = [
   "causa_acidente",
   "descricao_detalhada",
   "observacoes",
-  "investigador",
 ];
 
 const INITIAL_FORM: InvestigacaoAcidenteForm = {
@@ -832,7 +831,6 @@ const InvestigacaoAcidente = () => {
     isClassificationComplete,
     isRiskComplete,
     isAfastamentoComplete,
-    isSigned,
     hasAttachments,
   ];
 
@@ -856,9 +854,6 @@ const InvestigacaoAcidente = () => {
     if (!isAfastamentoComplete) {
       return "Informe dias validos no afastamento.";
     }
-    if (!isSigned) {
-      return "Assine o checklist com usuario e senha.";
-    }
     if (!hasAttachments) {
       return "Anexe ao menos um arquivo.";
     }
@@ -869,7 +864,6 @@ const InvestigacaoAcidente = () => {
     isAfastamentoComplete,
     isClassificationComplete,
     isRiskComplete,
-    isSigned,
     requiredTextFilledCount,
   ]);
 
@@ -1647,12 +1641,12 @@ const InvestigacaoAcidente = () => {
               Seguranca e Assinatura
             </CardTitle>
             <CardDescription>
-              O campo investigador e preenchido apenas apos autenticacao.
+              Assinatura do investigador e opcional, preenchida apenas apos autenticacao.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="investigador">Investigador *</Label>
+              <Label htmlFor="investigador">Investigador (opcional)</Label>
               <Input id="investigador" value={form.investigador} readOnly disabled />
             </div>
             <div className="flex items-end">

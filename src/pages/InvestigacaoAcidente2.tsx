@@ -183,13 +183,15 @@ const getCounterValue = () => {
 };
 
 const formatInspectionNumber = (value: number) => String(value).padStart(3, "0");
+const DEFAULT_NAO_QUESTION_IDS = new Set(["1n5", "1n6", "1n8", "1n9", "1n10", "1n11", "1n12"]);
+const isDefaultAnswerSim = (questionId: string) => !DEFAULT_NAO_QUESTION_IDS.has(questionId);
 
 const createInitialResponses = (): Record<string, QuestionState> =>
   Object.fromEntries(
     QUESTION_ITEMS.map((question) => [
       question.id,
       {
-        answer: true,
+        answer: isDefaultAnswerSim(question.id),
         comment: "",
         photo: null,
       },
@@ -300,8 +302,12 @@ const InvestigacaoAcidente2 = () => {
     for (const item of QUESTION_ITEMS) {
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
-      if (!response.answer && !response.comment.trim()) {
-        return `Preencha o comentário do item ${item.id} quando a resposta for NÃO.`;
+      const requiresEvidence = response.answer !== isDefaultAnswerSim(item.id);
+      if (requiresEvidence && !response.comment.trim()) {
+        return `Preencha o comentário do item ${item.id} quando a resposta estiver fora do padrão.`;
+      }
+      if (requiresEvidence && !response.photo) {
+        return `Anexe a foto do item ${item.id} quando a resposta estiver fora do padrão.`;
       }
     }
 
@@ -546,13 +552,15 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Checklist de Perguntas</CardTitle>
             <CardDescription>
-              Responda cada item. Para resposta NÃO, o comentário é obrigatório.
+              Responda cada item. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {QUESTION_ITEMS.map((item) => {
               const response = responses[item.id];
-              const showExtra = !response.answer || response.comment.trim().length > 0 || Boolean(response.photo);
+              const requiresEvidence = response.answer !== isDefaultAnswerSim(item.id);
+              const showExtra =
+                requiresEvidence || response.comment.trim().length > 0 || Boolean(response.photo);
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
@@ -584,18 +592,18 @@ const InvestigacaoAcidente2 = () => {
                   {showExtra && (
                     <div className="grid gap-3 border-t border-blue-100 px-4 pb-4 pt-3 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor={`comentario-${item.id}`}>Comentários ({item.id})</Label>
+                        <Label htmlFor={`comentario-${item.id}`}>Comentários {item.numero}</Label>
                         <Textarea
                           id={`comentario-${item.id}`}
                           value={response.comment}
                           onChange={(event) => updateQuestion(item.id, { comment: event.target.value })}
-                          placeholder={`Comentários do requisito ${item.id}`}
+                          placeholder={`Comentários ${item.numero}`}
                           rows={3}
                         />
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor={`foto-${item.id}`}>foto_{item.id}</Label>
+                        <Label htmlFor={`foto-${item.id}`}>Foto {item.numero}</Label>
                         <Input
                           id={`foto-${item.id}`}
                           type="file"

@@ -16,10 +16,12 @@ import AdminSettings from "./pages/AdminSettings";
 import AdminReports from "./pages/AdminReports";
 import AdminGroups from "./pages/AdminGroups";
 import AdminInvestigacoes from "./pages/AdminInvestigacoes";
+import AdminPlanosAcao from "./pages/AdminPlanosAcao";
 import AdminRegrasOuro from "./pages/AdminRegrasOuro";
 import AdminUsers from "./pages/AdminUsers";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
 import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
+import PlanoAcaoAcidente from "./pages/PlanoAcaoAcidente";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
 import ChecklistDetail from "./pages/ChecklistDetail";
@@ -36,6 +38,7 @@ function App() {
         <Route path="/checklist" element={<Checklist />} />
         <Route path="/checklist/:equipmentId" element={<Checklist />} />
         <Route path="/investigacao-acidente" element={<InvestigacaoAcidente />} />
+        <Route path="/plano-acao-acidente" element={<PlanoAcaoAcidente />} />
         <Route path="/regras-de-ouro" element={<InvestigacaoAcidente2 />} />
         <Route path="/investigacao-acidente-2" element={<InvestigacaoAcidente2 />} />
         
@@ -58,6 +61,7 @@ function App() {
           <Route path="equipment" element={<AdminEquipment />} />
           <Route path="inspections" element={<AdminInspections />} />
           <Route path="investigacoes" element={<AdminInvestigacoes />} />
+          <Route path="planos-acao" element={<AdminPlanosAcao />} />
           <Route path="regras-ouro" element={<AdminRegrasOuro />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
