@@ -1,6 +1,6 @@
 ﻿import React, { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ClipboardList, Upload } from "lucide-react";
+import { CheckCircle, ClipboardList, Upload } from "lucide-react";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -238,6 +238,8 @@ const InvestigacaoAcidente2 = () => {
   const [signatureDialog, setSignatureDialog] = useState<SignatureKey | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [previewNumber, setPreviewNumber] = useState(() => getCounterValue() + 1);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [submittedInspectionNumber, setSubmittedInspectionNumber] = useState<number | null>(null);
 
   const setorOptions = useMemo(
     () => dedupeSorted(sectors.map((item: any) => normalizeText(item?.name))),
@@ -438,9 +440,13 @@ const InvestigacaoAcidente2 = () => {
       setSignatures(createInitialSignatures());
       setAttachments([]);
       setPreviewNumber(nextCounter + 1);
+      setSubmittedInspectionNumber(nextCounter);
+      setSubmissionSuccess(true);
       setTimeout(() => {
+        setSubmissionSuccess(false);
+        setSubmittedInspectionNumber(null);
         navigate("/");
-      }, 800);
+      }, 2000);
     } catch (error) {
       console.error("Erro ao salvar regra de ouro:", error);
       toast({
@@ -457,6 +463,21 @@ const InvestigacaoAcidente2 = () => {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6 lg:space-y-6">
+      {submissionSuccess && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-blue-700/95 px-6 text-white">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <CheckCircle size={64} className="text-white" />
+            <h2 className="text-2xl font-bold">Regra de Ouro enviada!</h2>
+            <p className="text-sm text-blue-100">
+              {submittedInspectionNumber !== null
+                ? `O registro ${formatInspectionNumber(submittedInspectionNumber)} foi salvo com sucesso.`
+                : "Registro salvo com sucesso."}{" "}
+              Voce sera redirecionado para a tela inicial em instantes.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card className="border-blue-100 bg-gradient-to-br from-white via-white to-blue-50/40">
         <CardHeader>
           <div className="flex items-start gap-3">

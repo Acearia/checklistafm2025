@@ -552,6 +552,8 @@ const InvestigacaoAcidente = () => {
   const [causaDialogOpen, setCausaDialogOpen] = useState(false);
   const [novoAgente, setNovoAgente] = useState("");
   const [novaCausa, setNovaCausa] = useState("");
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [successOccurrenceNumber, setSuccessOccurrenceNumber] = useState<number | null>(null);
 
   const agentesCausadores = useMemo(
     () => dedupeCausas([...DEFAULT_AGENTES_CAUSADORES, ...agentesCustomizados]),
@@ -766,7 +768,12 @@ const InvestigacaoAcidente = () => {
   const handleWhatsappDialogChange = (open: boolean) => {
     setWhatsappDialogOpen(open);
     if (!open) {
-      navigate("/");
+      setSubmissionSuccess(true);
+      setTimeout(() => {
+        setSubmissionSuccess(false);
+        setSuccessOccurrenceNumber(null);
+        navigate("/");
+      }, 2000);
     }
   };
 
@@ -1132,6 +1139,7 @@ const InvestigacaoAcidente = () => {
         description: "Registro salvo com sucesso.",
       });
 
+      setSuccessOccurrenceNumber(ocorrenciaNumero);
       setWhatsappResumo(resumoWhatsapp);
       setWhatsappDialogOpen(true);
 
@@ -1153,6 +1161,21 @@ const InvestigacaoAcidente = () => {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6 lg:space-y-6">
+      {submissionSuccess && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-green-700/95 px-6 text-white">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <CheckCircle2 size={64} className="text-white" />
+            <h2 className="text-2xl font-bold">Investigacao enviada!</h2>
+            <p className="text-sm text-green-100">
+              {successOccurrenceNumber !== null
+                ? `A ocorrencia ${formatNumeroOcorrencia(successOccurrenceNumber)} foi registrada com sucesso.`
+                : "Ocorrencia registrada com sucesso."}{" "}
+              Voce sera redirecionado para a tela inicial em instantes.
+            </p>
+          </div>
+        </div>
+      )}
+
       <Card className="border-red-100 bg-gradient-to-br from-white via-white to-red-50/40">
         <CardHeader>
           <div className="flex items-start gap-3">
