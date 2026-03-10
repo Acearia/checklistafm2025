@@ -40,7 +40,7 @@ import {
 } from "@/lib/inspectionBoard";
 import { deleteMaintenanceOrdersByInspection, loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
-import { endOfDay, format, startOfDay, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
@@ -395,15 +395,8 @@ const AdminInspections = () => {
       inspection.created_at ||
       inspection.inspection_date;
     const inspectionDate = dateValue ? new Date(dateValue) : null;
-    const fromDate = dateFrom ? new Date(dateFrom) : null;
-    const toDate = dateTo ? new Date(dateTo) : null;
-
-    if (fromDate) {
-      fromDate.setHours(0, 0, 0, 0);
-    }
-    if (toDate) {
-      toDate.setHours(23, 59, 59, 999);
-    }
+    const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const toDate = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
 
     const matchesDate =
       (!fromDate || (inspectionDate && inspectionDate >= fromDate)) &&
@@ -420,8 +413,8 @@ const AdminInspections = () => {
   });
 
   const boardProcessedInspections = useMemo(() => {
-    const fromDate = boardDateFrom ? startOfDay(new Date(boardDateFrom)) : null;
-    const toDate = boardDateTo ? endOfDay(new Date(boardDateTo)) : null;
+    const fromDate = boardDateFrom ? new Date(`${boardDateFrom}T00:00:00`) : null;
+    const toDate = boardDateTo ? new Date(`${boardDateTo}T23:59:59.999`) : null;
 
     return processedInspections.filter((inspection) => {
       const dateValue =

@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { endOfDay, format, startOfDay, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const AdminDashboard = () => {
@@ -361,8 +361,8 @@ const AdminDashboard = () => {
   );
 
   const boardInspections = useMemo(() => {
-    const fromDate = boardDateFrom ? startOfDay(new Date(boardDateFrom)) : null;
-    const toDate = boardDateTo ? endOfDay(new Date(boardDateTo)) : null;
+    const fromDate = boardDateFrom ? new Date(`${boardDateFrom}T00:00:00`) : null;
+    const toDate = boardDateTo ? new Date(`${boardDateTo}T23:59:59.999`) : null;
 
     return inspections.filter((inspection: any) => {
       const dateValue =
