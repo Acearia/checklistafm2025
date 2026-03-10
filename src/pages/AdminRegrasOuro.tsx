@@ -619,15 +619,26 @@ const AdminRegrasOuro = () => {
       };
 
       const writeValueBlock = (label: string, value: string) => {
-        const labelText = `${label}: `;
+        const labelText = `${label}:`;
         const safeValue = value || "N/A";
+
+        doc.setFont("helvetica", "bold");
+        const measuredLabelWidth = doc.getTextWidth(labelText) + 2;
+        const labelWidth = Math.min(Math.max(measuredLabelWidth, 24), Math.floor(contentWidth * 0.45));
+        const valueX = margin + labelWidth;
+        const valueWidth = Math.max(contentWidth - labelWidth, 30);
+
+        doc.setFont("helvetica", "normal");
+        const valueLines = doc.splitTextToSize(safeValue, valueWidth);
+        const blockHeight = Math.max(valueLines.length, 1) * lineHeight;
+        ensureSpace(blockHeight);
+
         doc.setFont("helvetica", "bold");
         doc.text(labelText, margin, y);
         doc.setFont("helvetica", "normal");
-        const lines = doc.splitTextToSize(safeValue, contentWidth - 24);
-        ensureSpace(lines.length * lineHeight);
-        doc.text(lines, margin + 24, y);
-        y += lines.length * lineHeight;
+        doc.text(valueLines, valueX, y);
+
+        y += blockHeight;
       };
 
       const writeSeparator = () => {
