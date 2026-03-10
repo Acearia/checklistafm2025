@@ -79,9 +79,9 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100/70 flex flex-col backdrop-blur">
+    <div className="admin-layout min-h-screen bg-gray-100/70 flex flex-col backdrop-blur">
       {/* Top navbar */}
-      <header className="bg-red-700 text-white shadow-md">
+      <header className="admin-layout-header bg-red-700 text-white shadow-md">
         <div className="flex justify-between items-center py-3 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button 
@@ -122,7 +122,7 @@ const AdminLayout = () => {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside 
-          className={`bg-white/85 backdrop-blur-md shadow-md transition-all duration-300 ${
+          className={`admin-layout-sidebar bg-white/85 backdrop-blur-md shadow-md transition-all duration-300 ${
             sidebarOpen ? "w-64" : "w-0"
           } overflow-hidden flex-shrink-0`}
         >
@@ -146,7 +146,7 @@ const AdminLayout = () => {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto p-6 bg-white/80 backdrop-blur-md">
+        <main className="admin-layout-main flex-1 overflow-auto p-6 bg-white/80 backdrop-blur-md">
           <div className="container mx-auto space-y-4">
             <Outlet />
           </div>

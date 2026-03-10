@@ -124,3 +124,70 @@
 .home-background > * {
   position: relative;
 }
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  body.checklist-print-mode {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  body.checklist-print-mode .admin-layout-header,
+  body.checklist-print-mode .admin-layout-sidebar,
+  body.checklist-print-mode .no-print {
+    display: none !important;
+  }
+
+  body.checklist-print-mode .admin-layout-main {
+    padding: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+
+  body.checklist-print-mode .admin-layout-main > .container {
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.checklist-print-mode .checklist-print-root {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+  }
+
+  body.checklist-print-mode .checklist-print-card {
+    border: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+
+  body.checklist-print-mode .checklist-print-table th,
+  body.checklist-print-mode .checklist-print-table td {
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    padding: 6px 8px !important;
+    vertical-align: top !important;
+  }
+
+  body.checklist-print-mode .checklist-print-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  body.checklist-print-mode .checklist-answer-checkbox-col {
+    display: none !important;
+  }
+
+  body.checklist-print-mode .checklist-answer-text-col {
+    display: table-cell !important;
+  }
+
+  body.checklist-print-mode .print-only {
+    display: block !important;
+  }
+}

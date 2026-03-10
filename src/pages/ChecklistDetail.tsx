@@ -16,12 +16,10 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { 
   ArrowLeft, 
   Save, 
   Printer, 
-  Download, 
   Archive, 
   CheckCircle, 
   XCircle
@@ -92,6 +90,14 @@ const ChecklistDetail = () => {
   const [canEdit, setCanEdit] = useState(true);
   const isLeaderView = location.pathname.includes("/leader");
   const returnPath = isLeaderView ? "/leader/dashboard" : "/admin/inspections";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.body.classList.add("checklist-print-mode");
+    return () => {
+      document.body.classList.remove("checklist-print-mode");
+    };
+  }, []);
 
   const normalizeChecklistAnswer = (value: unknown): "Sim" | "Não" | "" => {
     const normalized = String(value ?? "").trim().toLowerCase();
@@ -409,8 +415,13 @@ const ChecklistDetail = () => {
     : false;
   
   return (
-    <div className="container max-w-4xl mx-auto p-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="checklist-print-root container max-w-4xl mx-auto p-4">
+      <div className="print-only mb-4">
+        <h1 className="text-xl font-bold">Checklist AFM - Detalhes da Inspecao</h1>
+        <p className="text-sm">Data de impressao: {format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+      </div>
+
+      <div className="no-print flex items-center justify-between mb-6">
         <div className="flex items-center">
           <Button 
             variant="outline" 
@@ -444,7 +455,7 @@ const ChecklistDetail = () => {
         </div>
       </div>
       
-      <Card className="mb-6">
+      <Card className="checklist-print-card mb-6">
         <CardHeader className="pb-4 border-b">
           <div className="flex justify-between items-start">
             <div>
@@ -503,7 +514,7 @@ const ChecklistDetail = () => {
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-semibold">Itens do Checklist</h3>
-              <div className="flex items-center">
+              <div className="no-print flex items-center">
                 <span className="text-sm text-muted-foreground mr-2">Arquivar checklist</span>
                 <Switch 
                   checked={archived} 
@@ -528,12 +539,13 @@ const ChecklistDetail = () => {
               </div>
             )}
             
-            <Table>
+            <Table className="checklist-print-table">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[60%]">Item de verificação</TableHead>
-                  <TableHead className="text-center">Sim</TableHead>
-                  <TableHead className="text-center">Não</TableHead>
+                  <TableHead className="checklist-answer-checkbox-col text-center">Sim</TableHead>
+                  <TableHead className="checklist-answer-checkbox-col text-center">Não</TableHead>
+                  <TableHead className="checklist-answer-text-col text-center">Resposta</TableHead>
                   <TableHead className="text-center">Obrigatório</TableHead>
                   <TableHead className="text-center">Irregularidade</TableHead>
                 </TableRow>
@@ -545,19 +557,22 @@ const ChecklistDetail = () => {
                     className={item.triggersAlert ? "bg-red-50" : ""}
                   >
                     <TableCell>{item.question}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="checklist-answer-checkbox-col text-center">
                       <Checkbox 
                         checked={item.answer === "Sim"}
                         onCheckedChange={() => handleAnswerChange(item.id, "Sim")}
                         disabled={!canEdit}
                       />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="checklist-answer-checkbox-col text-center">
                       <Checkbox 
                         checked={item.answer === "Não"}
                         onCheckedChange={() => handleAnswerChange(item.id, "Não")}
                         disabled={!canEdit}
                       />
+                    </TableCell>
+                    <TableCell className="checklist-answer-text-col text-center">
+                      {item.answer || "-"}
                     </TableCell>
                     <TableCell className="text-center">
                       {item.required ? "Sim" : "Não"}
@@ -582,12 +597,15 @@ const ChecklistDetail = () => {
           <div className="mb-6">
             <h3 className="font-semibold mb-2">Observações</h3>
             <Textarea 
+              className="no-print min-h-[100px]"
               value={observations} 
               onChange={(e) => setObservations(e.target.value)}
               placeholder="Digite observações adicionais aqui..."
-              className="min-h-[100px]"
               disabled={!canEdit}
             />
+            <div className="print-only rounded border p-3 text-sm">
+              {observations?.trim() ? observations : "Sem observacoes registradas."}
+            </div>
           </div>
           
           <div className="mb-2">
@@ -608,7 +626,7 @@ const ChecklistDetail = () => {
                     variant="outline" 
                     size="sm" 
                     onClick={() => setShowSignatureDialog(true)}
-                    className="mt-2"
+                    className="no-print mt-2"
                   >
                     Adicionar assinatura
                   </Button>
@@ -618,7 +636,7 @@ const ChecklistDetail = () => {
           </div>
         </CardContent>
         
-        <CardFooter className="flex justify-between border-t pt-6">
+        <CardFooter className="no-print flex justify-between border-t pt-6">
           <Button 
             variant="outline" 
             onClick={() => navigate(returnPath)}
