@@ -38,12 +38,16 @@ import {
 } from "@/components/ui/dialog";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 
 interface ChecklistItem {
   id: string;
   question: string;
   required: boolean;
   answer: "Sim" | "Não" | "";
+  alertOnYes?: boolean;
+  alertOnNo?: boolean;
+  triggersAlert?: boolean;
 }
 
 interface Inspection {
@@ -89,6 +93,39 @@ const ChecklistDetail = () => {
   const isLeaderView = location.pathname.includes("/leader");
   const returnPath = isLeaderView ? "/leader/dashboard" : "/admin/inspections";
 
+  const normalizeChecklistAnswer = (value: unknown): "Sim" | "Não" | "" => {
+    const normalized = String(value ?? "").trim().toLowerCase();
+    if (normalized === "sim") return "Sim";
+    if (normalized === "não" || normalized === "nao") return "Não";
+    return "";
+  };
+
+  const applyAlertContextToChecklist = (checklist: ChecklistItem[]): ChecklistItem[] => {
+    return checklist.map((item) => {
+      const question = String(item.question || "").trim();
+      const answer = normalizeChecklistAnswer(item.answer);
+      const itemWithRules = applyAlertRuleToItem({
+        question,
+        alertOnYes: item.alertOnYes,
+        alertOnNo: item.alertOnNo,
+      });
+
+      const triggersAlert = shouldTriggerAlert(question, answer, {
+        onYes: itemWithRules.alertOnYes,
+        onNo: itemWithRules.alertOnNo,
+      });
+
+      return {
+        ...item,
+        question,
+        answer,
+        alertOnYes: itemWithRules.alertOnYes,
+        alertOnNo: itemWithRules.alertOnNo,
+        triggersAlert,
+      };
+    });
+  };
+
   const normalizeSupabaseInspection = (
     rawInspection: any,
   ): Inspection => {
@@ -106,20 +143,16 @@ const ChecklistDetail = () => {
       ? rawInspection.checklist_answers
       : [];
 
-    const checklist: ChecklistItem[] = checklistAnswers.map((answer: any, index: number) => {
-      const normalizedAnswer = String(answer?.answer ?? "").trim().toLowerCase();
-      return {
-        id: String(answer?.id ?? `item-${index + 1}`),
-        question: String(answer?.question ?? `Pergunta ${index + 1}`),
-        required: Boolean(answer?.required),
-        answer:
-          normalizedAnswer === "sim"
-            ? "Sim"
-            : normalizedAnswer === "não" || normalizedAnswer === "nao"
-              ? "Não"
-              : "",
-      };
-    });
+    const checklistBase: ChecklistItem[] = checklistAnswers.map((answer: any, index: number) => ({
+      id: String(answer?.id ?? `item-${index + 1}`),
+      question: String(answer?.question ?? `Pergunta ${index + 1}`),
+      required: Boolean(answer?.required),
+      answer: normalizeChecklistAnswer(answer?.answer),
+      alertOnYes: typeof answer?.alertOnYes === "boolean" ? answer.alertOnYes : undefined,
+      alertOnNo: typeof answer?.alertOnNo === "boolean" ? answer.alertOnNo : undefined,
+    }));
+
+    const checklist = applyAlertContextToChecklist(checklistBase);
 
     return {
       id: String(rawInspection?.id ?? rawInspection?.inspection_id ?? ""),
@@ -145,7 +178,7 @@ const ChecklistDetail = () => {
       observations: String(rawInspection?.comments ?? ""),
       signature: rawInspection?.signature || undefined,
       status: "completed",
-      hasIssues: checklist.some((item) => item.answer === "Não"),
+      hasIssues: checklist.some((item) => item.triggersAlert),
     };
   };
   
@@ -176,11 +209,32 @@ const ChecklistDetail = () => {
           const foundInspection = inspections.find(insp => insp.id === id);
           
           if (foundInspection) {
-            setInspection(foundInspection);
-            setObservations(foundInspection.observations || "");
-            setArchived(foundInspection.status === "archived");
-            setSignature(foundInspection.signature || null);
-            setCanEdit(foundInspection.status !== "archived");
+            const normalizedStoredChecklist = applyAlertContextToChecklist(
+              (Array.isArray(foundInspection.checklist) ? foundInspection.checklist : []).map(
+                (item, index) => ({
+                  id: String(item?.id ?? `item-${index + 1}`),
+                  question: String(item?.question ?? `Pergunta ${index + 1}`),
+                  required: Boolean(item?.required),
+                  answer: normalizeChecklistAnswer(item?.answer),
+                  alertOnYes:
+                    typeof item?.alertOnYes === "boolean" ? item.alertOnYes : undefined,
+                  alertOnNo:
+                    typeof item?.alertOnNo === "boolean" ? item.alertOnNo : undefined,
+                }),
+              ),
+            );
+
+            const normalizedStoredInspection: Inspection = {
+              ...foundInspection,
+              checklist: normalizedStoredChecklist,
+              hasIssues: normalizedStoredChecklist.some((item) => item.triggersAlert),
+            };
+
+            setInspection(normalizedStoredInspection);
+            setObservations(normalizedStoredInspection.observations || "");
+            setArchived(normalizedStoredInspection.status === "archived");
+            setSignature(normalizedStoredInspection.signature || null);
+            setCanEdit(normalizedStoredInspection.status !== "archived");
             return;
           }
         }
@@ -233,14 +287,15 @@ const ChecklistDetail = () => {
   const handleAnswerChange = (itemId: string, value: "Sim" | "Não") => {
     if (!inspection || !canEdit) return;
     
-    const updatedChecklist = inspection.checklist.map(item => {
+    const updatedChecklistBase = inspection.checklist.map(item => {
       if (item.id === itemId) {
         return { ...item, answer: value };
       }
       return item;
     });
-    
-    const hasIssues = updatedChecklist.some(item => item.answer === "Não");
+
+    const updatedChecklist = applyAlertContextToChecklist(updatedChecklistBase);
+    const hasIssues = updatedChecklist.some(item => item.triggersAlert);
     
     setInspection({
       ...inspection,
@@ -345,9 +400,12 @@ const ChecklistDetail = () => {
     ? inspection.checklist.every(item => item.answer !== "") 
     : false;
     
-  // Also add safe check for inspection.checklist before accessing .some method  
+  const irregularItems = inspection.checklist
+    ? inspection.checklist.filter((item) => Boolean(item.triggersAlert))
+    : [];
+
   const hasIssues = inspection.checklist && inspection.checklist.length > 0
-    ? inspection.checklist.some(item => item.answer === "Não")
+    ? irregularItems.length > 0
     : false;
   
   return (
@@ -454,6 +512,21 @@ const ChecklistDetail = () => {
                 />
               </div>
             </div>
+
+            {hasIssues && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm font-semibold text-red-800">
+                  Irregularidades encontradas ({irregularItems.length})
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700">
+                  {irregularItems.map((item, index) => (
+                    <li key={`${item.id}-irregular-${index}`}>
+                      {item.question} (resposta: {item.answer || "Não respondido"})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             <Table>
               <TableHeader>
@@ -462,13 +535,14 @@ const ChecklistDetail = () => {
                   <TableHead className="text-center">Sim</TableHead>
                   <TableHead className="text-center">Não</TableHead>
                   <TableHead className="text-center">Obrigatório</TableHead>
+                  <TableHead className="text-center">Irregularidade</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {inspection.checklist && inspection.checklist.map((item) => (
                   <TableRow 
                     key={item.id}
-                    className={item.answer === "Não" ? "bg-red-50" : ""}
+                    className={item.triggersAlert ? "bg-red-50" : ""}
                   >
                     <TableCell>{item.question}</TableCell>
                     <TableCell className="text-center">
@@ -487,6 +561,17 @@ const ChecklistDetail = () => {
                     </TableCell>
                     <TableCell className="text-center">
                       {item.required ? "Sim" : "Não"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {item.triggersAlert ? (
+                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">
+                          Sim
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">
+                          Não
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Download, Eye, RefreshCw, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, RefreshCw, Trash2 } from "lucide-react";
+import jsPDF from "jspdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,12 +80,15 @@ const hasAdmAccess = () => {
   if (typeof window === "undefined") return false;
 
   try {
+    const adminAuth = sessionStorage.getItem("checklistafm-admin-auth");
+    if (adminAuth === "true") return true;
+
     const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
     if (!rawSession) return false;
     const parsed = JSON.parse(rawSession);
     const username = String(parsed?.username || "").trim().toLowerCase();
     const role = String(parsed?.role || "").trim().toLowerCase();
-    return username === "adm" || role === "admin";
+    return username === "adm" || role === "admin" || role === "seguranca";
   } catch {
     return false;
   }
@@ -329,6 +333,7 @@ const AdminRegrasOuro = () => {
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -563,6 +568,158 @@ const AdminRegrasOuro = () => {
     });
   };
 
+  const openAttachmentInNewTab = (url: string) => {
+    const trimmedUrl = String(url || "").trim();
+    if (!trimmedUrl) {
+      toast({
+        title: "Arquivo indisponivel",
+        description: "Nao foi possivel abrir este arquivo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const opened = window.open(trimmedUrl, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      toast({
+        title: "Bloqueado pelo navegador",
+        description: "Permita pop-ups para abrir em nova aba.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleOpenImagePreview = (url: string, title: string) => {
+    const trimmedUrl = String(url || "").trim();
+    if (!trimmedUrl) {
+      toast({
+        title: "Imagem indisponivel",
+        description: "Nao foi possivel carregar a imagem.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setImagePreview({ url: trimmedUrl, title: title || "Imagem" });
+  };
+
+  const handleExportRecordPdf = (record: RegraOuroRecord) => {
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const contentWidth = pageWidth - margin * 2;
+      const lineHeight = 6;
+      let y = margin;
+
+      const ensureSpace = (required = lineHeight) => {
+        if (y + required <= pageHeight - margin) return;
+        doc.addPage();
+        y = margin;
+      };
+
+      const writeValueBlock = (label: string, value: string) => {
+        const labelText = `${label}: `;
+        const safeValue = value || "N/A";
+        doc.setFont("helvetica", "bold");
+        doc.text(labelText, margin, y);
+        doc.setFont("helvetica", "normal");
+        const lines = doc.splitTextToSize(safeValue, contentWidth - 24);
+        ensureSpace(lines.length * lineHeight);
+        doc.text(lines, margin + 24, y);
+        y += lines.length * lineHeight;
+      };
+
+      const writeSeparator = () => {
+        ensureSpace(5);
+        doc.setDrawColor(220, 220, 220);
+        doc.line(margin, y, margin + contentWidth, y);
+        y += 5;
+      };
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text("Relatorio - Regra de Ouro", margin, y);
+      y += 9;
+
+      doc.setFontSize(11);
+      writeValueBlock("Registro", formatInspectionNumber(record.numero_inspecao));
+      writeValueBlock("Data/Hora", formatDateTime(record.created_at));
+      writeValueBlock("Titulo", record.titulo || "N/A");
+      writeValueBlock("Setor", record.setor || "N/A");
+      writeValueBlock("Tecnico", record.tecnico_seg || "N/A");
+      writeValueBlock("Gestor", record.gestor || "N/A");
+      writeValueBlock("Acompanhante", record.acompanhante || "N/A");
+      writeValueBlock("Assinatura tecnico", record.ass_tst ? "Sim" : "Nao");
+      writeValueBlock("Assinatura gestor", record.ass_gestor ? "Sim" : "Nao");
+      writeValueBlock("Assinatura acompanhante", record.ass_acomp ? "Sim" : "Nao");
+
+      writeSeparator();
+      doc.setFont("helvetica", "bold");
+      doc.text("Respostas", margin, y);
+      y += 7;
+
+      record.respostas.forEach((response, index) => {
+        const numberLabel = response.numero || String(index + 1).padStart(2, "0");
+        const question = response.pergunta || "Pergunta";
+        const questionLines = doc.splitTextToSize(`${numberLabel} - ${question}`, contentWidth);
+        ensureSpace(questionLines.length * lineHeight + 8);
+        doc.setFont("helvetica", "bold");
+        doc.text(questionLines, margin, y);
+        y += questionLines.length * lineHeight;
+        doc.setFont("helvetica", "normal");
+        writeValueBlock("Resposta", response.resposta || "N/A");
+        if (response.comentario?.trim()) {
+          writeValueBlock("Comentario", response.comentario.trim());
+        }
+        if (response.foto?.name?.trim()) {
+          writeValueBlock("Foto", `${response.foto.name} (${formatFileSize(response.foto.size)})`);
+        }
+        y += 1;
+      });
+
+      if (record.anexos.length > 0) {
+        writeSeparator();
+        doc.setFont("helvetica", "bold");
+        doc.text("Anexos", margin, y);
+        y += 7;
+        doc.setFont("helvetica", "normal");
+        record.anexos.forEach((file, index) => {
+          writeValueBlock(
+            `Arquivo ${index + 1}`,
+            `${file.name || "arquivo"} - ${file.type || "tipo nao informado"} - ${formatFileSize(file.size)}`,
+          );
+        });
+      }
+
+      ensureSpace(22);
+      y += 8;
+      doc.setDrawColor(140, 140, 140);
+      doc.line(margin, y, margin + 55, y);
+      doc.line(margin + 65, y, margin + 120, y);
+      doc.line(margin + 130, y, margin + contentWidth, y);
+      y += 5;
+      doc.setFontSize(9);
+      doc.text("Assinatura tecnico", margin, y);
+      doc.text("Assinatura gestor", margin + 65, y);
+      doc.text("Assinatura acompanhante", margin + 130, y);
+
+      doc.save(`regra-ouro-${formatInspectionNumber(record.numero_inspecao)}.pdf`);
+
+      toast({
+        title: "PDF gerado",
+        description: `Registro ${formatInspectionNumber(record.numero_inspecao)} exportado.`,
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF da regra de ouro:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Nao foi possivel gerar o PDF.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -724,6 +881,10 @@ const AdminRegrasOuro = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleExportRecordPdf(item)}>
+                              <FileText className="mr-2 h-4 w-4" />
+                              PDF
+                            </Button>
                             <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Detalhes
@@ -814,17 +975,53 @@ const AdminRegrasOuro = () => {
                                   <img
                                     src={previewUrl}
                                     alt={response.foto?.name || `Foto ${response.numero}`}
-                                    className="h-36 w-full rounded border object-cover"
+                                    className="h-36 w-full cursor-zoom-in rounded border object-cover"
+                                    onClick={() =>
+                                      handleOpenImagePreview(
+                                        previewUrl,
+                                        response.foto?.name || `Foto ${response.numero}`,
+                                      )
+                                    }
                                   />
-                                  <a
-                                    href={previewUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-red-700 hover:underline"
-                                  >
-                                    Abrir imagem
-                                  </a>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleOpenImagePreview(
+                                          previewUrl,
+                                          response.foto?.name || `Foto ${response.numero}`,
+                                        )
+                                      }
+                                    >
+                                      Expandir imagem
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-700 hover:text-red-800"
+                                      onClick={() => openAttachmentInNewTab(previewUrl)}
+                                    >
+                                      Abrir em nova aba
+                                    </Button>
+                                  </div>
                                 </div>
+                              );
+                            }
+
+                            if (previewUrl.length > 0) {
+                              return (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-700 hover:text-red-800"
+                                  onClick={() => openAttachmentInNewTab(previewUrl)}
+                                  >
+                                  Abrir anexo
+                                </Button>
                               );
                             }
 
@@ -864,30 +1061,53 @@ const AdminRegrasOuro = () => {
                                 <img
                                   src={previewUrl}
                                   alt={file.name || `Anexo ${index + 1}`}
-                                  className="h-40 w-full rounded border object-cover"
+                                  className="h-40 w-full cursor-zoom-in rounded border object-cover"
+                                  onClick={() =>
+                                    handleOpenImagePreview(
+                                      previewUrl,
+                                      file.name || `Anexo ${index + 1}`,
+                                    )
+                                  }
                                 />
-                                <a
-                                  href={previewUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-red-700 hover:underline"
-                                >
-                                  Abrir imagem
-                                </a>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      handleOpenImagePreview(
+                                        previewUrl,
+                                        file.name || `Anexo ${index + 1}`,
+                                      )
+                                    }
+                                  >
+                                    Expandir imagem
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-700 hover:text-red-800"
+                                    onClick={() => openAttachmentInNewTab(previewUrl)}
+                                  >
+                                    Abrir em nova aba
+                                  </Button>
+                                </div>
                               </div>
                             );
                           }
 
                           if (previewUrl.length > 0) {
                             return (
-                              <a
-                                href={previewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-red-700 hover:underline"
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-700 hover:text-red-800"
+                                onClick={() => openAttachmentInNewTab(previewUrl)}
                               >
                                 Abrir anexo
-                              </a>
+                              </Button>
                             );
                           }
 
@@ -906,6 +1126,16 @@ const AdminRegrasOuro = () => {
           )}
 
           <DialogFooter>
+            {selected && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleExportRecordPdf(selected)}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Gerar PDF
+              </Button>
+            )}
             {selected && isAdmUser && (
               <Button
                 type="button"
@@ -916,6 +1146,40 @@ const AdminRegrasOuro = () => {
               </Button>
             )}
             <Button variant="outline" onClick={() => setDetailsOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(imagePreview)} onOpenChange={(open) => !open && setImagePreview(null)}>
+        <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>{imagePreview?.title || "Imagem"}</DialogTitle>
+            <DialogDescription>Visualizacao ampliada.</DialogDescription>
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 overflow-auto rounded border bg-black/80 p-3">
+            {imagePreview?.url ? (
+              <img
+                src={imagePreview.url}
+                alt={imagePreview.title}
+                className="mx-auto max-h-[72vh] w-auto max-w-full rounded object-contain"
+              />
+            ) : (
+              <p className="text-sm text-white/80">Imagem indisponivel.</p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => openAttachmentInNewTab(imagePreview?.url || "")}
+            >
+              Abrir em nova aba
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setImagePreview(null)}>
               Fechar
             </Button>
           </DialogFooter>

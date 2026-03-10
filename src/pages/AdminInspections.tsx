@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +48,7 @@ import { inspectionService } from "@/lib/supabase-service";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+const INSPECTIONS_AUTO_REFRESH_MS = 15000;
 
 const hasAdmAccess = () => {
   if (typeof window === "undefined") return false;
@@ -90,14 +91,15 @@ const AdminInspections = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [viewMode, setViewMode] = useState<"lista" | "painel">("lista");
+  const [viewMode, setViewMode] = useState<"lista" | "painel">("painel");
   const [boardDateFrom, setBoardDateFrom] = useState(() =>
-    format(subDays(new Date(), 6), "yyyy-MM-dd"),
+    format(new Date(), "yyyy-MM-dd"),
   );
   const [boardDateTo, setBoardDateTo] = useState(() =>
     format(new Date(), "yyyy-MM-dd"),
   );
   const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
+  const refreshRef = useRef(refresh);
 
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
@@ -117,6 +119,30 @@ const AdminInspections = () => {
         "checklistafm-maintenance-orders-updated",
         updateOrders as EventListener
       );
+    };
+  }, []);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const runRefresh = () => {
+      if (document.hidden) return;
+      void refreshRef.current();
+    };
+
+    const intervalId = window.setInterval(runRefresh, INSPECTIONS_AUTO_REFRESH_MS);
+
+    window.addEventListener("focus", runRefresh);
+    document.addEventListener("visibilitychange", runRefresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", runRefresh);
+      document.removeEventListener("visibilitychange", runRefresh);
     };
   }, []);
 
