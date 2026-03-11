@@ -948,50 +948,6 @@ const AdminInvestigacoes = () => {
     });
   };
 
-  const handleOpenAttachment = async (file: AttachmentMeta, index: number) => {
-    const previewUrl = resolveAttachmentPreviewUrl(file);
-    if (!previewUrl) {
-      toast({
-        title: "Arquivo indisponivel",
-        description: "Nao foi possivel abrir este anexo.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const openedWindow = window.open("", "_blank", "noopener,noreferrer");
-    if (!openedWindow) {
-      toast({
-        title: "Bloqueado pelo navegador",
-        description: "Permita pop-ups para abrir o anexo em nova aba.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      if (previewUrl.startsWith("data:")) {
-        const response = await fetch(previewUrl);
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        openedWindow.location.replace(objectUrl);
-        openedWindow.document.title = file.name || `Anexo ${index + 1}`;
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-        return;
-      }
-
-      openedWindow.location.replace(previewUrl);
-    } catch (error) {
-      console.error("Erro ao abrir anexo:", error);
-      openedWindow.close();
-      toast({
-        title: "Erro ao abrir anexo",
-        description: "Nao foi possivel abrir este arquivo em nova aba.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleStartPlanoAcao = (record: InvestigacaoRecord) => {
     if (record.numero_ocorrencia <= 0) {
       toast({
@@ -1576,14 +1532,6 @@ const AdminInvestigacoes = () => {
                                       >
                                         Expandir imagem
                                       </Button>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => void handleOpenAttachment(file, index)}
-                                      >
-                                        Abrir imagem
-                                      </Button>
                                     </div>
                                   </div>
                                 );
@@ -1591,14 +1539,9 @@ const AdminInvestigacoes = () => {
 
                               if (previewUrl.length > 0) {
                                 return (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => void handleOpenAttachment(file, index)}
-                                  >
-                                    Abrir anexo
-                                  </Button>
+                                  <p className="text-xs text-gray-500">
+                                    Este anexo nao possui visualizacao ampliada nesta tela.
+                                  </p>
                                 );
                               }
 

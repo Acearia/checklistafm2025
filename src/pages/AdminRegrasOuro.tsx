@@ -568,27 +568,6 @@ const AdminRegrasOuro = () => {
     });
   };
 
-  const openAttachmentInNewTab = (url: string) => {
-    const trimmedUrl = String(url || "").trim();
-    if (!trimmedUrl) {
-      toast({
-        title: "Arquivo indisponivel",
-        description: "Nao foi possivel abrir este arquivo.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const opened = window.open(trimmedUrl, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      toast({
-        title: "Bloqueado pelo navegador",
-        description: "Permita pop-ups para abrir em nova aba.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleOpenImagePreview = (url: string, title: string) => {
     const trimmedUrl = String(url || "").trim();
     if (!trimmedUrl) {
@@ -1005,36 +984,21 @@ const AdminRegrasOuro = () => {
                                           response.foto?.name || `Foto ${response.numero}`,
                                         )
                                       }
-                                    >
-                                      Expandir imagem
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-red-700 hover:text-red-800"
-                                      onClick={() => openAttachmentInNewTab(previewUrl)}
-                                    >
-                                      Abrir em nova aba
-                                    </Button>
-                                  </div>
-                                </div>
-                              );
-                            }
-
-                            if (previewUrl.length > 0) {
-                              return (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-red-700 hover:text-red-800"
-                                  onClick={() => openAttachmentInNewTab(previewUrl)}
                                   >
-                                  Abrir anexo
-                                </Button>
-                              );
-                            }
+                                    Expandir imagem
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          if (previewUrl.length > 0) {
+                            return (
+                              <p className="text-xs text-gray-500">
+                                Este anexo nao possui visualizacao ampliada nesta tela.
+                              </p>
+                            );
+                          }
 
                             return (
                               <p className="text-xs text-gray-500">
@@ -1094,15 +1058,6 @@ const AdminRegrasOuro = () => {
                                   >
                                     Expandir imagem
                                   </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-700 hover:text-red-800"
-                                    onClick={() => openAttachmentInNewTab(previewUrl)}
-                                  >
-                                    Abrir em nova aba
-                                  </Button>
                                 </div>
                               </div>
                             );
@@ -1110,15 +1065,9 @@ const AdminRegrasOuro = () => {
 
                           if (previewUrl.length > 0) {
                             return (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-700 hover:text-red-800"
-                                onClick={() => openAttachmentInNewTab(previewUrl)}
-                              >
-                                Abrir anexo
-                              </Button>
+                              <p className="text-xs text-gray-500">
+                                Este anexo nao possui visualizacao ampliada nesta tela.
+                              </p>
                             );
                           }
 
@@ -1183,13 +1132,6 @@ const AdminRegrasOuro = () => {
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => openAttachmentInNewTab(imagePreview?.url || "")}
-            >
-              Abrir em nova aba
-            </Button>
             <Button type="button" variant="outline" onClick={() => setImagePreview(null)}>
               Fechar
             </Button>
