@@ -445,6 +445,7 @@ const AdminInvestigacoes = () => {
   >({});
   const [planoCountByOcorrencia, setPlanoCountByOcorrencia] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<InvestigacaoRecord | null>(null);
+  const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [analiseDialogOpen, setAnaliseDialogOpen] = useState(false);
   const [editingAnaliseRecord, setEditingAnaliseRecord] = useState<InvestigacaoRecord | null>(null);
@@ -925,6 +926,67 @@ const AdminInvestigacoes = () => {
       toast({
         title: "Erro ao remover",
         description: "Nao foi possivel remover o arquivo assinado.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExpandAttachmentImage = (file: AttachmentMeta, index: number) => {
+    const previewUrl = resolveAttachmentPreviewUrl(file);
+    if (!previewUrl) {
+      toast({
+        title: "Imagem indisponivel",
+        description: "Nao foi possivel carregar a imagem para ampliacao.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExpandedImage({
+      url: previewUrl,
+      title: file.name || `Anexo ${index + 1}`,
+    });
+  };
+
+  const handleOpenAttachment = async (file: AttachmentMeta, index: number) => {
+    const previewUrl = resolveAttachmentPreviewUrl(file);
+    if (!previewUrl) {
+      toast({
+        title: "Arquivo indisponivel",
+        description: "Nao foi possivel abrir este anexo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const openedWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!openedWindow) {
+      toast({
+        title: "Bloqueado pelo navegador",
+        description: "Permita pop-ups para abrir o anexo em nova aba.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (previewUrl.startsWith("data:")) {
+        const response = await fetch(previewUrl);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        openedWindow.location.replace(objectUrl);
+        openedWindow.document.title = file.name || `Anexo ${index + 1}`;
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+        return;
+      }
+
+      openedWindow.location.replace(previewUrl);
+    } catch (error) {
+      console.error("Erro ao abrir anexo:", error);
+      openedWindow.close();
+      toast({
+        title: "Erro ao abrir anexo",
+        description: "Nao foi possivel abrir este arquivo em nova aba.",
         variant: "destructive",
       });
     }
@@ -1505,28 +1567,38 @@ const AdminInvestigacoes = () => {
                                       alt={file.name || `Anexo ${index + 1}`}
                                       className="h-40 w-full rounded border object-cover"
                                     />
-                                    <a
-                                      href={previewUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-red-700 hover:underline"
-                                    >
-                                      Abrir imagem
-                                    </a>
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleExpandAttachmentImage(file, index)}
+                                      >
+                                        Expandir imagem
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => void handleOpenAttachment(file, index)}
+                                      >
+                                        Abrir imagem
+                                      </Button>
+                                    </div>
                                   </div>
                                 );
                               }
 
                               if (previewUrl.length > 0) {
                                 return (
-                                  <a
-                                    href={previewUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-red-700 hover:underline"
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleOpenAttachment(file, index)}
                                   >
                                     Abrir anexo
-                                  </a>
+                                  </Button>
                                 );
                               }
 
@@ -1751,6 +1823,38 @@ const AdminInvestigacoes = () => {
               Cancelar
             </Button>
             <Button onClick={handleSaveAnalise}>Salvar analise</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(expandedImage)}
+        onOpenChange={(open) => {
+          if (!open) setExpandedImage(null);
+        }}
+      >
+        <DialogContent className="max-h-[92vh] overflow-hidden sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Imagem ampliada</DialogTitle>
+            <DialogDescription>
+              {expandedImage?.title || "Anexo da investigacao"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="overflow-auto rounded border bg-black p-2">
+            {expandedImage ? (
+              <img
+                src={expandedImage.url}
+                alt={expandedImage.title}
+                className="mx-auto max-h-[72vh] w-auto object-contain"
+              />
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setExpandedImage(null)}>
+              Fechar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
