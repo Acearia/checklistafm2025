@@ -48,7 +48,7 @@ interface QuestionResponse {
   codigo: string;
   numero: string;
   pergunta: string;
-  resposta: "Sim" | "Não";
+  resposta: "Sim" | "Não" | "N/A";
   comentario: string;
   foto: AttachmentMeta | null;
 }
@@ -75,6 +75,7 @@ const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
 const ANSWER_NO: QuestionResponse["resposta"] = "Não";
+const ANSWER_NA: QuestionResponse["resposta"] = "N/A";
 
 const hasAdmAccess = () => {
   if (typeof window === "undefined") return false;
@@ -171,6 +172,22 @@ const formatFileSize = (bytes: number) => {
   return `${bytes} B`;
 };
 
+const getRenderableImageUrl = (file?: AttachmentMeta | null) => {
+  if (!file) return "";
+  const previewUrl = resolveAttachmentPreviewUrl(file);
+  if (!previewUrl) return "";
+  if (previewUrl.startsWith("data:image/")) return previewUrl;
+  return isImageAttachment(file) ? previewUrl : "";
+};
+
+const getPdfImageFormat = (imageUrl: string) => {
+  const match = imageUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,/i);
+  const rawFormat = String(match?.[1] || "").toLowerCase();
+  if (rawFormat === "png") return "PNG";
+  if (rawFormat === "webp") return "WEBP";
+  return "JPEG";
+};
+
 const parseEpoch = (value?: string) => {
   const epoch = new Date(value || "").getTime();
   return Number.isNaN(epoch) ? 0 : epoch;
@@ -181,6 +198,15 @@ const sortRecordsByCreatedAtDesc = (records: RegraOuroRecord[]) =>
 
 const normalizeAnswer = (value: unknown): QuestionResponse["resposta"] => {
   const normalized = toSafeString(value).trim().toLocaleLowerCase("pt-BR");
+  if (
+    normalized === "n/a" ||
+    normalized === "na" ||
+    normalized === "não se aplica" ||
+    normalized === "nÃ£o se aplica" ||
+    normalized === "nao se aplica"
+  ) {
+    return ANSWER_NA;
+  }
   return normalized.startsWith("n") ? ANSWER_NO : ANSWER_YES;
 };
 
@@ -627,6 +653,120 @@ const AdminRegrasOuro = () => {
         y += 5;
       };
 
+      const drawImageBlock = (
+        imageUrl: string,
+        options?: {
+          label?: string;
+          maxWidth?: number;
+          maxHeight?: number;
+          fileName?: string;
+        },
+      ) => {
+        if (!imageUrl) return;
+
+        const label = options?.label?.trim() || "";
+        const fileName = options?.fileName?.trim() || "";
+        const maxWidth = options?.maxWidth ?? contentWidth;
+        const maxHeight = options?.maxHeight ?? 60;
+
+        if (label) {
+          ensureSpace(lineHeight);
+          doc.setFont("helvetica", "bold");
+          doc.text(label, margin, y);
+          y += lineHeight;
+        }
+
+        if (fileName) {
+          doc.setFont("helvetica", "normal");
+          const fileLines = doc.splitTextToSize(fileName, contentWidth);
+          ensureSpace(fileLines.length * 4);
+          doc.text(fileLines, margin, y);
+          y += fileLines.length * 4 + 1;
+        }
+
+        let imageWidth = maxWidth;
+        let imageHeight = maxHeight;
+
+        try {
+          const imageProperties = doc.getImageProperties(imageUrl);
+          const aspectRatio = imageProperties.width / Math.max(imageProperties.height, 1);
+          imageWidth = Math.min(maxWidth, maxHeight * aspectRatio);
+          imageHeight = imageWidth / Math.max(aspectRatio, 0.01);
+
+          if (imageHeight > maxHeight) {
+            imageHeight = maxHeight;
+            imageWidth = imageHeight * aspectRatio;
+          }
+        } catch {
+          imageWidth = Math.min(maxWidth, 80);
+          imageHeight = Math.min(maxHeight, 40);
+        }
+
+        ensureSpace(imageHeight + 4);
+        doc.setDrawColor(210, 210, 210);
+        doc.rect(margin, y, imageWidth, imageHeight);
+        doc.addImage(imageUrl, getPdfImageFormat(imageUrl), margin, y, imageWidth, imageHeight);
+        y += imageHeight + 4;
+      };
+
+      const drawSignatureRow = () => {
+        const signatures = [
+          {
+            label: "Assinatura tecnico",
+            imageUrl: record.ass_tst,
+          },
+          {
+            label: "Assinatura gestor",
+            imageUrl: record.ass_gestor,
+          },
+          {
+            label: "Assinatura acompanhante",
+            imageUrl: record.ass_acomp,
+          },
+        ];
+
+        const boxGap = 6;
+        const boxWidth = (contentWidth - boxGap * 2) / 3;
+        const imageHeight = 22;
+        const boxHeight = 33;
+
+        ensureSpace(boxHeight + 4);
+        doc.setFont("helvetica", "bold");
+        doc.text("Assinaturas", margin, y);
+        y += 5;
+
+        signatures.forEach((signature, index) => {
+          const x = margin + index * (boxWidth + boxGap);
+          doc.setDrawColor(210, 210, 210);
+          doc.rect(x, y, boxWidth, boxHeight);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(signature.label, x + 2, y + 4);
+
+          if (signature.imageUrl?.trim()) {
+            try {
+              doc.addImage(
+                signature.imageUrl,
+                getPdfImageFormat(signature.imageUrl),
+                x + 2,
+                y + 7,
+                boxWidth - 4,
+                imageHeight,
+              );
+            } catch {
+              doc.setFont("helvetica", "normal");
+              doc.text("Falha ao carregar assinatura", x + 2, y + 16);
+            }
+          } else {
+            doc.setFont("helvetica", "normal");
+            doc.text("Nao assinada", x + 2, y + 16);
+          }
+        });
+
+        y += boxHeight + 6;
+        doc.setFontSize(11);
+      };
+
       doc.setFont("helvetica", "bold");
       doc.setFontSize(16);
       doc.text("Relatorio - Regra de Ouro", margin, y);
@@ -640,9 +780,7 @@ const AdminRegrasOuro = () => {
       writeValueBlock("Tecnico", record.tecnico_seg || "N/A");
       writeValueBlock("Gestor", record.gestor || "N/A");
       writeValueBlock("Acompanhante", record.acompanhante || "N/A");
-      writeValueBlock("Assinatura tecnico", record.ass_tst ? "Sim" : "Nao");
-      writeValueBlock("Assinatura gestor", record.ass_gestor ? "Sim" : "Nao");
-      writeValueBlock("Assinatura acompanhante", record.ass_acomp ? "Sim" : "Nao");
+      drawSignatureRow();
 
       writeSeparator();
       doc.setFont("helvetica", "bold");
@@ -664,6 +802,15 @@ const AdminRegrasOuro = () => {
         }
         if (response.foto?.name?.trim()) {
           writeValueBlock("Foto", `${response.foto.name} (${formatFileSize(response.foto.size)})`);
+          const imageUrl = getRenderableImageUrl(response.foto);
+          if (imageUrl) {
+            drawImageBlock(imageUrl, {
+              label: "Imagem da resposta",
+              fileName: response.foto.name,
+              maxWidth: Math.min(contentWidth, 90),
+              maxHeight: 58,
+            });
+          }
         }
         y += 1;
       });
@@ -679,20 +826,17 @@ const AdminRegrasOuro = () => {
             `Arquivo ${index + 1}`,
             `${file.name || "arquivo"} - ${file.type || "tipo nao informado"} - ${formatFileSize(file.size)}`,
           );
+          const imageUrl = getRenderableImageUrl(file);
+          if (imageUrl) {
+            drawImageBlock(imageUrl, {
+              label: `Imagem do anexo ${index + 1}`,
+              fileName: file.name,
+              maxWidth: Math.min(contentWidth, 110),
+              maxHeight: 70,
+            });
+          }
         });
       }
-
-      ensureSpace(22);
-      y += 8;
-      doc.setDrawColor(140, 140, 140);
-      doc.line(margin, y, margin + 55, y);
-      doc.line(margin + 65, y, margin + 120, y);
-      doc.line(margin + 130, y, margin + contentWidth, y);
-      y += 5;
-      doc.setFontSize(9);
-      doc.text("Assinatura tecnico", margin, y);
-      doc.text("Assinatura gestor", margin + 65, y);
-      doc.text("Assinatura acompanhante", margin + 130, y);
 
       doc.save(`regra-ouro-${formatInspectionNumber(record.numero_inspecao)}.pdf`);
 
@@ -941,7 +1085,15 @@ const AdminRegrasOuro = () => {
                         <p className="font-medium">
                           {response.numero} - {response.pergunta || "Pergunta"}
                         </p>
-                        <Badge variant={response.resposta === ANSWER_NO ? "destructive" : "secondary"}>
+                        <Badge
+                          variant={
+                            response.resposta === ANSWER_NO
+                              ? "destructive"
+                              : response.resposta === ANSWER_NA
+                                ? "outline"
+                                : "secondary"
+                          }
+                        >
                           {response.resposta}
                         </Badge>
                       </div>

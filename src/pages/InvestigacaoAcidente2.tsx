@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 type SignatureKey = "ass_tst" | "ass_gestor" | "ass_acomp";
+type QuestionAnswer = "Sim" | "Não" | "N/A";
 
 interface QuestionItem {
   id: string;
@@ -49,7 +49,7 @@ interface QuestionResponse {
   codigo: string;
   numero: string;
   pergunta: string;
-  resposta: "Sim" | "Não";
+  resposta: QuestionAnswer;
   comentario: string;
   foto: AttachmentMeta | null;
 }
@@ -71,7 +71,7 @@ interface InvestigacaoChecklistRecord {
 }
 
 interface QuestionState {
-  answer: boolean;
+  answer: QuestionAnswer;
   comment: string;
   photo: File | null;
 }
@@ -153,6 +153,52 @@ const QUESTION_ITEMS: QuestionItem[] = [
     texto:
       "É possível identificar alguma ferramenta improvisada, defeituosa ou desgastada, sendo usada ou armazenada no setor?",
   },
+  {
+    id: "1n13",
+    numero: "13",
+    texto: "É possível identificar alguém no setor utilizando ou em posse de celular?",
+  },
+  {
+    id: "1n14",
+    numero: "14",
+    texto: "Os chuveiros e lava olhos estão funcionando corretamente e estão desobstruídos?",
+  },
+  {
+    id: "1n15",
+    numero: "15",
+    texto:
+      "Os extintores do local estão pressurizados, com a recarga em dia e estão desobstruídos?",
+  },
+  {
+    id: "1n16",
+    numero: "16",
+    texto: "Alarme de incêndio está funcionando?",
+  },
+  {
+    id: "1n17",
+    numero: "17",
+    texto: "Detector de fumaça está funcionando?",
+  },
+  {
+    id: "1n18",
+    numero: "18",
+    texto: "Checklist da empilhadeira está sendo realizado?",
+  },
+  {
+    id: "1n19",
+    numero: "19",
+    texto: "Checklist da transpaleteira está sendo realizado?",
+  },
+  {
+    id: "1n20",
+    numero: "20",
+    texto: "Checklist da mini carregadeira está sendo realizado?",
+  },
+  {
+    id: "1n21",
+    numero: "21",
+    texto: "Existe EPIs descartados dentro do setor?",
+  },
 ];
 
 const normalizeText = (value: unknown) => {
@@ -186,15 +232,35 @@ const getCounterValue = () => {
 };
 
 const formatInspectionNumber = (value: number) => String(value).padStart(3, "0");
-const DEFAULT_NAO_QUESTION_IDS = new Set(["1n5", "1n6", "1n8", "1n9", "1n10", "1n11", "1n12"]);
-const isDefaultAnswerSim = (questionId: string) => !DEFAULT_NAO_QUESTION_IDS.has(questionId);
+const DEFAULT_NAO_QUESTION_IDS = new Set([
+  "1n5",
+  "1n6",
+  "1n8",
+  "1n9",
+  "1n10",
+  "1n11",
+  "1n12",
+  "1n13",
+  "1n21",
+]);
+const getDefaultAnswer = (questionId: string): QuestionAnswer =>
+  DEFAULT_NAO_QUESTION_IDS.has(questionId) ? "Não" : "Sim";
+
+const isResponseOutOfPattern = (questionId: string, answer: QuestionAnswer) =>
+  answer !== "N/A" && answer !== getDefaultAnswer(questionId);
+
+const getAnswerTone = (answer: QuestionAnswer) => {
+  if (answer === "Sim") return "text-green-600";
+  if (answer === "Não") return "text-red-600";
+  return "text-gray-500";
+};
 
 const createInitialResponses = (): Record<string, QuestionState> =>
   Object.fromEntries(
     QUESTION_ITEMS.map((question) => [
       question.id,
       {
-        answer: isDefaultAnswerSim(question.id),
+        answer: getDefaultAnswer(question.id),
         comment: "",
         photo: null,
       },
@@ -312,7 +378,7 @@ const InvestigacaoAcidente2 = () => {
     for (const item of QUESTION_ITEMS) {
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
-      const requiresEvidence = response.answer !== isDefaultAnswerSim(item.id);
+      const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
       if (requiresEvidence && !response.comment.trim()) {
         return `Preencha o comentário do item ${item.id} quando a resposta estiver fora do padrão.`;
       }
@@ -356,7 +422,7 @@ const InvestigacaoAcidente2 = () => {
             codigo: item.id,
             numero: item.numero,
             pergunta: item.texto,
-            resposta: current.answer ? "Sim" : "Não",
+            resposta: current.answer,
             comentario: current.comment.trim(),
             foto: current.photo
               ? {
@@ -487,7 +553,7 @@ const InvestigacaoAcidente2 = () => {
             <div className="space-y-1">
               <CardTitle className="text-2xl text-blue-900">Regras de Ouro</CardTitle>
               <CardDescription>
-                Preenchimento no padrão de inspeção: respostas diretas SIM/NÃO, com comentários e assinaturas.
+                Preenchimento no padrão de inspeção: respostas diretas SIM/NÃO/N/A, com comentários e assinaturas.
               </CardDescription>
               <p className="text-sm text-gray-600">Progresso: {completionPercent}%</p>
             </div>
@@ -617,19 +683,22 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Checklist de Perguntas</CardTitle>
             <CardDescription>
-              Responda cada item. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios.
+              Responda cada item com Sim, Não ou N/A. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {QUESTION_ITEMS.map((item) => {
               const response = responses[item.id];
-              const requiresEvidence = response.answer !== isDefaultAnswerSim(item.id);
+              const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
               const showExtra =
-                requiresEvidence || response.comment.trim().length > 0 || Boolean(response.photo);
+                response.answer === "N/A" ||
+                requiresEvidence ||
+                response.comment.trim().length > 0 ||
+                Boolean(response.photo);
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
-                  <div className="grid items-center gap-3 p-4 lg:grid-cols-[74px_1fr_112px]">
+                  <div className="grid items-center gap-3 p-4 lg:grid-cols-[74px_1fr_220px]">
                     <div className="text-center">
                       <div className="text-3xl font-bold leading-none text-black sm:text-4xl">{item.numero}</div>
                     </div>
@@ -640,17 +709,24 @@ const InvestigacaoAcidente2 = () => {
 
                     <div className="flex flex-col items-center justify-center gap-2">
                       <span
-                        className={cn(
-                          "text-lg font-bold",
-                          response.answer ? "text-green-600" : "text-red-600",
-                        )}
+                        className={cn("text-lg font-bold", getAnswerTone(response.answer))}
                       >
-                        {response.answer ? "SIM" : "NÃO"}
+                        {response.answer.toUpperCase()}
                       </span>
-                      <Switch
-                        checked={response.answer}
-                        onCheckedChange={(checked) => updateQuestion(item.id, { answer: checked })}
-                      />
+                      <div className="grid w-full grid-cols-3 gap-2">
+                        {(["Sim", "Não", "N/A"] as QuestionAnswer[]).map((answerOption) => (
+                          <Button
+                            key={answerOption}
+                            type="button"
+                            variant={response.answer === answerOption ? "default" : "outline"}
+                            size="sm"
+                            className="w-full"
+                            onClick={() => updateQuestion(item.id, { answer: answerOption })}
+                          >
+                            {answerOption}
+                          </Button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
