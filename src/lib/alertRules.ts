@@ -65,6 +65,7 @@ registerRules(
     "O fim de curso para a esquerda está funcionando?",
     "O batente de giro está em boas condições de uso?",
     "O(s) gancho(s) da corrente possui(em) travas de segurança funcionando?",
+    "O gancho possui trava de segurança funcionando?",
     "O freio do pórtico está funcionando?",
   ],
   { onNo: true }

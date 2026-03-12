@@ -121,9 +121,18 @@ const hasChecklistProblems = (
   answers: Inspection["checklist_answers"] | undefined,
 ) => {
   if (!answers || answers.length === 0) return false;
-  return answers.some((answer) =>
-    shouldTriggerAlert(answer.question, answer.answer, { onYes: answer.alertOnYes, onNo: answer.alertOnNo }),
-  );
+  return answers.some((answer) => {
+    const answerWithRules = applyAlertRuleToItem({
+      question: answer.question,
+      alertOnYes: answer.alertOnYes,
+      alertOnNo: answer.alertOnNo,
+    });
+
+    return shouldTriggerAlert(answer.question, answer.answer, {
+      onYes: answerWithRules.alertOnYes,
+      onNo: answerWithRules.alertOnNo,
+    });
+  });
 };
 
 const formatChecklistAnswerLabel = (rawValue?: string) => {
@@ -350,10 +359,16 @@ const LeaderDashboard = () => {
       }
 
       inspection.checklist_answers.forEach((answer, index) => {
+        const answerWithRules = applyAlertRuleToItem({
+          question: answer.question,
+          alertOnYes: answer.alertOnYes,
+          alertOnNo: answer.alertOnNo,
+        });
+
         const hasAlert = shouldTriggerAlert(
           answer.question,
           answer.answer,
-          { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+          { onYes: answerWithRules.alertOnYes, onNo: answerWithRules.alertOnNo }
         );
 
         if (!hasAlert) {
@@ -516,10 +531,16 @@ const LeaderDashboard = () => {
       processedInspections.forEach(inspection => {
         const answers = inspection.checklist_answers || [];
         answers.forEach(answer => {
+          const answerWithRules = applyAlertRuleToItem({
+            question: answer.question,
+            alertOnYes: answer.alertOnYes,
+            alertOnNo: answer.alertOnNo,
+          });
+
           const triggersAlert = shouldTriggerAlert(
             answer.question,
             answer.answer,
-            { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+            { onYes: answerWithRules.alertOnYes, onNo: answerWithRules.alertOnNo }
           );
 
           if (!triggersAlert) {
@@ -1274,10 +1295,16 @@ const LeaderDashboard = () => {
           ? answer.question
           : `Pergunta ${index + 1}`;
 
+      const answerWithRules = applyAlertRuleToItem({
+        question,
+        alertOnYes: answer.alertOnYes,
+        alertOnNo: answer.alertOnNo,
+      });
+
       const triggersAlert = shouldTriggerAlert(
         question,
         answer.answer,
-        { onYes: answer.alertOnYes, onNo: answer.alertOnNo }
+        { onYes: answerWithRules.alertOnYes, onNo: answerWithRules.alertOnNo }
       );
 
       return {

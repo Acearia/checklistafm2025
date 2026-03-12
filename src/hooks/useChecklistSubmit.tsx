@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getChecklistState, saveChecklistState, clearChecklistState } from "@/lib/checklistStore";
 import { isDatabaseConnected } from "@/lib/dataInitializer";
 import { appendChecklistAlert } from "@/lib/checklistTemplate";
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import type { ChecklistAlert } from "@/lib/types";
 
 export const useChecklistSubmit = () => {
@@ -47,10 +48,16 @@ export const useChecklistSubmit = () => {
     let alertsCreated = 0;
     currentState.checklist.forEach((item) => {
       if (!item) return;
+      const itemWithRules = applyAlertRuleToItem({
+        question: item.question,
+        alertOnYes: item.alertOnYes,
+        alertOnNo: item.alertOnNo,
+      });
       const answer = item.answer;
-      const triggersAlert =
-        (item.alertOnYes && answer === "Sim") ||
-        (item.alertOnNo && answer === "Não");
+      const triggersAlert = shouldTriggerAlert(item.question, answer, {
+        onYes: itemWithRules.alertOnYes,
+        onNo: itemWithRules.alertOnNo,
+      });
 
       if (!triggersAlert) {
         return;

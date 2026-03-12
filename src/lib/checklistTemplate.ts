@@ -4,6 +4,7 @@ import {
   CHECKLIST_ALERTS_KEY, 
   type ChecklistAlert 
 } from "./types";
+import { shouldTriggerAlert } from "./alertRules";
 
 const isBrowser = typeof window !== "undefined" && typeof localStorage !== "undefined";
 
@@ -60,11 +61,13 @@ export const resetChecklistTemplate = () => {
 };
 
 const normalizeAlerts = (alerts: ChecklistAlert[]): ChecklistAlert[] => {
-  return alerts.map((alert) => ({
-    ...alert,
-    seenByAdmin: alert.seenByAdmin ?? false,
-    seenByLeaders: alert.seenByLeaders ?? [],
-  }));
+  return alerts
+    .map((alert) => ({
+      ...alert,
+      seenByAdmin: alert.seenByAdmin ?? false,
+      seenByLeaders: alert.seenByLeaders ?? [],
+    }))
+    .filter((alert) => shouldTriggerAlert(alert.question, alert.answer));
 };
 
 export const loadChecklistAlerts = (): ChecklistAlert[] => {

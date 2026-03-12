@@ -26,6 +26,7 @@ import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
+import { applyAlertRuleToItem } from "@/lib/alertRules";
 import type { GroupQuestion } from "@/lib/types-compat";
 
 const Checklist = () => {
@@ -173,13 +174,23 @@ const Checklist = () => {
       });
 
     if (needsUpdate && !hasInteractedWithChecklist) {
-      const normalizedChecklist = filteredItems.map((item) => ({
-        id: item.id,
-        question: item.question,
-        answer: null,
-        alertOnYes: item.alertOnYes ?? false,
-        alertOnNo: item.alertOnNo ?? false,
-      }));
+      const normalizedChecklist = filteredItems.map((item) => {
+        const itemWithRules = applyAlertRuleToItem({
+          id: item.id,
+          question: item.question,
+          answer: null,
+          alertOnYes: item.alertOnYes ?? false,
+          alertOnNo: item.alertOnNo ?? false,
+        });
+
+        return {
+          id: itemWithRules.id,
+          question: itemWithRules.question,
+          answer: itemWithRules.answer,
+          alertOnYes: itemWithRules.alertOnYes ?? false,
+          alertOnNo: itemWithRules.alertOnNo ?? false,
+        };
+      });
       setChecklist(normalizedChecklist);
     }
   }, [
