@@ -683,7 +683,7 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Checklist de Perguntas</CardTitle>
             <CardDescription>
-              Responda cada item com Sim, Não ou N/A. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios.
+              Responda cada item com Sim, Não ou N/A. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios. Em N/A não é necessário preencher nada.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -691,7 +691,6 @@ const InvestigacaoAcidente2 = () => {
               const response = responses[item.id];
               const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
               const showExtra =
-                response.answer === "N/A" ||
                 requiresEvidence ||
                 response.comment.trim().length > 0 ||
                 Boolean(response.photo);
@@ -721,7 +720,14 @@ const InvestigacaoAcidente2 = () => {
                             variant={response.answer === answerOption ? "default" : "outline"}
                             size="sm"
                             className="w-full"
-                            onClick={() => updateQuestion(item.id, { answer: answerOption })}
+                            onClick={() =>
+                              updateQuestion(
+                                item.id,
+                                answerOption === "N/A"
+                                  ? { answer: answerOption, comment: "", photo: null }
+                                  : { answer: answerOption },
+                              )
+                            }
                           >
                             {answerOption}
                           </Button>
