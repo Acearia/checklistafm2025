@@ -730,11 +730,23 @@ export const goldenRuleService = {
   async upsertFromLegacy(payload: GoldenRuleRecordPayload) {
     let savedRule: any = null;
     let lastError: unknown = null;
+    let nextInspectionNumber = Number(payload.numero_inspecao) || 0;
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if (!nextInspectionNumber) {
+        try {
+          nextInspectionNumber = await this.getNextInspectionNumber();
+        } catch (error) {
+          if (!relationMissingError(error, "golden_rules")) {
+            throw error;
+          }
+          nextInspectionNumber = 1;
+        }
+      }
+
       const ruleInsert: GoldenRuleInsert = {
         id: payload.id,
-        ...(payload.numero_inspecao ? { numero_inspecao: payload.numero_inspecao } : {}),
+        ...(nextInspectionNumber ? { numero_inspecao: nextInspectionNumber } : {}),
         titulo: payload.titulo,
         setor: payload.setor,
         gestor: payload.gestor,
@@ -758,11 +770,15 @@ export const goldenRuleService = {
       }
 
       lastError = error;
-      if (!payload.numero_inspecao || !isUniqueViolationError(error)) {
+      if (!isUniqueViolationError(error)) {
         throw error;
       }
 
-      payload.numero_inspecao += 1;
+      try {
+        nextInspectionNumber = await this.getNextInspectionNumber();
+      } catch {
+        nextInspectionNumber += 1;
+      }
     }
 
     if (!savedRule) throw lastError;

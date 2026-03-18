@@ -873,6 +873,19 @@ const InvestigacaoAcidente2 = () => {
 
                   {showExtra && (
                     <div className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm text-gray-600">
+                          Adicione uma ou mais evidencias com comentario e foto para este item.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => addEvidence(item.id)}
+                        >
+                          Adicionar outra evidencia
+                        </Button>
+                      </div>
                       {response.evidences.length === 0 ? (
                         <p className="text-sm text-gray-500">
                           Nenhuma evidencia adicionada para este item.
