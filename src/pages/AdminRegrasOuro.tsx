@@ -48,7 +48,7 @@ interface QuestionResponse {
   codigo: string;
   numero: string;
   pergunta: string;
-  resposta: "Sim" | "NÃ£o" | "N/A";
+  resposta: "Sim" | "Não" | "N/A";
   comentario: string;
   foto: AttachmentMeta | null;
   evidencias: Array<{
@@ -79,7 +79,7 @@ const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
-const ANSWER_NO: QuestionResponse["resposta"] = "NÃ£o";
+const ANSWER_NO: QuestionResponse["resposta"] = "Não";
 const ANSWER_NA: QuestionResponse["resposta"] = "N/A";
 
 const hasAdmAccess = () => {
@@ -206,7 +206,7 @@ const normalizeAnswer = (value: unknown): QuestionResponse["resposta"] => {
   if (
     normalized === "n/a" ||
     normalized === "na" ||
-    normalized === "nÃ£o se aplica" ||
+    normalized === "não se aplica" ||
     normalized === "nÃƒÂ£o se aplica" ||
     normalized === "nao se aplica"
   ) {
@@ -555,14 +555,14 @@ const AdminRegrasOuro = () => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuÃ¡rio adm pode excluir registros.",
+        description: "Somente o usuário adm pode excluir registros.",
         variant: "destructive",
       });
       return;
     }
 
     const confirmed = window.confirm(
-      "Deseja realmente excluir esta regra de ouro? Esta aÃ§Ã£o nÃ£o pode ser desfeita.",
+      "Deseja realmente excluir esta regra de ouro? Esta ação não pode ser desfeita.",
     );
     if (!confirmed) return;
 
@@ -586,14 +586,14 @@ const AdminRegrasOuro = () => {
       }
 
       toast({
-        title: "Registro excluÃ­do",
+        title: "Registro excluído",
         description: "A regra de ouro foi removida com sucesso.",
       });
     } catch (error) {
       console.error("Erro ao excluir regra de ouro:", error);
       toast({
         title: "Erro ao excluir",
-        description: "NÃ£o foi possÃ­vel excluir o registro.",
+        description: "Não foi possível excluir o registro.",
         variant: "destructive",
       });
     }
@@ -603,7 +603,7 @@ const AdminRegrasOuro = () => {
     if (filteredRecords.length === 0) {
       toast({
         title: "Nenhum registro",
-        description: "NÃ£o hÃ¡ dados para exportar com os filtros atuais.",
+        description: "Não há dados para exportar com os filtros atuais.",
         variant: "destructive",
       });
       return;
@@ -655,7 +655,7 @@ const AdminRegrasOuro = () => {
     URL.revokeObjectURL(url);
 
     toast({
-      title: "ExportaÃ§Ã£o concluÃ­da",
+      title: "Exportação concluída",
       description: "Arquivo CSV gerado com sucesso.",
     });
   };
@@ -664,8 +664,8 @@ const AdminRegrasOuro = () => {
     const trimmedUrl = String(url || "").trim();
     if (!trimmedUrl) {
       toast({
-        title: "Imagem indisponivel",
-        description: "Nao foi possivel carregar a imagem.",
+        title: "Imagem indisponível",
+        description: "Não foi possível carregar a imagem.",
         variant: "destructive",
       });
       return;
@@ -898,7 +898,7 @@ const AdminRegrasOuro = () => {
         record.anexos.forEach((file, index) => {
           writeValueBlock(
             `Arquivo ${index + 1}`,
-            `${file.name || "arquivo"} - ${file.type || "tipo nao informado"} - ${formatFileSize(file.size)}`,
+            `${file.name || "arquivo"} - ${file.type || "tipo não informado"} - ${formatFileSize(file.size)}`,
           );
           const imageUrl = getRenderableImageUrl(file);
           if (imageUrl) {
@@ -953,13 +953,13 @@ const AdminRegrasOuro = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Com pendÃªncias</CardDescription>
+            <CardDescription>Com pendências</CardDescription>
             <CardTitle>{summary.comPendencias}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total de itens NÃ£o</CardDescription>
+            <CardDescription>Total de itens Não</CardDescription>
             <CardTitle>{summary.totalItensNao}</CardTitle>
           </CardHeader>
         </Card>
@@ -974,21 +974,21 @@ const AdminRegrasOuro = () => {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Refine por setor, tÃ©cnico, data e busca rÃ¡pida.</CardDescription>
+          <CardDescription>Refine por setor, técnico, data e busca rápida.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             <div>
-              <label className="mb-1 block text-sm font-medium">Busca rÃ¡pida</label>
+              <label className="mb-1 block text-sm font-medium">Busca rápida</label>
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="TÃ­tulo, setor, gestor..."
+                placeholder="Título, setor, gestor..."
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Data inÃ­cio</label>
+              <label className="mb-1 block text-sm font-medium">Data início</label>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
 
@@ -1015,13 +1015,13 @@ const AdminRegrasOuro = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">TÃ©cnico</label>
+              <label className="mb-1 block text-sm font-medium">Técnico</label>
               <Select value={tecnicoFilter} onValueChange={setTecnicoFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os tÃ©cnicos" />
+                  <SelectValue placeholder="Todos os técnicos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={FILTER_ALL}>Todos os tÃ©cnicos</SelectItem>
+                  <SelectItem value={FILTER_ALL}>Todos os técnicos</SelectItem>
                   {uniqueTecnicos.map((tecnico) => (
                     <SelectItem key={tecnico} value={tecnico}>
                       {tecnico}
@@ -1046,7 +1046,7 @@ const AdminRegrasOuro = () => {
         <CardContent>
           {filteredRecords.length === 0 ? (
             <div className="rounded-md border bg-gray-50 p-8 text-center text-gray-500">
-              NÃ£o hÃ¡ registros com os filtros selecionados.
+              Não há registros com os filtros selecionados.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -1055,13 +1055,13 @@ const AdminRegrasOuro = () => {
                   <TableRow>
                     <TableHead>N</TableHead>
                     <TableHead>Data/Hora</TableHead>
-                    <TableHead>TÃ­tulo</TableHead>
+                    <TableHead>Título</TableHead>
                     <TableHead>Setor</TableHead>
-                    <TableHead>TÃ©cnico</TableHead>
+                    <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
-                    <TableHead>Itens NÃ£o</TableHead>
+                    <TableHead>Itens Não</TableHead>
                     <TableHead>Assinaturas</TableHead>
-                    <TableHead className="text-right">AÃ§Ãµes</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1136,16 +1136,16 @@ const AdminRegrasOuro = () => {
             <div className="min-h-0 flex-1 space-y-4 overflow-y-scroll pr-2">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>TÃ­tulo:</strong> {selected.titulo || "N/A"}</p>
+                  <p><strong>Título:</strong> {selected.titulo || "N/A"}</p>
                   <p><strong>Setor:</strong> {selected.setor || "N/A"}</p>
-                  <p><strong>TÃ©cnico:</strong> {selected.tecnico_seg || "N/A"}</p>
+                  <p><strong>Técnico:</strong> {selected.tecnico_seg || "N/A"}</p>
                   <p><strong>Gestor:</strong> {selected.gestor || "N/A"}</p>
                   <p><strong>Acompanhante:</strong> {selected.acompanhante || "N/A"}</p>
                 </div>
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Assinatura tÃ©cnico:</strong> {selected.ass_tst ? "Sim" : "NÃ£o"}</p>
-                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "NÃ£o"}</p>
-                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "NÃ£o"}</p>
+                  <p><strong>Assinatura técnico:</strong> {selected.ass_tst ? "Sim" : "Não"}</p>
+                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Não"}</p>
+                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Não"}</p>
                   <p><strong>Anexos:</strong> {selected.anexos.length}</p>
                 </div>
               </div>
@@ -1181,7 +1181,7 @@ const AdminRegrasOuro = () => {
                           </p>
                           {evidence.comentario ? (
                             <p className="text-gray-700">
-                              <strong>ComentÃ¡rio:</strong> {evidence.comentario}
+                              <strong>Comentário:</strong> {evidence.comentario}
                             </p>
                           ) : null}
                           {evidence.foto ? (
@@ -1229,14 +1229,14 @@ const AdminRegrasOuro = () => {
                                 if (previewUrl.length > 0) {
                                   return (
                                     <p className="text-xs text-gray-500">
-                                      Este anexo nao possui visualizacao ampliada nesta tela.
+                                      Este anexo não possui visualização ampliada nesta tela.
                                     </p>
                                   );
                                 }
 
                                 return (
                                   <p className="text-xs text-gray-500">
-                                    Visualizacao indisponivel para este registro antigo.
+                                    Visualização indisponível para este registro antigo.
                                   </p>
                                 );
                               })()}
@@ -1260,7 +1260,7 @@ const AdminRegrasOuro = () => {
                       >
                         <p className="truncate">{file.name || `Arquivo ${index + 1}`}</p>
                         <p className="text-xs text-gray-500">
-                          {file.type || "tipo nÃ£o informado"} - {formatFileSize(file.size)}
+                          {file.type || "tipo não informado"} - {formatFileSize(file.size)}
                         </p>
                         {(() => {
                           const previewUrl = resolveAttachmentPreviewUrl(file);
@@ -1302,14 +1302,14 @@ const AdminRegrasOuro = () => {
                           if (previewUrl.length > 0) {
                             return (
                               <p className="text-xs text-gray-500">
-                                Este anexo nao possui visualizacao ampliada nesta tela.
+                                Este anexo não possui visualização ampliada nesta tela.
                               </p>
                             );
                           }
 
                           return (
                             <p className="text-xs text-gray-500">
-                              VisualizaÃ§Ã£o indisponÃ­vel para este registro antigo.
+                              Visualização indisponível para este registro antigo.
                             </p>
                           );
                         })()}
@@ -1352,7 +1352,7 @@ const AdminRegrasOuro = () => {
         <DialogContent className="flex max-h-[92vh] max-w-5xl flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{imagePreview?.title || "Imagem"}</DialogTitle>
-            <DialogDescription>Visualizacao ampliada.</DialogDescription>
+            <DialogDescription>Visualização ampliada.</DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-auto rounded border bg-black/80 p-3">
@@ -1363,7 +1363,7 @@ const AdminRegrasOuro = () => {
                 className="mx-auto max-h-[72vh] w-auto max-w-full rounded object-contain"
               />
             ) : (
-              <p className="text-sm text-white/80">Imagem indisponivel.</p>
+              <p className="text-sm text-white/80">Imagem indisponível.</p>
             )}
           </div>
 
@@ -1379,4 +1379,5 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
+
 
