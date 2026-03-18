@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CheckCircle, ClipboardList, Upload } from "lucide-react";
 import SignatureCanvas from "@/components/SignatureCanvas";
@@ -14,14 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Textarea } from "@/components/ui/textarea";
+import SearchableStringSelect, {
+  type SearchableStringOption,
+} from "@/components/ui/searchable-string-select";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
@@ -52,6 +49,11 @@ interface QuestionResponse {
   resposta: QuestionAnswer;
   comentario: string;
   foto: AttachmentMeta | null;
+  evidencias?: Array<{
+    id?: string;
+    comentario: string;
+    foto: AttachmentMeta | null;
+  }>;
 }
 
 interface InvestigacaoChecklistRecord {
@@ -72,8 +74,11 @@ interface InvestigacaoChecklistRecord {
 
 interface QuestionState {
   answer: QuestionAnswer;
-  comment: string;
-  photo: File | null;
+  evidences: Array<{
+    id: string;
+    comment: string;
+    photo: File | null;
+  }>;
 }
 
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
@@ -255,14 +260,22 @@ const getAnswerTone = (answer: QuestionAnswer) => {
   return "text-gray-500";
 };
 
+const createEmptyEvidence = () => ({
+  id:
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : 'evidence-' + Date.now() + '-' + Math.random().toString(16).slice(2),
+  comment: "",
+  photo: null as File | null,
+});
+
 const createInitialResponses = (): Record<string, QuestionState> =>
   Object.fromEntries(
     QUESTION_ITEMS.map((question) => [
       question.id,
       {
         answer: getDefaultAnswer(question.id),
-        comment: "",
-        photo: null,
+        evidences: [],
       },
     ]),
   ) as Record<string, QuestionState>;
@@ -307,17 +320,45 @@ const InvestigacaoAcidente2 = () => {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submittedInspectionNumber, setSubmittedInspectionNumber] = useState<number | null>(null);
 
-  const setorOptions = useMemo(
-    () => dedupeSorted(sectors.map((item: any) => normalizeText(item?.name))),
+  useEffect(() => {
+    let active = true;
+
+    void (async () => {
+      try {
+        const remoteNext = await goldenRuleService.getNextInspectionNumber();
+        const nextPreview = Math.max(remoteNext, getCounterValue() + 1);
+        if (active) {
+          setPreviewNumber(nextPreview);
+        }
+      } catch (error) {
+        console.warn("[InvestigacaoAcidente2] Nao foi possivel consultar o proximo numero remoto.", error);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const setorOptions = useMemo<SearchableStringOption[]>(
+    () =>
+      dedupeSorted(sectors.map((item: any) => normalizeText(item?.name))).map((option) => ({
+        value: option,
+        label: option,
+      })),
     [sectors],
   );
 
-  const liderOptions = useMemo(
-    () => dedupeSorted(leaders.map((item: any) => normalizeText(item?.name))),
+  const liderOptions = useMemo<SearchableStringOption[]>(
+    () =>
+      dedupeSorted(leaders.map((item: any) => normalizeText(item?.name))).map((option) => ({
+        value: option,
+        label: option,
+      })),
     [leaders],
   );
 
-  const tecnicoInvestigadorOptions = useMemo(() => {
+  const tecnicoInvestigadorOptions = useMemo<SearchableStringOption[]>(() => {
     const allowedNames = new Map(
       REGRAS_DE_OURO_TECNICOS.map((name) => [normalizePersonKey(name), name]),
     );
@@ -327,13 +368,56 @@ const InvestigacaoAcidente2 = () => {
       .filter((name): name is string => Boolean(name));
 
     const resolved = Array.from(new Set(fromLeaders));
-    return resolved.length > 0 ? resolved : [...REGRAS_DE_OURO_TECNICOS];
+    const items = resolved.length > 0 ? resolved : [...REGRAS_DE_OURO_TECNICOS];
+    return items.map((option) => ({
+      value: option,
+      label: option,
+    }));
   }, [leaders]);
 
-  const acompanhanteOptions = useMemo(
-    () => dedupeSorted(operators.map((item: any) => normalizeText(item?.name))),
-    [operators],
-  );
+  const acompanhanteOptions = useMemo<SearchableStringOption[]>(() => {
+    const uniqueByName = new Map<string, SearchableStringOption>();
+
+    (operators || []).forEach((item: any) => {
+      const name = normalizeText(item?.name).trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("pt-BR");
+      if (uniqueByName.has(key)) return;
+
+      const matricula = normalizeText(item?.matricula).trim();
+      const cargo = normalizeText(item?.cargo).trim();
+      const setorOperador = normalizeText(item?.setor).trim();
+
+      uniqueByName.set(key, {
+        value: name,
+        label: name,
+        searchText: [name, matricula, cargo, setorOperador].filter(Boolean).join(" "),
+        description: [matricula ? `Matricula: ${matricula}` : "", cargo, setorOperador]
+          .filter(Boolean)
+          .join(" • "),
+      });
+    });
+
+    (leaders || []).forEach((item: any) => {
+      const name = normalizeText(item?.name).trim();
+      if (!name) return;
+      const key = name.toLocaleLowerCase("pt-BR");
+      if (uniqueByName.has(key)) return;
+
+      const matricula = normalizeText(item?.operator_matricula).trim();
+
+      uniqueByName.set(key, {
+        value: name,
+        label: name,
+        searchText: [name, matricula, "lider", "usuario"].filter(Boolean).join(" "),
+        description: [matricula ? `Matricula: ${matricula}` : "", "Lider/Usuario"]
+          .filter(Boolean)
+          .join(" • "),
+      });
+    });
+
+    return Array.from(uniqueByName.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [leaders, operators]);
 
   const completionPercent = useMemo(() => {
     const total = QUESTION_ITEMS.length + 8;
@@ -365,13 +449,79 @@ const InvestigacaoAcidente2 = () => {
     }));
   };
 
+  const addEvidence = (questionId: string) => {
+    setResponses((previous) => ({
+      ...previous,
+      [questionId]: {
+        ...previous[questionId],
+        evidences: [...previous[questionId].evidences, createEmptyEvidence()],
+      },
+    }));
+  };
+
+  const updateEvidence = (
+    questionId: string,
+    evidenceId: string,
+    patch: Partial<QuestionState["evidences"][number]>,
+  ) => {
+    setResponses((previous) => ({
+      ...previous,
+      [questionId]: {
+        ...previous[questionId],
+        evidences: previous[questionId].evidences.map((evidence) =>
+          evidence.id === evidenceId ? { ...evidence, ...patch } : evidence,
+        ),
+      },
+    }));
+  };
+
+  const removeEvidence = (questionId: string, evidenceId: string) => {
+    setResponses((previous) => ({
+      ...previous,
+      [questionId]: {
+        ...previous[questionId],
+        evidences: previous[questionId].evidences.filter((evidence) => evidence.id !== evidenceId),
+      },
+    }));
+  };
+
+  const updateAnswer = (questionId: string, answer: QuestionAnswer) => {
+    setResponses((previous) => {
+      const current = previous[questionId];
+      if (answer === "N/A") {
+        return {
+          ...previous,
+          [questionId]: {
+            ...current,
+            answer,
+            evidences: [],
+          },
+        };
+      }
+
+      const nextEvidences =
+        isResponseOutOfPattern(questionId, answer) && current.evidences.length === 0
+          ? [createEmptyEvidence()]
+          : current.evidences;
+
+      return {
+        ...previous,
+        [questionId]: {
+          ...current,
+          answer,
+          evidences: nextEvidences,
+        },
+      };
+    });
+  };
+
   const validateForm = () => {
-    if (!titulo.trim()) return "Preencha o Título.";
+    if (!titulo.trim()) return "Preencha o Titulo.";
     if (!setor.trim()) return "Selecione o Setor.";
     if (!gestor.trim()) return "Selecione o Gestor.";
-    if (!tecnicoSeg.trim()) return "Selecione o Técnico.";
+    if (!tecnicoSeg.trim()) return "Selecione o Tecnico.";
     if (!acompanhante.trim()) return "Selecione o Acompanhante.";
-    if (!signatures.ass_tst) return "Registre a assinatura do Técnico de Segurança.";
+    if (!signatures.ass_tst) return "Registre a assinatura do Tecnico de Seguranca.";
     if (!signatures.ass_gestor) return "Registre a assinatura do Gestor.";
     if (!signatures.ass_acomp) return "Registre a assinatura do Acompanhante.";
 
@@ -379,11 +529,21 @@ const InvestigacaoAcidente2 = () => {
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
       const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
-      if (requiresEvidence && !response.comment.trim()) {
-        return `Preencha o comentário do item ${item.id} quando a resposta estiver fora do padrão.`;
+      const completedEvidenceCount = response.evidences.filter(
+        (evidence) => evidence.comment.trim().length > 0 && Boolean(evidence.photo),
+      ).length;
+      const invalidEvidenceIndex = response.evidences.findIndex((evidence) => {
+        const hasComment = evidence.comment.trim().length > 0;
+        const hasPhoto = Boolean(evidence.photo);
+        return (hasComment || hasPhoto) && !(hasComment && hasPhoto);
+      });
+
+      if (requiresEvidence && completedEvidenceCount === 0) {
+        return `Adicione pelo menos uma foto com comentario no item ${item.numero} quando a resposta estiver fora do padrao.`;
       }
-      if (requiresEvidence && !response.photo) {
-        return `Anexe a foto do item ${item.id} quando a resposta estiver fora do padrão.`;
+
+      if (invalidEvidenceIndex >= 0) {
+        return `Complete comentario e foto da evidencia ${invalidEvidenceIndex + 1} do item ${item.numero}.`;
       }
     }
 
@@ -396,7 +556,7 @@ const InvestigacaoAcidente2 = () => {
     const validationError = validateForm();
     if (validationError) {
       toast({
-        title: "Formulário incompleto",
+        title: "Formulario incompleto",
         description: validationError,
         variant: "destructive",
       });
@@ -406,32 +566,44 @@ const InvestigacaoAcidente2 = () => {
     setIsSaving(true);
 
     try {
-      const currentCounter = getCounterValue();
-      const nextCounter = currentCounter + 1;
-      localStorage.setItem(COUNTER_KEY, String(nextCounter));
-
       const rawStored = localStorage.getItem(STORAGE_KEY) || "[]";
       const parsed = JSON.parse(rawStored);
       const existingRecords = Array.isArray(parsed) ? parsed : [];
+      const fallbackNumber = Math.max(
+        getCounterValue(),
+        ...existingRecords.map((item: any) => Number(item?.numero_inspecao) || 0),
+      ) + 1;
 
       const serializedRespostas = await Promise.all(
         QUESTION_ITEMS.map(async (item) => {
           const current = responses[item.id];
-          const fotoDataUrl = current.photo ? await buildImagePreviewDataUrl(current.photo) : "";
+          const evidencias = await Promise.all(
+            current.evidences.map(async (evidence) => ({
+              id: evidence.id,
+              comentario: evidence.comment.trim(),
+              foto: evidence.photo
+                ? {
+                    name: evidence.photo.name,
+                    size: evidence.photo.size,
+                    type: evidence.photo.type,
+                    data_url: await buildImagePreviewDataUrl(evidence.photo),
+                  }
+                : null,
+            })),
+          );
+          const validEvidencias = evidencias.filter(
+            (evidence) => evidence.comentario.trim().length > 0 && Boolean(evidence.foto),
+          );
+          const firstEvidence = validEvidencias[0] || null;
+
           return {
             codigo: item.id,
             numero: item.numero,
             pergunta: item.texto,
             resposta: current.answer,
-            comentario: current.comment.trim(),
-            foto: current.photo
-              ? {
-                  name: current.photo.name,
-                  size: current.photo.size,
-                  type: current.photo.type,
-                  data_url: fotoDataUrl,
-                }
-              : null,
+            comentario: firstEvidence?.comentario || "",
+            foto: firstEvidence?.foto || null,
+            evidencias: validEvidencias,
           };
         }),
       );
@@ -445,12 +617,44 @@ const InvestigacaoAcidente2 = () => {
         })),
       );
 
+      const payloadId =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+
+      let finalInspectionNumber = fallbackNumber;
+
+      try {
+        const savedRule = await goldenRuleService.upsertFromLegacy({
+          id: payloadId,
+          titulo: titulo.trim(),
+          setor,
+          gestor,
+          tecnico_seg: tecnicoSeg,
+          acompanhante,
+          ass_tst: signatures.ass_tst || "",
+          ass_gestor: signatures.ass_gestor || "",
+          ass_acomp: signatures.ass_acomp || "",
+          created_at: new Date().toISOString(),
+          responses: serializedRespostas,
+          attachments: serializedAnexos,
+        });
+
+        finalInspectionNumber = Number((savedRule as any)?.numero_inspecao) || finalInspectionNumber;
+      } catch (error) {
+        if (!isMissingGoldenRulesTableError(error)) {
+          throw error;
+        }
+        console.warn(
+          "[InvestigacaoAcidente2] Tabela golden_rules indisponivel. Salvando apenas no armazenamento local.",
+        );
+      }
+
+      localStorage.setItem(COUNTER_KEY, String(finalInspectionNumber));
+
       const payload: InvestigacaoChecklistRecord = {
-        id:
-          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `${Date.now()}`,
-        numero_inspecao: nextCounter,
+        id: payloadId,
+        numero_inspecao: finalInspectionNumber,
         created_at: new Date().toISOString(),
         titulo: titulo.trim(),
         setor,
@@ -464,37 +668,13 @@ const InvestigacaoAcidente2 = () => {
         anexos: serializedAnexos,
       };
 
-      try {
-        await goldenRuleService.upsertFromLegacy({
-          id: payload.id,
-          numero_inspecao: payload.numero_inspecao,
-          titulo: payload.titulo,
-          setor: payload.setor,
-          gestor: payload.gestor,
-          tecnico_seg: payload.tecnico_seg,
-          acompanhante: payload.acompanhante,
-          ass_tst: payload.ass_tst,
-          ass_gestor: payload.ass_gestor,
-          ass_acomp: payload.ass_acomp,
-          created_at: payload.created_at,
-          responses: payload.respostas,
-          attachments: payload.anexos,
-        });
-      } catch (error) {
-        if (!isMissingGoldenRulesTableError(error)) {
-          throw error;
-        }
-        console.warn(
-          "[InvestigacaoAcidente2] Tabela golden_rules indisponível. Salvando apenas no armazenamento local.",
-        );
-      }
-
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([payload, ...existingRecords]));
+      const updatedRecords = [payload, ...existingRecords.filter((item: any) => item?.id !== payloadId)];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
       window.dispatchEvent(new Event(STORAGE_EVENT));
 
       toast({
         title: "Regra de Ouro registrada",
-        description: `Registro ${formatInspectionNumber(nextCounter)} salvo com sucesso.`,
+        description: `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo com sucesso.`,
       });
 
       setTitulo("");
@@ -505,8 +685,8 @@ const InvestigacaoAcidente2 = () => {
       setResponses(createInitialResponses());
       setSignatures(createInitialSignatures());
       setAttachments([]);
-      setPreviewNumber(nextCounter + 1);
-      setSubmittedInspectionNumber(nextCounter);
+      setPreviewNumber(finalInspectionNumber + 1);
+      setSubmittedInspectionNumber(finalInspectionNumber);
       setSubmissionSuccess(true);
       setTimeout(() => {
         setSubmissionSuccess(false);
@@ -517,14 +697,13 @@ const InvestigacaoAcidente2 = () => {
       console.error("Erro ao salvar regra de ouro:", error);
       toast({
         title: "Erro ao salvar",
-        description: "Não foi possível concluir o envio.",
+        description: "Nao foi possivel concluir o envio.",
         variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
   };
-
   const signatureTargetLabel = signatureDialog ? SIGNATURE_LABELS[signatureDialog] : "";
 
   return (
@@ -588,68 +767,38 @@ const InvestigacaoAcidente2 = () => {
 
             <div className="space-y-2">
               <Label>Setor *</Label>
-              <Select value={setor || undefined} onValueChange={setSetor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar o setor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {setorOptions.length === 0 ? (
-                    <SelectItem value="__sem_setor" disabled>
-                      Nenhum setor encontrado
-                    </SelectItem>
-                  ) : (
-                    setorOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableStringSelect
+                value={setor}
+                onValueChange={setSetor}
+                options={setorOptions}
+                placeholder="Selecionar o setor"
+                searchPlaceholder="Buscar setor..."
+                emptyText="Nenhum setor encontrado."
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Gestor *</Label>
-              <Select value={gestor || undefined} onValueChange={setGestor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar o Gestor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {liderOptions.length === 0 ? (
-                    <SelectItem value="__sem_gestor" disabled>
-                      Nenhum gestor encontrado
-                    </SelectItem>
-                  ) : (
-                    liderOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableStringSelect
+                value={gestor}
+                onValueChange={setGestor}
+                options={liderOptions}
+                placeholder="Selecionar o Gestor"
+                searchPlaceholder="Buscar gestor..."
+                emptyText="Nenhum gestor encontrado."
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Técnico / Investigador *</Label>
-              <Select value={tecnicoSeg || undefined} onValueChange={setTecnicoSeg}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar o Técnico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tecnicoInvestigadorOptions.length === 0 ? (
-                    <SelectItem value="__sem_tecnico" disabled>
-                      Nenhum técnico encontrado
-                    </SelectItem>
-                  ) : (
-                    tecnicoInvestigadorOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableStringSelect
+                value={tecnicoSeg}
+                onValueChange={setTecnicoSeg}
+                options={tecnicoInvestigadorOptions}
+                placeholder="Selecionar o Técnico"
+                searchPlaceholder="Buscar técnico..."
+                emptyText="Nenhum técnico encontrado."
+              />
               <p className="text-xs text-gray-500">
                 Técnicos/Investigadores de Segurança: CELSO PEREIRA, ODAIR NASCIMENTO e JOÃO PAULO.
               </p>
@@ -657,24 +806,14 @@ const InvestigacaoAcidente2 = () => {
 
             <div className="space-y-2">
               <Label>Acomp. *</Label>
-              <Select value={acompanhante || undefined} onValueChange={setAcompanhante}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar o acompanhante" />
-                </SelectTrigger>
-                <SelectContent>
-                  {acompanhanteOptions.length === 0 ? (
-                    <SelectItem value="__sem_acomp" disabled>
-                      Nenhum acompanhante encontrado
-                    </SelectItem>
-                  ) : (
-                    acompanhanteOptions.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableStringSelect
+                value={acompanhante}
+                onValueChange={setAcompanhante}
+                options={acompanhanteOptions}
+                placeholder="Selecionar o acompanhante"
+                searchPlaceholder="Buscar operador/usuario..."
+                emptyText="Nenhum acompanhante encontrado."
+              />
             </div>
           </CardContent>
         </Card>
@@ -690,26 +829,29 @@ const InvestigacaoAcidente2 = () => {
             {QUESTION_ITEMS.map((item) => {
               const response = responses[item.id];
               const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
-              const showExtra =
-                requiresEvidence ||
-                response.comment.trim().length > 0 ||
-                Boolean(response.photo);
+              const showExtra = requiresEvidence || response.evidences.length > 0;
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
-                  <div className="grid items-center gap-3 p-4 lg:grid-cols-[74px_1fr_220px]">
+                  <div className="grid items-center gap-3 p-4 lg:grid-cols-[74px_1fr_260px]">
                     <div className="text-center">
                       <div className="text-3xl font-bold leading-none text-black sm:text-4xl">{item.numero}</div>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <p className="text-base font-medium text-blue-950">{item.texto}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addEvidence(item.id)}
+                      >
+                        Adicionar foto/comentario
+                      </Button>
                     </div>
 
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <span
-                        className={cn("text-lg font-bold", getAnswerTone(response.answer))}
-                      >
+                      <span className={cn("text-lg font-bold", getAnswerTone(response.answer))}>
                         {response.answer.toUpperCase()}
                       </span>
                       <div className="grid w-full grid-cols-3 gap-2">
@@ -720,14 +862,7 @@ const InvestigacaoAcidente2 = () => {
                             variant={response.answer === answerOption ? "default" : "outline"}
                             size="sm"
                             className="w-full"
-                            onClick={() =>
-                              updateQuestion(
-                                item.id,
-                                answerOption === "N/A"
-                                  ? { answer: answerOption, comment: "", photo: null }
-                                  : { answer: answerOption },
-                              )
-                            }
+                            onClick={() => updateAnswer(item.id, answerOption)}
                           >
                             {answerOption}
                           </Button>
@@ -737,34 +872,64 @@ const InvestigacaoAcidente2 = () => {
                   </div>
 
                   {showExtra && (
-                    <div className="grid gap-3 border-t border-blue-100 px-4 pb-4 pt-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor={`comentario-${item.id}`}>Comentários {item.numero}</Label>
-                        <Textarea
-                          id={`comentario-${item.id}`}
-                          value={response.comment}
-                          onChange={(event) => updateQuestion(item.id, { comment: event.target.value })}
-                          placeholder={`Comentários ${item.numero}`}
-                          rows={3}
-                        />
-                      </div>
+                    <div className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
+                      {response.evidences.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                          Nenhuma evidencia adicionada para este item.
+                        </p>
+                      ) : (
+                        response.evidences.map((evidence, index) => (
+                          <div
+                            key={evidence.id}
+                            className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2"
+                          >
+                            <div className="space-y-2">
+                              <Label htmlFor={`comentario-${item.id}-${evidence.id}`}>
+                                Comentario {item.numero}.{index + 1}
+                              </Label>
+                              <Textarea
+                                id={`comentario-${item.id}-${evidence.id}`}
+                                value={evidence.comment}
+                                onChange={(event) =>
+                                  updateEvidence(item.id, evidence.id, { comment: event.target.value })
+                                }
+                                placeholder={`Comentario da evidencia ${index + 1}`}
+                                rows={3}
+                              />
+                            </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor={`foto-${item.id}`}>Foto {item.numero}</Label>
-                        <Input
-                          id={`foto-${item.id}`}
-                          type="file"
-                          accept="image/*"
-                          onChange={(event) =>
-                            updateQuestion(item.id, {
-                              photo: event.target.files?.[0] || null,
-                            })
-                          }
-                        />
-                        {response.photo && (
-                          <p className="text-xs text-gray-500">Arquivo: {response.photo.name}</p>
-                        )}
-                      </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <Label htmlFor={`foto-${item.id}-${evidence.id}`}>
+                                  Foto {item.numero}.{index + 1}
+                                </Label>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700"
+                                  onClick={() => removeEvidence(item.id, evidence.id)}
+                                >
+                                  Remover
+                                </Button>
+                              </div>
+                              <Input
+                                id={`foto-${item.id}-${evidence.id}`}
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) =>
+                                  updateEvidence(item.id, evidence.id, {
+                                    photo: event.target.files?.[0] || null,
+                                  })
+                                }
+                              />
+                              {evidence.photo && (
+                                <p className="text-xs text-gray-500">Arquivo: {evidence.photo.name}</p>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -864,3 +1029,16 @@ const InvestigacaoAcidente2 = () => {
 };
 
 export default InvestigacaoAcidente2;
+
+
+
+
+
+
+
+
+
+
+
+
+

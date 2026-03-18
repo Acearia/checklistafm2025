@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+﻿import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 // Types
@@ -62,7 +62,7 @@ export interface GoldenRuleRecordPayload {
     codigo: string;
     numero: string;
     pergunta: string;
-    resposta: "Sim" | "Não" | "Nao";
+    resposta: "Sim" | "NÃ£o" | "Nao" | "N/A";
     comentario?: string;
     foto?: {
       name?: string;
@@ -70,6 +70,15 @@ export interface GoldenRuleRecordPayload {
       type?: string;
       data_url?: string;
     } | null;
+    evidencias?: Array<{
+      comentario?: string;
+      foto?: {
+        name?: string;
+        size?: number;
+        type?: string;
+        data_url?: string;
+      } | null;
+    }>;
   }>;
   attachments: Array<{
     name?: string;
@@ -120,16 +129,22 @@ const notifyInspectionEmail = async (inspectionId: string) => {
     });
 
     if (error) {
-      console.error("[inspectionService] Falha ao enviar e-mail de inspeção:", error);
+      console.error("[inspectionService] Falha ao enviar e-mail de inspeÃ§Ã£o:", error);
     }
   } catch (error) {
-    console.error("[inspectionService] Erro ao acionar função de e-mail:", error);
+    console.error("[inspectionService] Erro ao acionar funÃ§Ã£o de e-mail:", error);
   }
 };
 
 const relationMissingError = (error: unknown, relationName: string) => {
   const message = String((error as any)?.message || "").toLowerCase();
   return message.includes("does not exist") && message.includes(relationName.toLowerCase());
+};
+
+const isUniqueViolationError = (error: unknown) => {
+  const code = String((error as any)?.code || "").toLowerCase();
+  const message = String((error as any)?.message || "").toLowerCase();
+  return code === "23505" || message.includes("duplicate key") || message.includes("unique constraint");
 };
 
 const toNullableDate = (value?: string | null) => {
@@ -174,7 +189,7 @@ export const operatorService = {
     if (error) {
       if (isMissingSenhaColumnError(error)) {
         console.warn(
-          "[operatorService.create] Coluna 'senha' não encontrada. Inserindo sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
+          "[operatorService.create] Coluna 'senha' nÃ£o encontrada. Inserindo sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
         );
         const { senha, ...fallbackPayload } = payload;
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -209,7 +224,7 @@ export const operatorService = {
     if (error) {
       if (isMissingSenhaColumnError(error)) {
         console.warn(
-          "[operatorService.update] Coluna 'senha' não encontrada. Atualizando sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
+          "[operatorService.update] Coluna 'senha' nÃ£o encontrada. Atualizando sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
         );
         const { senha, ...fallbackPayload } = payload;
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -617,6 +632,59 @@ export const equipmentGroupService = {
 };
 
 export const goldenRuleService = {
+  async getNextInspectionNumber() {
+    const { data, error } = await supabase
+      .from("golden_rules")
+      .select("numero_inspecao")
+      .order("numero_inspecao", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (relationMissingError(error, "golden_rules")) return 1;
+      throw error;
+    }
+
+    return (Number(data?.numero_inspecao) || 0) + 1;
+  },
+
+  async appendResponseEvidences(responseIds: string[], rows: any[]) {
+    if (responseIds.length === 0) return rows;
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from("golden_rule_response_evidences")
+        .select("*")
+        .in("response_id", responseIds)
+        .order("order_index", { ascending: true });
+
+      if (error) {
+        if (relationMissingError(error, "golden_rule_response_evidences")) return rows;
+        throw error;
+      }
+
+      const grouped = new Map<string, any[]>();
+      (data || []).forEach((item: any) => {
+        const current = grouped.get(item.response_id) || [];
+        current.push(item);
+        grouped.set(item.response_id, current);
+      });
+
+      return rows.map((row: any) => ({
+        ...row,
+        responses: Array.isArray(row.responses)
+          ? row.responses.map((response: any) => ({
+              ...response,
+              evidences: grouped.get(response.id) || [],
+            }))
+          : [],
+      }));
+    } catch (error) {
+      if (relationMissingError(error, "golden_rule_response_evidences")) return rows;
+      throw error;
+    }
+  },
+
   async getAll() {
     const { data, error } = await supabase
       .from("golden_rules")
@@ -628,7 +696,13 @@ export const goldenRuleService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+    const responseIds = rows.flatMap((rule: any) =>
+      Array.isArray(rule.responses)
+        ? rule.responses.map((response: any) => response?.id).filter(Boolean)
+        : [],
+    );
+    return this.appendResponseEvidences(responseIds, rows);
   },
 
   async getById(id: string) {
@@ -643,31 +717,55 @@ export const goldenRuleService = {
       .maybeSingle();
 
     if (error) throw error;
-    return data;
+    if (!data) return data;
+
+    const responseIds = Array.isArray((data as any).responses)
+      ? (data as any).responses.map((response: any) => response?.id).filter(Boolean)
+      : [];
+
+    const [hydrated] = await this.appendResponseEvidences(responseIds, [data as any]);
+    return hydrated;
   },
 
   async upsertFromLegacy(payload: GoldenRuleRecordPayload) {
-    const ruleInsert: GoldenRuleInsert = {
-      id: payload.id,
-      numero_inspecao: payload.numero_inspecao,
-      titulo: payload.titulo,
-      setor: payload.setor,
-      gestor: payload.gestor,
-      tecnico_seg: payload.tecnico_seg,
-      acompanhante: payload.acompanhante,
-      ass_tst: payload.ass_tst ?? null,
-      ass_gestor: payload.ass_gestor ?? null,
-      ass_acomp: payload.ass_acomp ?? null,
-      created_at: payload.created_at,
-    };
+    let savedRule: any = null;
+    let lastError: unknown = null;
 
-    const { data: savedRule, error: upsertError } = await supabase
-      .from("golden_rules")
-      .upsert(ruleInsert)
-      .select()
-      .single();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const ruleInsert: GoldenRuleInsert = {
+        id: payload.id,
+        ...(payload.numero_inspecao ? { numero_inspecao: payload.numero_inspecao } : {}),
+        titulo: payload.titulo,
+        setor: payload.setor,
+        gestor: payload.gestor,
+        tecnico_seg: payload.tecnico_seg,
+        acompanhante: payload.acompanhante,
+        ass_tst: payload.ass_tst ?? null,
+        ass_gestor: payload.ass_gestor ?? null,
+        ass_acomp: payload.ass_acomp ?? null,
+        created_at: payload.created_at,
+      };
 
-    if (upsertError) throw upsertError;
+      const { data, error } = await supabase
+        .from("golden_rules")
+        .upsert(ruleInsert, { onConflict: "id" })
+        .select()
+        .single();
+
+      if (!error) {
+        savedRule = data;
+        break;
+      }
+
+      lastError = error;
+      if (!payload.numero_inspecao || !isUniqueViolationError(error)) {
+        throw error;
+      }
+
+      payload.numero_inspecao += 1;
+    }
+
+    if (!savedRule) throw lastError;
 
     const { error: deleteResponsesError } = await supabase
       .from("golden_rule_responses")
@@ -682,17 +780,56 @@ export const goldenRuleService = {
         numero: item.numero,
         pergunta: item.pergunta,
         resposta: item.resposta === "Nao" ? "Não" : item.resposta,
-        comentario: item.comentario || null,
-        foto_name: item.foto?.name || null,
-        foto_size: Number(item.foto?.size || 0) || null,
-        foto_type: item.foto?.type || null,
-        foto_data_url: item.foto?.data_url || null,
+        comentario: item.comentario || item.evidencias?.[0]?.comentario || null,
+        foto_name: item.foto?.name || item.evidencias?.[0]?.foto?.name || null,
+        foto_size: Number(item.foto?.size || item.evidencias?.[0]?.foto?.size || 0) || null,
+        foto_type: item.foto?.type || item.evidencias?.[0]?.foto?.type || null,
+        foto_data_url: item.foto?.data_url || item.evidencias?.[0]?.foto?.data_url || null,
       }));
 
-      const { error: insertResponsesError } = await supabase
+      const { data: insertedResponses, error: insertResponsesError } = await supabase
         .from("golden_rule_responses")
-        .insert(responseRows);
+        .insert(responseRows)
+        .select("id, codigo");
       if (insertResponsesError) throw insertResponsesError;
+
+      try {
+        const responseIds = (insertedResponses || []).map((response: any) => response.id);
+        if (responseIds.length > 0) {
+          await (supabase as any)
+            .from("golden_rule_response_evidences")
+            .delete()
+            .in("response_id", responseIds);
+        }
+
+        const evidenceRows = (insertedResponses || []).flatMap((response: any) => {
+          const source = payload.responses.find((item) => item.codigo === response.codigo);
+          return (source?.evidencias || [])
+            .filter((evidence) => evidence?.comentario?.trim() || evidence?.foto?.data_url)
+            .map((evidence, index) => ({
+              response_id: response.id,
+              order_index: index,
+              comentario: evidence.comentario?.trim() || null,
+              foto_name: evidence.foto?.name || null,
+              foto_size: Number(evidence.foto?.size || 0) || null,
+              foto_type: evidence.foto?.type || null,
+              foto_data_url: evidence.foto?.data_url || null,
+            }));
+        });
+
+        if (evidenceRows.length > 0) {
+          const { error: evidenceInsertError } = await (supabase as any)
+            .from("golden_rule_response_evidences")
+            .insert(evidenceRows);
+          if (evidenceInsertError && !relationMissingError(evidenceInsertError, "golden_rule_response_evidences")) {
+            throw evidenceInsertError;
+          }
+        }
+      } catch (error) {
+        if (!relationMissingError(error, "golden_rule_response_evidences")) {
+          throw error;
+        }
+      }
     }
 
     const { error: deleteAttachmentsError } = await supabase
@@ -736,7 +873,6 @@ export const goldenRuleService = {
     }
   },
 };
-
 export const accidentActionPlanService = {
   async getAll() {
     const { data, error } = await supabase
@@ -888,3 +1024,4 @@ export const migrationService = {
     }
   }
 };
+

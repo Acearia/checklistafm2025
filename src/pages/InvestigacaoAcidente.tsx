@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -30,6 +30,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import SearchableStringSelect, {
+  type SearchableStringOption,
+} from "@/components/ui/searchable-string-select";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import {
@@ -94,173 +97,173 @@ const CUSTOM_CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-custom";
 
 const DEFAULT_AGENTES_CAUSADORES = `
 ATO INSEGURO
-AÇÕES
-USAR EQUIPAMENTO DE MANEIRA IMPRÓPRIA
+AÃ‡Ã•ES
+USAR EQUIPAMENTO DE MANEIRA IMPRÃ“PRIA
 Usar Material ou Equipamento Fora de Sua Finalidade
-Sobrecarregar (AndaiMe, Veículo)
-Usar Equipamento de Maneira Imprópria
-NIC, Usar Equipamento de Maneira Imprópria
+Sobrecarregar (AndaiMe, VeÃ­culo)
+Usar Equipamento de Maneira ImprÃ³pria
+NIC, Usar Equipamento de Maneira ImprÃ³pria
 USAR EQUIPAMENTO INSEGURO
-TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÇA
-Desligar ou Remover Dispositivo de Segurança
-Bloquear, Tampar, Amarrar, Dispositivo de Segurança
-Desregular Dispositivo de Segurança
-Substituir Dispositivo de Segurança por Outro
-NIC, Tornar Inoperante ou Ineficiente Dispositivo Segurança
-USAR MÃO OU PARTE DO CORPO IMPROPRIAMENTE
+TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÃ‡A
+Desligar ou Remover Dispositivo de SeguranÃ§a
+Bloquear, Tampar, Amarrar, Dispositivo de SeguranÃ§a
+Desregular Dispositivo de SeguranÃ§a
+Substituir Dispositivo de SeguranÃ§a por Outro
+NIC, Tornar Inoperante ou Ineficiente Dispositivo SeguranÃ§a
+USAR MÃƒO OU PARTE DO CORPO IMPROPRIAMENTE
 Manusear Objeto de Maneira Insegura
 Manusear Objeto de Maneira Errada
-Usar Mão em Vez de Ferramenta
-NIC, Usar Mão ou Outra Parte do Corpo Impropriamente
-ASSUMIR POSIÇÃO OU POSTURA INSEGURA
+Usar MÃ£o em Vez de Ferramenta
+NIC, Usar MÃ£o ou Outra Parte do Corpo Impropriamente
+ASSUMIR POSIÃ‡ÃƒO OU POSTURA INSEGURA
 Entrar em Tanque, Silo ou Outro Compartimento Confinado
 Expor-se Desnecessariamente ao Alcance de Objeto ou
-Expor-se Desnecessariamente, à Carga Suspensa ou Oscilante
-Movimentar Carga de Maneira Imprópria
-Transportar em Posição Insegura
-NIC, Assumir Posição ou Postura Insegura
+Expor-se Desnecessariamente, Ã  Carga Suspensa ou Oscilante
+Movimentar Carga de Maneira ImprÃ³pria
+Transportar em PosiÃ§Ã£o Insegura
+NIC, Assumir PosiÃ§Ã£o ou Postura Insegura
 TRABALHAR OU OPERAR EM VELOCIDADE INSEGURA
 Correr
 Operar com Velocidade Insegura
 Abastecer Depressa Demais
-Saltar de Ponto Elevado de Veículo, de Plataforma
-Jogar Objeto em Vez de Carregá-lo ou Passá-lo
+Saltar de Ponto Elevado de VeÃ­culo, de Plataforma
+Jogar Objeto em Vez de CarregÃ¡-lo ou PassÃ¡-lo
 NIC, Trabalhar ou Operar em Velocidade Insegura
 LIMPAR, LUBRIFICAR, REGULAR OU CONSERTAR EQUIPAMENTO EM
 Limpar, Lubrificar ou Regular Equipamento em Movimento
-Trabalhar em Equipamento Elétrico Energizado
-Calefatar ou Vedar Equipamento Sob Pressão
+Trabalhar em Equipamento ElÃ©trico Energizado
+Calefatar ou Vedar Equipamento Sob PressÃ£o
 Soldar, Consertar Tanque, Recipiente ou Equipamento Sem
 NIC, Limpar, Lubrificar, Regular ou Consertar Equipamento
 COLOCAR, MISTURAR DE MANEIRA INSEGURA
 Colocar Material, Ferramenta, Sucata, de Maneira Insegura
-Colocar de Maneira Insegura Veículo ou Equipamento
-Misturar ou Injetar Substância de Modo a Criar Risco de
+Colocar de Maneira Insegura VeÃ­culo ou Equipamento
+Misturar ou Injetar SubstÃ¢ncia de Modo a Criar Risco de
 NIC, Colocar, Misturar, de Maneira Insegura
-FAZER BRINCADEIRA OU EXIBIÇÃO
+FAZER BRINCADEIRA OU EXIBIÃ‡ÃƒO
 AGREDIR PESSOAS
 DIRIGIR INCORRETAMENTE
 Dirigir em Velocidade Inadequada (Alta ou Baixa)
-Não Manter Distância
+NÃ£o Manter DistÃ¢ncia
 Ultrapassar Ilegalmente
-Entrar ou Sair de Veículo do Lado do Trânsito
-Desrespeitar a Sinalização de Trânsito
+Entrar ou Sair de VeÃ­culo do Lado do TrÃ¢nsito
+Desrespeitar a SinalizaÃ§Ã£o de TrÃ¢nsito
 Desrespeitar Regras Preferenciais
-Não Sinalizar Para Parar, Dobrar ou Dar Marcha Ré
+NÃ£o Sinalizar Para Parar, Dobrar ou Dar Marcha RÃ©
 Dobrar Irregularmente
 NIC, Dirigir Incorretamente
-OMISSÕES
+OMISSÃ•ES
 DEIXAR DE USAR VESTIMENTA SEGURA
-DEIXAR DE USAR EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL DISPONÍVEL
-Óculos
+DEIXAR DE USAR EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL DISPONÃVEL
+Ã“culos
 Luvas
-Máscara
+MÃ¡scara
 Capacete
-Calçado
+CalÃ§ado
 Avental
-Cinto de Segurança
+Cinto de SeguranÃ§a
 Protetor Auditivo
-NIC, Deixar de Usar o Equipamento de Proteção Individual
+NIC, Deixar de Usar o Equipamento de ProteÃ§Ã£o Individual
 DEIXAR DE PRENDER, DESLIGAR OU DE SINALIZAR
-Deixar de Desligar Equipamento que Não Esteja Sendo Usado
-Deixar de Trancar, Bloquear ou Prender Veículo,
-Deixar de Colocar Cartaz, Aviso, Etiqueta de Advertência
+Deixar de Desligar Equipamento que NÃ£o Esteja Sendo Usado
+Deixar de Trancar, Bloquear ou Prender VeÃ­culo,
+Deixar de Colocar Cartaz, Aviso, Etiqueta de AdvertÃªncia
 Deixar de Sinalizar ao Soltar ou Movimentar Carga
 Deixar de Sinalizar ao Dar Partida ou Parar
 NIC, Deixar de Prender, de Desligar ou de Sinalizar
-DEIXAR DE VERIFICAR A AUSÊNCIA DE TENSÃO EM EQUIP. ELÉTRICO
+DEIXAR DE VERIFICAR A AUSÃŠNCIA DE TENSÃƒO EM EQUIP. ELÃ‰TRICO
 DEIXAR DE ATERRAR
-DESCUIDAR-SE NA OBSERVAÇÃO DO AMBIENTE
+DESCUIDAR-SE NA OBSERVAÃ‡ÃƒO DO AMBIENTE
 NIC, ATO INSEGURO
 ATO INSEGURO INEXISTENTE
-CONDIÇÃO INSEGURA
+CONDIÃ‡ÃƒO INSEGURA
 RISCO RELATIVO AO AMBIENTE
-PROBLEMAS COM ESPAÇO E CIRCULAÇÃO
-Insuficiência de Espaço Para o Trabalho
-Insuficiência de Espaço p/ Movimentação de Objetos e Pessoas
-Passagem e Saída Inadequada por Motivos Outros que não a
-Controle Inadequado de Trânsito
-NIC, Problemas de Espaço e Circulação
-EXISTÊNCIA DE RUÍDO
-EXISTÊNCIA DE VIBRAÇÃO
-ILUMINAÇÃO INADEQUADA
+PROBLEMAS COM ESPAÃ‡O E CIRCULAÃ‡ÃƒO
+InsuficiÃªncia de EspaÃ§o Para o Trabalho
+InsuficiÃªncia de EspaÃ§o p/ MovimentaÃ§Ã£o de Objetos e Pessoas
+Passagem e SaÃ­da Inadequada por Motivos Outros que nÃ£o a
+Controle Inadequado de TrÃ¢nsito
+NIC, Problemas de EspaÃ§o e CirculaÃ§Ã£o
+EXISTÃŠNCIA DE RUÃDO
+EXISTÃŠNCIA DE VIBRAÃ‡ÃƒO
+ILUMINAÃ‡ÃƒO INADEQUADA
 ORDEM E LIMPEZA INADEQUADA
 NIC, Risco Relativo ao Ambiente
 DEFEITO DE AGENTE
 MAL PROJETADO
-MAL CONSTITUÍDO, CONSTRUÍDO OU MONTADO
-CONSTITUÍDO POR MATERIAL INADEQUADO
-ÁSPERO
+MAL CONSTITUÃDO, CONSTRUÃDO OU MONTADO
+CONSTITUÃDO POR MATERIAL INADEQUADO
+ÃSPERO
 ESCORREGADIO
-NÃO AFIADO
+NÃƒO AFIADO
 PONTIAGUDO, CORTANTE
-GASTO, RACHADO, ESGARÇADO, QUEBRADO
+GASTO, RACHADO, ESGARÃ‡ADO, QUEBRADO
 NIC, Defeito do Agente
-COLOCAÇÃO PERIGOSA
-POSIÇÃO INADEQUADA
+COLOCAÃ‡ÃƒO PERIGOSA
+POSIÃ‡ÃƒO INADEQUADA
 EMPILHAMENTO INADEQUADO
-MÁ FIXAÇÃO CONTRA MOVIMENTO INDESEJÁVEL
-NIC, Colocação Perigosa
-PROTEÇÃO COLETIVA INADEQUADA OU INEXISTENTE
-SEM PROTEÇÃO (EXCETUADOS OS RISCOS ELÉTRICOS E DE RADIAÇÃO)
-COM PROTEÇÃO INADEQUADA
+MÃ FIXAÃ‡ÃƒO CONTRA MOVIMENTO INDESEJÃVEL
+NIC, ColocaÃ§Ã£o Perigosa
+PROTEÃ‡ÃƒO COLETIVA INADEQUADA OU INEXISTENTE
+SEM PROTEÃ‡ÃƒO (EXCETUADOS OS RISCOS ELÃ‰TRICOS E DE RADIAÃ‡ÃƒO)
+COM PROTEÃ‡ÃƒO INADEQUADA
 FALTA DE ESCORAMENTO OU ESCORAMENTO INADEQUADO EM
-NÃO ELETRICAMENTE ATERRADO
-NÃO ELÉTRICAMENTE ISOLADO
-CONEXÃO ELÉTRICA, CHAVES ELÉTRICAS DESCOBERTAS
-EQUIPAMENTO ELÉTRICO SEM IDENTIFICAÇÃO OU
-SEM BLINDAGEM PARA RADIAÇÃO
-COM BLINDAGEM INADEQUADA PARA RADIAÇÃO
-MATERIAL RADIOATIVO SEM IDENTIFICAÇÃO OU
-NIC, Proteção Coletiva Inadequada ou Inexistente
-MÉTODO OU PROCEDIMENTO ARRISCADO
+NÃƒO ELETRICAMENTE ATERRADO
+NÃƒO ELÃ‰TRICAMENTE ISOLADO
+CONEXÃƒO ELÃ‰TRICA, CHAVES ELÃ‰TRICAS DESCOBERTAS
+EQUIPAMENTO ELÃ‰TRICO SEM IDENTIFICAÃ‡ÃƒO OU
+SEM BLINDAGEM PARA RADIAÃ‡ÃƒO
+COM BLINDAGEM INADEQUADA PARA RADIAÃ‡ÃƒO
+MATERIAL RADIOATIVO SEM IDENTIFICAÃ‡ÃƒO OU
+NIC, ProteÃ§Ã£o Coletiva Inadequada ou Inexistente
+MÃ‰TODO OU PROCEDIMENTO ARRISCADO
 USO DE MATERIAL OU EQUIPAMENTO POTENCIALMENTE PERIGOSO
-EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÓPRIO
-EMPREGO DE MÉTODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
-ESCOLHA IMPRÓPRIA DE PESSOAL
+EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÃ“PRIO
+EMPREGO DE MÃ‰TODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
+ESCOLHA IMPRÃ“PRIA DE PESSOAL
 AJUDA INADEQUADA EM CASO DE LEVANTAMENTO DE OBJETO PESADO
-NIC, Método ou Procedimento Arriscado
-RISCO RELATIVO AO VESTIÁRIO OU EQUIP. PROTEÇÃO INDIVIDUAL
-FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL
-VESTUÁRIO IMPRÓPRIO OU INADEQUADO
-NIC, Risco Relativo ao Vestiário ou EPI
+NIC, MÃ©todo ou Procedimento Arriscado
+RISCO RELATIVO AO VESTIÃRIO OU EQUIP. PROTEÃ‡ÃƒO INDIVIDUAL
+FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL
+VESTUÃRIO IMPRÃ“PRIO OU INADEQUADO
+NIC, Risco Relativo ao VestiÃ¡rio ou EPI
 RISCO INERENTE A AMBIENTE DE TRABALHO EXTERNO
-RISCO INERENTE A DEPENDÊNCIAS INSEGURAS DE TERCEIROS
+RISCO INERENTE A DEPENDÃŠNCIAS INSEGURAS DE TERCEIROS
 RISCO INERENTE A MATERIAL OU EQUIP. INSEGURO DE TERCEIROS
 OUTROS RISCOS RELACIONADOS COM A PROPRIEDADE OU
 RISCO DE NATUREZA
 NIC, Risco Inerente a Ambiente de Trabalho Externo
-RISCO RELACIONADO COM AMBIENTE PÚBLICO
-RISCO RELACIONADO COM O TRANSPORTE PÚBLICO
-RISCO RELACIONADO COM O TRÂNSITO
-NIC, Risco Relacionado com Ambiente Público
-NIC, Condição Insegura
-CONDIÇÃO INSEGURA INEXISTENTE
-FATOR PESSOAL DE INSEGURANÇA
-FALTA DE CONHECIMENTO OU EXPERIÊNCIA
+RISCO RELACIONADO COM AMBIENTE PÃšBLICO
+RISCO RELACIONADO COM O TRANSPORTE PÃšBLICO
+RISCO RELACIONADO COM O TRÃ‚NSITO
+NIC, Risco Relacionado com Ambiente PÃºblico
+NIC, CondiÃ§Ã£o Insegura
+CONDIÃ‡ÃƒO INSEGURA INEXISTENTE
+FATOR PESSOAL DE INSEGURANÃ‡A
+FALTA DE CONHECIMENTO OU EXPERIÃŠNCIA
 FALTA DE CONHECIMENTO
-FALTA DE EXPERIÊNCIA OU ESPECIALIZAÇÃO
-DESAJUSTAMENTO FÍSICO
+FALTA DE EXPERIÃŠNCIA OU ESPECIALIZAÃ‡ÃƒO
+DESAJUSTAMENTO FÃSICO
 Deformidade
-Hérnia Preexistente
+HÃ©rnia Preexistente
 Debilidade Muscular
-Debilidade Esquelética
-Debilidade Orgânica
-Deficiência Visual
-Deficiência Auditiva
-Deficiência Olfativa
-Doença Degenerativa
-Insensibilidade Cutânea
+Debilidade EsquelÃ©tica
+Debilidade OrgÃ¢nica
+DeficiÃªncia Visual
+DeficiÃªncia Auditiva
+DeficiÃªncia Olfativa
+DoenÃ§a Degenerativa
+Insensibilidade CutÃ¢nea
 Fadiga
-NIC, Desajustamento Físico
+NIC, Desajustamento FÃ­sico
 DESAJUSTAMENTO EMOCIONAL OU MENTAL
 Alcoolismo e Toxicomania
 Agressividade
 Excitabilidade, Impulsividade
-Alienação Mental (Loucura)
-Distúrbio Emocional
-Distúrbio Cerebral, Ausência
-Deficiência Intelectual
+AlienaÃ§Ã£o Mental (Loucura)
+DistÃºrbio Emocional
+DistÃºrbio Cerebral, AusÃªncia
+DeficiÃªncia Intelectual
 NIC, Desajustamento Emocional ou Mental
 NIC, Fator Pessoal
 FATOR PESSOAL INEXISTENTE
@@ -366,11 +369,11 @@ const decodePotentialMojibake = (value: string) => {
 
   const fixReplacementChars = (input: string) =>
     input
-      .replace(/EXPEDI\uFFFD+\s*O/gi, "EXPEDIÇÃO")
-      .replace(/N\uFFFDO/gi, "NÃO")
+      .replace(/EXPEDI\uFFFD+\s*O/gi, "EXPEDIÃ‡ÃƒO")
+      .replace(/N\uFFFDO/gi, "NÃƒO")
       .replace(/\uFFFD+/g, "");
 
-  const hasMojibake = /[ÃÂ]/.test(value);
+  const hasMojibake = /[ÃƒÃ‚]/.test(value);
   const hasReplacement = /\uFFFD/.test(value);
   if (!hasMojibake && !hasReplacement) return value;
 
@@ -482,9 +485,9 @@ const formatDataResumo = (dateValue: string) => {
 };
 
 const formatTurnoResumo = (turno: string) => {
-  if (turno === "1o") return "1°";
-  if (turno === "2o") return "2°";
-  if (turno === "3o") return "3°";
+  if (turno === "1o") return "1Â°";
+  if (turno === "2o") return "2Â°";
+  if (turno === "3o") return "3Â°";
   if (turno === "Geral") return "Geral";
   return turno || "N/A";
 };
@@ -527,7 +530,11 @@ const getNextNumeroOcorrencia = (records: InvestigacaoAcidenteRecord[]) => {
 const InvestigacaoAcidente = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
+  const { sectors, operators, leaders, refresh } = useSupabaseData([
+    "sectors",
+    "operators",
+    "leaders",
+  ]);
   const [form, setForm] = useState<InvestigacaoAcidenteForm>(INITIAL_FORM);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -594,6 +601,65 @@ const InvestigacaoAcidente = () => {
       a.name.localeCompare(b.name, "pt-BR"),
     );
   }, [operators]);
+  const colaboradoresDisponiveis = useMemo(() => {
+    const uniqueByName = new Map<
+      string,
+      { name: string; matricula: string; cargo: string; setor: string; origem: string }
+    >();
+
+    operadoresDisponiveis.forEach((operator) => {
+      const key = operator.name.toLocaleLowerCase("pt-BR");
+      uniqueByName.set(key, {
+        ...operator,
+        origem: "Operador",
+      });
+    });
+
+    (leaders || []).forEach((leader) => {
+      const name = String((leader as { name?: string }).name ?? "").trim();
+      if (!name) return;
+
+      const key = name.toLocaleLowerCase("pt-BR");
+      if (uniqueByName.has(key)) return;
+
+      uniqueByName.set(key, {
+        name,
+        matricula: String((leader as { operator_matricula?: string }).operator_matricula ?? "").trim(),
+        cargo: "Lider",
+        setor: "",
+        origem: "Usuario",
+      });
+    });
+
+    return Array.from(uniqueByName.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR"),
+    );
+  }, [leaders, operadoresDisponiveis]);
+  const colaboradorOptions = useMemo<SearchableStringOption[]>(
+    () =>
+      colaboradoresDisponiveis.map((colaborador) => ({
+        value: colaborador.name,
+        label: colaborador.name,
+        searchText: [
+          colaborador.name,
+          colaborador.matricula,
+          colaborador.cargo,
+          colaborador.setor,
+          colaborador.origem,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        description: [
+          colaborador.origem,
+          colaborador.matricula ? `Matricula: ${colaborador.matricula}` : "",
+          colaborador.cargo,
+          colaborador.setor,
+        ]
+          .filter(Boolean)
+          .join(" • "),
+      })),
+    [colaboradoresDisponiveis],
+  );
 
   const updateField = <K extends keyof InvestigacaoAcidenteForm>(
     field: K,
@@ -604,7 +670,7 @@ const InvestigacaoAcidente = () => {
 
   const handleNomeAcidentadoChange = (value: string) => {
     const normalized = value.trim().toLocaleLowerCase("pt-BR");
-    const matchedOperator = operadoresDisponiveis.find(
+    const matchedOperator = colaboradoresDisponiveis.find(
       (operator) => operator.name.toLocaleLowerCase("pt-BR") === normalized,
     );
 
@@ -978,7 +1044,7 @@ const InvestigacaoAcidente = () => {
     if (!agenteNormalizado) {
       toast({
         title: "Novo agente vazio",
-        description: "Informe uma descrição válida para adicionar.",
+        description: "Informe uma descriÃ§Ã£o vÃ¡lida para adicionar.",
         variant: "destructive",
       });
       return;
@@ -991,8 +1057,8 @@ const InvestigacaoAcidente = () => {
     if (agenteExistente) {
       updateField("agente_causador", agenteExistente);
       toast({
-        title: "Agente já existente",
-        description: "O agente informado já estava na lista e foi selecionado.",
+        title: "Agente jÃ¡ existente",
+        description: "O agente informado jÃ¡ estava na lista e foi selecionado.",
       });
       handleAgenteDialogChange(false);
       return;
@@ -1010,7 +1076,7 @@ const InvestigacaoAcidente = () => {
 
     toast({
       title: "Novo agente adicionado",
-      description: "O agente foi adicionado com sucesso e selecionado no formulário.",
+      description: "O agente foi adicionado com sucesso e selecionado no formulÃ¡rio.",
     });
     handleAgenteDialogChange(false);
   };
@@ -1027,7 +1093,7 @@ const InvestigacaoAcidente = () => {
     if (!causaNormalizada) {
       toast({
         title: "Nova causa vazia",
-        description: "Informe uma descrição válida para adicionar.",
+        description: "Informe uma descriÃ§Ã£o vÃ¡lida para adicionar.",
         variant: "destructive",
       });
       return;
@@ -1040,8 +1106,8 @@ const InvestigacaoAcidente = () => {
     if (causaExistente) {
       updateField("causa_acidente", causaExistente);
       toast({
-        title: "Causa já existente",
-        description: "A causa informada já estava na lista e foi selecionada.",
+        title: "Causa jÃ¡ existente",
+        description: "A causa informada jÃ¡ estava na lista e foi selecionada.",
       });
       handleCausaDialogChange(false);
       return;
@@ -1059,7 +1125,7 @@ const InvestigacaoAcidente = () => {
 
     toast({
       title: "Nova causa adicionada",
-      description: "A causa foi adicionada com sucesso e selecionada no formulário.",
+      description: "A causa foi adicionada com sucesso e selecionada no formulÃ¡rio.",
     });
     handleCausaDialogChange(false);
   };
@@ -1094,15 +1160,15 @@ const InvestigacaoAcidente = () => {
         : "Nao informada";
 
       const resumoWhatsapp = [
-        "🚨 Comunicado de Ocorrência 🚨",
-        `Ocorrência: ${formatNumeroOcorrencia(ocorrenciaNumero)}`,
+        "ðŸš¨ Comunicado de OcorrÃªncia ðŸš¨",
+        `OcorrÃªncia: ${formatNumeroOcorrencia(ocorrenciaNumero)}`,
         `Turno: ${formatTurnoResumo(form.turno)}`,
-        `Horário: ${form.hora || "N/A"}`,
+        `HorÃ¡rio: ${form.hora || "N/A"}`,
         `Data: ${formatDataResumo(form.data_ocorrencia)}`,
-        `Matrícula: ${matriculaAcidentado}`,
+        `MatrÃ­cula: ${matriculaAcidentado}`,
         `Nome: ${form.nome_acidentado || "N/A"}`,
         form.descricao_detalhada || "Sem descricao detalhada.",
-        `Classificação: ${classificacaoFinal}`,
+        `ClassificaÃ§Ã£o: ${classificacaoFinal}`,
       ].join("\n");
 
       const serializedAttachments = await Promise.all(
@@ -1303,30 +1369,24 @@ const InvestigacaoAcidente = () => {
                   Adicionar colaborador
                 </Button>
               </div>
+              <SearchableStringSelect
+                value={form.nome_acidentado}
+                onValueChange={handleNomeAcidentadoChange}
+                options={colaboradorOptions}
+                placeholder="Buscar operador/usuario"
+                searchPlaceholder="Buscar colaborador..."
+                emptyText="Nenhum colaborador encontrado."
+              />
               <Input
                 id="nome_acidentado"
-                list="operadores-acidentado-list"
                 value={form.nome_acidentado}
                 onChange={(e) => handleNomeAcidentadoChange(e.target.value)}
-                placeholder="Selecione dos operadores ou digite manualmente"
+                placeholder="Ou digite manualmente o nome do colaborador"
               />
-              <datalist id="operadores-acidentado-list">
-                {operadoresDisponiveis.map((operator) => (
-                  <option
-                    key={`${operator.name}-${operator.matricula || "sem-matricula"}`}
-                    value={operator.name}
-                    label={
-                      operator.matricula
-                        ? `${operator.name} - ${operator.matricula}`
-                        : operator.name
-                    }
-                  />
-                ))}
-              </datalist>
               <p className="text-xs text-gray-500">
-                {operadoresDisponiveis.length > 0
-                  ? "Sugestoes carregadas da tabela de operadores. Tambem e possivel digitar manualmente."
-                  : "Sem operadores disponiveis no banco. Digite manualmente o colaborador acidentado."}
+                {colaboradoresDisponiveis.length > 0
+                  ? "Use a busca para localizar operador/usuario ou digite manualmente."
+                  : "Sem colaboradores disponiveis no banco. Digite manualmente o colaborador acidentado."}
               </p>
             </div>
             <div className="space-y-2">
@@ -1595,7 +1655,7 @@ const InvestigacaoAcidente = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                Não encontrou o agente? Use o botão acima para adicionar um novo.
+                NÃ£o encontrou o agente? Use o botÃ£o acima para adicionar um novo.
               </p>
             </div>
 
@@ -1629,7 +1689,7 @@ const InvestigacaoAcidente = () => {
                 </SelectContent>
               </Select>
               <p className="text-xs text-gray-500">
-                Não encontrou a causa? Use o botão acima para adicionar uma nova.
+                NÃ£o encontrou a causa? Use o botÃ£o acima para adicionar uma nova.
               </p>
             </div>
           </CardContent>
@@ -1928,17 +1988,17 @@ const InvestigacaoAcidente = () => {
             <DialogHeader>
               <DialogTitle>Adicionar novo agente causador</DialogTitle>
               <DialogDescription>
-                Cadastre um agente que ainda não exista na lista para usar neste formulário.
+                Cadastre um agente que ainda nÃ£o exista na lista para usar neste formulÃ¡rio.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-2">
-              <Label htmlFor="novo-agente">Descrição do agente</Label>
+              <Label htmlFor="novo-agente">DescriÃ§Ã£o do agente</Label>
               <Input
                 id="novo-agente"
                 value={novoAgente}
                 onChange={(e) => setNovoAgente(e.target.value)}
-                placeholder="Ex: Superfície escorregadia"
+                placeholder="Ex: SuperfÃ­cie escorregadia"
               />
             </div>
 
@@ -1960,12 +2020,12 @@ const InvestigacaoAcidente = () => {
             <DialogHeader>
               <DialogTitle>Adicionar nova causa do acidente</DialogTitle>
               <DialogDescription>
-                Cadastre uma causa que ainda não exista na lista para usar neste formulário.
+                Cadastre uma causa que ainda nÃ£o exista na lista para usar neste formulÃ¡rio.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-2">
-              <Label htmlFor="nova-causa">Descrição da causa</Label>
+              <Label htmlFor="nova-causa">DescriÃ§Ã£o da causa</Label>
               <Input
                 id="nova-causa"
                 value={novaCausa}
@@ -2009,7 +2069,7 @@ const InvestigacaoAcidente = () => {
                 Abrir WhatsApp
               </Button>
               <Button type="button" variant="secondary" onClick={() => handleWhatsappDialogChange(false)}>
-                Finalizar e ir para início
+                Finalizar e ir para inÃ­cio
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2020,4 +2080,6 @@ const InvestigacaoAcidente = () => {
 };
 
 export default InvestigacaoAcidente;
+
+
 

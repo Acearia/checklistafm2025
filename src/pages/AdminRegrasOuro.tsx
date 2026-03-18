@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, Eye, FileText, RefreshCw, Trash2 } from "lucide-react";
@@ -48,9 +48,14 @@ interface QuestionResponse {
   codigo: string;
   numero: string;
   pergunta: string;
-  resposta: "Sim" | "Não" | "N/A";
+  resposta: "Sim" | "NÃ£o" | "N/A";
   comentario: string;
   foto: AttachmentMeta | null;
+  evidencias: Array<{
+    id?: string;
+    comentario: string;
+    foto: AttachmentMeta | null;
+  }>;
 }
 
 interface RegraOuroRecord {
@@ -74,7 +79,7 @@ const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
-const ANSWER_NO: QuestionResponse["resposta"] = "Não";
+const ANSWER_NO: QuestionResponse["resposta"] = "NÃ£o";
 const ANSWER_NA: QuestionResponse["resposta"] = "N/A";
 
 const hasAdmAccess = () => {
@@ -131,7 +136,7 @@ const decodePotentialMojibake = (value: string) => {
     0x0178: 0x9f,
   };
 
-  const hasMojibake = /[ÃÂ]/.test(value);
+  const hasMojibake = /[ÃƒÃ‚]/.test(value);
   const hasReplacement = /\uFFFD/.test(value);
   if (!hasMojibake && !hasReplacement) return value;
 
@@ -201,8 +206,8 @@ const normalizeAnswer = (value: unknown): QuestionResponse["resposta"] => {
   if (
     normalized === "n/a" ||
     normalized === "na" ||
-    normalized === "não se aplica" ||
     normalized === "nÃ£o se aplica" ||
+    normalized === "nÃƒÂ£o se aplica" ||
     normalized === "nao se aplica"
   ) {
     return ANSWER_NA;
@@ -221,6 +226,18 @@ const hasCompleteSignatures = (
 
 const countNegativeResponses = (responses: QuestionResponse[]) =>
   responses.filter((response) => response.resposta === ANSWER_NO).length;
+
+const getResponseEvidences = (response: QuestionResponse) =>
+  response.evidencias.length > 0
+    ? response.evidencias
+    : response.comentario || response.foto
+      ? [
+          {
+            comentario: response.comentario,
+            foto: response.foto,
+          },
+        ]
+      : [];
 
 const uniqueSortedValues = (values: string[]) =>
   Array.from(new Set(values.filter((value) => value.trim().length > 0))).sort((a, b) =>
@@ -244,6 +261,53 @@ const toSupabaseAttachmentMeta = (file: any): AttachmentMeta => ({
   data_url: toSafeString(file?.file_data_url),
 });
 
+const toQuestionEvidenceAttachment = (value: any): AttachmentMeta | null => {
+  if (!value) return null;
+
+  const attachment = value?.file_name || value?.file_data_url || value?.foto_name || value?.foto_data_url
+    ? {
+        name: toSafeString(value?.file_name ?? value?.foto_name),
+        size: toSafeNumber(value?.file_size ?? value?.foto_size),
+        type: toSafeString(value?.file_type ?? value?.foto_type),
+        data_url: toSafeString(value?.file_data_url ?? value?.foto_data_url),
+      }
+    : value?.name || value?.data_url || value?.preview_url || value?.url
+      ? toLocalAttachmentMeta(value)
+      : null;
+
+  if (!attachment) return null;
+  return attachment.name || attachment.data_url || attachment.url || attachment.preview_url ? attachment : null;
+};
+
+const getNormalizedResponseEvidences = (response: any) => {
+  const mappedEvidenceSource = Array.isArray(response?.evidencias)
+    ? response.evidencias
+    : Array.isArray(response?.evidences)
+      ? response.evidences
+      : [];
+
+  if (mappedEvidenceSource.length > 0) {
+    return mappedEvidenceSource
+      .map((evidence: any) => ({
+        id: toSafeString(evidence?.id),
+        comentario: toSafeString(evidence?.comentario),
+        foto: toQuestionEvidenceAttachment(evidence?.foto ?? evidence),
+      }))
+      .filter((evidence) => evidence.comentario || evidence.foto);
+  }
+
+  const legacyComment = toSafeString(response?.comentario);
+  const legacyPhoto = toQuestionEvidenceAttachment(response?.foto ?? response);
+  if (!legacyComment && !legacyPhoto) return [];
+
+  return [
+    {
+      comentario: legacyComment,
+      foto: legacyPhoto,
+    },
+  ];
+};
+
 const toLocalQuestionResponse = (response: any, index: number): QuestionResponse => ({
   codigo: toSafeString(response?.codigo) || `item-${index + 1}`,
   numero: toSafeString(response?.numero),
@@ -251,6 +315,7 @@ const toLocalQuestionResponse = (response: any, index: number): QuestionResponse
   resposta: normalizeAnswer(response?.resposta),
   comentario: toSafeString(response?.comentario),
   foto: response?.foto ? toLocalAttachmentMeta(response.foto) : null,
+  evidencias: getNormalizedResponseEvidences(response),
 });
 
 const toSupabaseQuestionResponse = (response: any, index: number): QuestionResponse => ({
@@ -267,6 +332,7 @@ const toSupabaseQuestionResponse = (response: any, index: number): QuestionRespo
         data_url: toSafeString(response?.foto_data_url),
       }
     : null,
+  evidencias: getNormalizedResponseEvidences(response),
 });
 
 const parseRegrasOuro = (): RegraOuroRecord[] => {
@@ -489,14 +555,14 @@ const AdminRegrasOuro = () => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuário adm pode excluir registros.",
+        description: "Somente o usuÃ¡rio adm pode excluir registros.",
         variant: "destructive",
       });
       return;
     }
 
     const confirmed = window.confirm(
-      "Deseja realmente excluir esta regra de ouro? Esta ação não pode ser desfeita.",
+      "Deseja realmente excluir esta regra de ouro? Esta aÃ§Ã£o nÃ£o pode ser desfeita.",
     );
     if (!confirmed) return;
 
@@ -520,14 +586,14 @@ const AdminRegrasOuro = () => {
       }
 
       toast({
-        title: "Registro excluído",
+        title: "Registro excluÃ­do",
         description: "A regra de ouro foi removida com sucesso.",
       });
     } catch (error) {
       console.error("Erro ao excluir regra de ouro:", error);
       toast({
         title: "Erro ao excluir",
-        description: "Não foi possível excluir o registro.",
+        description: "NÃ£o foi possÃ­vel excluir o registro.",
         variant: "destructive",
       });
     }
@@ -537,7 +603,7 @@ const AdminRegrasOuro = () => {
     if (filteredRecords.length === 0) {
       toast({
         title: "Nenhum registro",
-        description: "Não há dados para exportar com os filtros atuais.",
+        description: "NÃ£o hÃ¡ dados para exportar com os filtros atuais.",
         variant: "destructive",
       });
       return;
@@ -589,7 +655,7 @@ const AdminRegrasOuro = () => {
     URL.revokeObjectURL(url);
 
     toast({
-      title: "Exportação concluída",
+      title: "ExportaÃ§Ã£o concluÃ­da",
       description: "Arquivo CSV gerado com sucesso.",
     });
   };
@@ -797,21 +863,29 @@ const AdminRegrasOuro = () => {
         y += questionLines.length * lineHeight;
         doc.setFont("helvetica", "normal");
         writeValueBlock("Resposta", response.resposta || "N/A");
-        if (response.comentario?.trim()) {
-          writeValueBlock("Comentario", response.comentario.trim());
-        }
-        if (response.foto?.name?.trim()) {
-          writeValueBlock("Foto", `${response.foto.name} (${formatFileSize(response.foto.size)})`);
-          const imageUrl = getRenderableImageUrl(response.foto);
-          if (imageUrl) {
-            drawImageBlock(imageUrl, {
-              label: "Imagem da resposta",
-              fileName: response.foto.name,
-              maxWidth: Math.min(contentWidth, 90),
-              maxHeight: 58,
-            });
+        const evidences = getResponseEvidences(response);
+        evidences.forEach((evidence, evidenceIndex) => {
+          const suffix = evidences.length > 1 ? ` ${evidenceIndex + 1}` : "";
+
+          if (evidence.comentario?.trim()) {
+            writeValueBlock(`Comentario${suffix}`, evidence.comentario.trim());
           }
-        }
+          if (evidence.foto?.name?.trim()) {
+            writeValueBlock(
+              `Foto${suffix}`,
+              `${evidence.foto.name} (${formatFileSize(evidence.foto.size)})`,
+            );
+            const imageUrl = getRenderableImageUrl(evidence.foto);
+            if (imageUrl) {
+              drawImageBlock(imageUrl, {
+                label: `Imagem da resposta${suffix}`,
+                fileName: evidence.foto.name,
+                maxWidth: Math.min(contentWidth, 90),
+                maxHeight: 58,
+              });
+            }
+          }
+        });
         y += 1;
       });
 
@@ -879,13 +953,13 @@ const AdminRegrasOuro = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Com pendências</CardDescription>
+            <CardDescription>Com pendÃªncias</CardDescription>
             <CardTitle>{summary.comPendencias}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total de itens Não</CardDescription>
+            <CardDescription>Total de itens NÃ£o</CardDescription>
             <CardTitle>{summary.totalItensNao}</CardTitle>
           </CardHeader>
         </Card>
@@ -900,21 +974,21 @@ const AdminRegrasOuro = () => {
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Refine por setor, técnico, data e busca rápida.</CardDescription>
+          <CardDescription>Refine por setor, tÃ©cnico, data e busca rÃ¡pida.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
             <div>
-              <label className="mb-1 block text-sm font-medium">Busca rápida</label>
+              <label className="mb-1 block text-sm font-medium">Busca rÃ¡pida</label>
               <Input
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Título, setor, gestor..."
+                placeholder="TÃ­tulo, setor, gestor..."
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Data início</label>
+              <label className="mb-1 block text-sm font-medium">Data inÃ­cio</label>
               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
             </div>
 
@@ -941,13 +1015,13 @@ const AdminRegrasOuro = () => {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium">Técnico</label>
+              <label className="mb-1 block text-sm font-medium">TÃ©cnico</label>
               <Select value={tecnicoFilter} onValueChange={setTecnicoFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Todos os técnicos" />
+                  <SelectValue placeholder="Todos os tÃ©cnicos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={FILTER_ALL}>Todos os técnicos</SelectItem>
+                  <SelectItem value={FILTER_ALL}>Todos os tÃ©cnicos</SelectItem>
                   {uniqueTecnicos.map((tecnico) => (
                     <SelectItem key={tecnico} value={tecnico}>
                       {tecnico}
@@ -972,7 +1046,7 @@ const AdminRegrasOuro = () => {
         <CardContent>
           {filteredRecords.length === 0 ? (
             <div className="rounded-md border bg-gray-50 p-8 text-center text-gray-500">
-              Não há registros com os filtros selecionados.
+              NÃ£o hÃ¡ registros com os filtros selecionados.
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -981,13 +1055,13 @@ const AdminRegrasOuro = () => {
                   <TableRow>
                     <TableHead>N</TableHead>
                     <TableHead>Data/Hora</TableHead>
-                    <TableHead>Título</TableHead>
+                    <TableHead>TÃ­tulo</TableHead>
                     <TableHead>Setor</TableHead>
-                    <TableHead>Técnico</TableHead>
+                    <TableHead>TÃ©cnico</TableHead>
                     <TableHead>Gestor</TableHead>
-                    <TableHead>Itens Não</TableHead>
+                    <TableHead>Itens NÃ£o</TableHead>
                     <TableHead>Assinaturas</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="text-right">AÃ§Ãµes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1062,16 +1136,16 @@ const AdminRegrasOuro = () => {
             <div className="min-h-0 flex-1 space-y-4 overflow-y-scroll pr-2">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Título:</strong> {selected.titulo || "N/A"}</p>
+                  <p><strong>TÃ­tulo:</strong> {selected.titulo || "N/A"}</p>
                   <p><strong>Setor:</strong> {selected.setor || "N/A"}</p>
-                  <p><strong>Técnico:</strong> {selected.tecnico_seg || "N/A"}</p>
+                  <p><strong>TÃ©cnico:</strong> {selected.tecnico_seg || "N/A"}</p>
                   <p><strong>Gestor:</strong> {selected.gestor || "N/A"}</p>
                   <p><strong>Acompanhante:</strong> {selected.acompanhante || "N/A"}</p>
                 </div>
                 <div className="rounded border p-3 text-sm">
-                  <p><strong>Assinatura técnico:</strong> {selected.ass_tst ? "Sim" : "Não"}</p>
-                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Não"}</p>
-                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Não"}</p>
+                  <p><strong>Assinatura tÃ©cnico:</strong> {selected.ass_tst ? "Sim" : "NÃ£o"}</p>
+                  <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "NÃ£o"}</p>
+                  <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "NÃ£o"}</p>
                   <p><strong>Anexos:</strong> {selected.anexos.length}</p>
                 </div>
               </div>
@@ -1097,69 +1171,79 @@ const AdminRegrasOuro = () => {
                           {response.resposta}
                         </Badge>
                       </div>
-                      {response.comentario && (
-                        <p className="text-gray-700">
-                          <strong>Comentário:</strong> {response.comentario}
-                        </p>
-                      )}
-                      {response.foto && (
-                        <div className="space-y-2">
-                          <p className="text-xs text-gray-500">
-                            Foto: {response.foto.name || "arquivo"} ({formatFileSize(response.foto.size)})
+                      {getResponseEvidences(response).map((evidence, evidenceIndex) => (
+                        <div
+                          key={`${response.codigo}-${evidence.id || evidenceIndex}`}
+                          className="mt-3 space-y-2 rounded border bg-gray-50 p-3"
+                        >
+                          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                            Evidencia {evidenceIndex + 1}
                           </p>
-                          {(() => {
-                            const previewUrl = resolveAttachmentPreviewUrl(response.foto);
-                            const isImage = previewUrl.length > 0 && isImageAttachment(response.foto);
-
-                            if (isImage) {
-                              return (
-                                <div className="space-y-2">
-                                  <img
-                                    src={previewUrl}
-                                    alt={response.foto?.name || `Foto ${response.numero}`}
-                                    className="h-36 w-full cursor-zoom-in rounded border object-cover"
-                                    onClick={() =>
-                                      handleOpenImagePreview(
-                                        previewUrl,
-                                        response.foto?.name || `Foto ${response.numero}`,
-                                      )
-                                    }
-                                  />
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() =>
-                                        handleOpenImagePreview(
-                                          previewUrl,
-                                          response.foto?.name || `Foto ${response.numero}`,
-                                        )
-                                      }
-                                  >
-                                    Expandir imagem
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          }
-
-                          if (previewUrl.length > 0) {
-                            return (
+                          {evidence.comentario ? (
+                            <p className="text-gray-700">
+                              <strong>ComentÃ¡rio:</strong> {evidence.comentario}
+                            </p>
+                          ) : null}
+                          {evidence.foto ? (
+                            <div className="space-y-2">
                               <p className="text-xs text-gray-500">
-                                Este anexo nao possui visualizacao ampliada nesta tela.
+                                Foto: {evidence.foto.name || "arquivo"} ({formatFileSize(evidence.foto.size)})
                               </p>
-                            );
-                          }
+                              {(() => {
+                                const previewUrl = resolveAttachmentPreviewUrl(evidence.foto);
+                                const isImage = previewUrl.length > 0 && isImageAttachment(evidence.foto);
 
-                            return (
-                              <p className="text-xs text-gray-500">
-                                Visualização indisponível para este registro antigo.
-                              </p>
-                            );
-                          })()}
+                                if (isImage) {
+                                  return (
+                                    <div className="space-y-2">
+                                      <img
+                                        src={previewUrl}
+                                        alt={evidence.foto?.name || `Foto ${response.numero}.${evidenceIndex + 1}`}
+                                        className="h-36 w-full cursor-zoom-in rounded border object-cover"
+                                        onClick={() =>
+                                          handleOpenImagePreview(
+                                            previewUrl,
+                                            evidence.foto?.name || `Foto ${response.numero}.${evidenceIndex + 1}`,
+                                          )
+                                        }
+                                      />
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            handleOpenImagePreview(
+                                              previewUrl,
+                                              evidence.foto?.name || `Foto ${response.numero}.${evidenceIndex + 1}`,
+                                            )
+                                          }
+                                        >
+                                          Expandir imagem
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                if (previewUrl.length > 0) {
+                                  return (
+                                    <p className="text-xs text-gray-500">
+                                      Este anexo nao possui visualizacao ampliada nesta tela.
+                                    </p>
+                                  );
+                                }
+
+                                return (
+                                  <p className="text-xs text-gray-500">
+                                    Visualizacao indisponivel para este registro antigo.
+                                  </p>
+                                );
+                              })()}
+                            </div>
+                          ) : null}
                         </div>
-                      )}
+                      ))}
                     </div>
                   ))}
                 </div>
@@ -1176,7 +1260,7 @@ const AdminRegrasOuro = () => {
                       >
                         <p className="truncate">{file.name || `Arquivo ${index + 1}`}</p>
                         <p className="text-xs text-gray-500">
-                          {file.type || "tipo não informado"} - {formatFileSize(file.size)}
+                          {file.type || "tipo nÃ£o informado"} - {formatFileSize(file.size)}
                         </p>
                         {(() => {
                           const previewUrl = resolveAttachmentPreviewUrl(file);
@@ -1225,7 +1309,7 @@ const AdminRegrasOuro = () => {
 
                           return (
                             <p className="text-xs text-gray-500">
-                              Visualização indisponível para este registro antigo.
+                              VisualizaÃ§Ã£o indisponÃ­vel para este registro antigo.
                             </p>
                           );
                         })()}
@@ -1295,3 +1379,4 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
+
