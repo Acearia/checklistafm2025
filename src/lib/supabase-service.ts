@@ -153,6 +153,17 @@ const toNullableDate = (value?: string | null) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const chunkArray = <T>(items: T[], chunkSize: number) => {
+  const normalizedChunkSize = Math.max(1, chunkSize);
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += normalizedChunkSize) {
+    chunks.push(items.slice(index, index + normalizedChunkSize));
+  }
+
+  return chunks;
+};
+
 // Operators
 const isMissingSenhaColumnError = (error: any) => {
   if (typeof error?.message !== "string") return false;
@@ -652,23 +663,29 @@ export const goldenRuleService = {
     if (responseIds.length === 0) return rows;
 
     try {
-      const { data, error } = await (supabase as any)
-        .from("golden_rule_response_evidences")
-        .select(
-          includeImageData
-            ? "*"
-            : "id,response_id,order_index,comentario,foto_name,foto_size,foto_type,created_at",
-        )
-        .in("response_id", responseIds)
-        .order("order_index", { ascending: true });
+      const evidenceRows: any[] = [];
 
-      if (error) {
-        if (relationMissingError(error, "golden_rule_response_evidences")) return rows;
-        throw error;
+      for (const batchIds of chunkArray(responseIds, 40)) {
+        const { data, error } = await (supabase as any)
+          .from("golden_rule_response_evidences")
+          .select(
+            includeImageData
+              ? "*"
+              : "id,response_id,order_index,comentario,foto_name,foto_size,foto_type,created_at",
+          )
+          .in("response_id", batchIds)
+          .order("order_index", { ascending: true });
+
+        if (error) {
+          if (relationMissingError(error, "golden_rule_response_evidences")) return rows;
+          throw error;
+        }
+
+        evidenceRows.push(...(data || []));
       }
 
       const grouped = new Map<string, any[]>();
-      (data || []).forEach((item: any) => {
+      evidenceRows.forEach((item: any) => {
         const current = grouped.get(item.response_id) || [];
         current.push(item);
         grouped.set(item.response_id, current);
@@ -713,21 +730,24 @@ export const goldenRuleService = {
     const attachmentMap = new Map<string, any[]>();
 
     try {
-      const { data: responseRows, error: responsesError } = await supabase
-        .from("golden_rule_responses")
-        .select(
-          includeResponseImageData
-            ? "*"
-            : "id,regra_id,codigo,numero,pergunta,resposta,comentario,foto_name,foto_size,foto_type,created_at",
-        )
-        .in("regra_id", ruleIds)
-        .order("numero", { ascending: true });
+      for (const batchIds of chunkArray(ruleIds, 20)) {
+        const { data: responseRows, error: responsesError } = await supabase
+          .from("golden_rule_responses")
+          .select(
+            includeResponseImageData
+              ? "*"
+              : "id,regra_id,codigo,numero,pergunta,resposta,comentario,foto_name,foto_size,foto_type,created_at",
+          )
+          .in("regra_id", batchIds)
+          .order("numero", { ascending: true });
 
-      if (responsesError) {
-        if (!relationMissingError(responsesError, "golden_rule_responses")) {
-          console.warn("[goldenRuleService] Falha ao carregar respostas das regras de ouro:", responsesError);
+        if (responsesError) {
+          if (!relationMissingError(responsesError, "golden_rule_responses")) {
+            console.warn("[goldenRuleService] Falha ao carregar respostas das regras de ouro:", responsesError);
+          }
+          continue;
         }
-      } else {
+
         (responseRows || []).forEach((response: any) => {
           const current = responseMap.get(response.regra_id) || [];
           current.push(response);
@@ -740,21 +760,24 @@ export const goldenRuleService = {
 
     if (includeAttachments) {
       try {
-        const { data: attachmentRows, error: attachmentsError } = await supabase
-          .from("golden_rule_attachments")
-          .select(
-            includeAttachmentImageData
-              ? "*"
-              : "id,regra_id,file_name,file_size,file_type,created_at",
-          )
-          .in("regra_id", ruleIds)
-          .order("created_at", { ascending: true });
+        for (const batchIds of chunkArray(ruleIds, 20)) {
+          const { data: attachmentRows, error: attachmentsError } = await supabase
+            .from("golden_rule_attachments")
+            .select(
+              includeAttachmentImageData
+                ? "*"
+                : "id,regra_id,file_name,file_size,file_type,created_at",
+            )
+            .in("regra_id", batchIds)
+            .order("created_at", { ascending: true });
 
-        if (attachmentsError) {
-          if (!relationMissingError(attachmentsError, "golden_rule_attachments")) {
-            console.warn("[goldenRuleService] Falha ao carregar anexos das regras de ouro:", attachmentsError);
+          if (attachmentsError) {
+            if (!relationMissingError(attachmentsError, "golden_rule_attachments")) {
+              console.warn("[goldenRuleService] Falha ao carregar anexos das regras de ouro:", attachmentsError);
+            }
+            continue;
           }
-        } else {
+
           (attachmentRows || []).forEach((attachment: any) => {
             const current = attachmentMap.get(attachment.regra_id) || [];
             current.push(attachment);
