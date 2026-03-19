@@ -524,7 +524,16 @@ const AdminRegrasOuro = () => {
       const mergedRecords = sortRecordsByCreatedAtDesc(Array.from(mergedMap.values()));
 
       setRecords(mergedRecords);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedRecords));
+
+      // A tela administrativa nao deve sobrescrever o cache local completo com
+      // anexos/base64 do banco. Isso estoura a quota do navegador e derruba a listagem.
+      try {
+        if (localRecords.length > 0) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(localRecords));
+        }
+      } catch (storageError) {
+        console.warn("Falha ao manter cache local das regras de ouro:", storageError);
+      }
     } catch (error) {
       if (!isMissingGoldenRulesTableError(error)) {
         console.error("Erro ao carregar regras de ouro no Supabase:", error);

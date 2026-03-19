@@ -648,13 +648,17 @@ export const goldenRuleService = {
     return (Number(data?.numero_inspecao) || 0) + 1;
   },
 
-  async appendResponseEvidences(responseIds: string[], rows: any[]) {
+  async appendResponseEvidences(responseIds: string[], rows: any[], includeImageData = true) {
     if (responseIds.length === 0) return rows;
 
     try {
       const { data, error } = await (supabase as any)
         .from("golden_rule_response_evidences")
-        .select("*")
+        .select(
+          includeImageData
+            ? "*"
+            : "id,response_id,order_index,comentario,foto_name,foto_size,foto_type,created_at",
+        )
         .in("response_id", responseIds)
         .order("order_index", { ascending: true });
 
@@ -685,9 +689,24 @@ export const goldenRuleService = {
     }
   },
 
-  async hydrateRulesWithRelations(ruleRows: any[]) {
+  async hydrateRulesWithRelations(
+    ruleRows: any[],
+    options?: {
+      includeAttachments?: boolean;
+      includeEvidencePayloads?: boolean;
+      includeResponseImageData?: boolean;
+      includeAttachmentImageData?: boolean;
+    },
+  ) {
     const rows = Array.isArray(ruleRows) ? ruleRows : [];
     if (rows.length === 0) return [];
+
+    const {
+      includeAttachments = true,
+      includeEvidencePayloads = true,
+      includeResponseImageData = true,
+      includeAttachmentImageData = true,
+    } = options || {};
 
     const ruleIds = rows.map((rule: any) => rule?.id).filter(Boolean);
     const responseMap = new Map<string, any[]>();
@@ -696,7 +715,11 @@ export const goldenRuleService = {
     try {
       const { data: responseRows, error: responsesError } = await supabase
         .from("golden_rule_responses")
-        .select("*")
+        .select(
+          includeResponseImageData
+            ? "*"
+            : "id,regra_id,codigo,numero,pergunta,resposta,comentario,foto_name,foto_size,foto_type,created_at",
+        )
         .in("regra_id", ruleIds)
         .order("numero", { ascending: true });
 
@@ -715,33 +738,51 @@ export const goldenRuleService = {
       console.warn("[goldenRuleService] Erro ao hidratar respostas das regras de ouro:", error);
     }
 
-    try {
-      const { data: attachmentRows, error: attachmentsError } = await supabase
-        .from("golden_rule_attachments")
-        .select("*")
-        .in("regra_id", ruleIds)
-        .order("created_at", { ascending: true });
+    if (includeAttachments) {
+      try {
+        const { data: attachmentRows, error: attachmentsError } = await supabase
+          .from("golden_rule_attachments")
+          .select(
+            includeAttachmentImageData
+              ? "*"
+              : "id,regra_id,file_name,file_size,file_type,created_at",
+          )
+          .in("regra_id", ruleIds)
+          .order("created_at", { ascending: true });
 
-      if (attachmentsError) {
-        if (!relationMissingError(attachmentsError, "golden_rule_attachments")) {
-          console.warn("[goldenRuleService] Falha ao carregar anexos das regras de ouro:", attachmentsError);
+        if (attachmentsError) {
+          if (!relationMissingError(attachmentsError, "golden_rule_attachments")) {
+            console.warn("[goldenRuleService] Falha ao carregar anexos das regras de ouro:", attachmentsError);
+          }
+        } else {
+          (attachmentRows || []).forEach((attachment: any) => {
+            const current = attachmentMap.get(attachment.regra_id) || [];
+            current.push(attachment);
+            attachmentMap.set(attachment.regra_id, current);
+          });
         }
-      } else {
-        (attachmentRows || []).forEach((attachment: any) => {
-          const current = attachmentMap.get(attachment.regra_id) || [];
-          current.push(attachment);
-          attachmentMap.set(attachment.regra_id, current);
-        });
+      } catch (error) {
+        console.warn("[goldenRuleService] Erro ao hidratar anexos das regras de ouro:", error);
       }
-    } catch (error) {
-      console.warn("[goldenRuleService] Erro ao hidratar anexos das regras de ouro:", error);
     }
 
     const hydratedRows = rows.map((rule: any) => ({
       ...rule,
       responses: responseMap.get(rule.id) || [],
-      attachments: attachmentMap.get(rule.id) || [],
+      attachments: includeAttachments ? attachmentMap.get(rule.id) || [] : [],
     }));
+
+    if (!includeEvidencePayloads) {
+      return hydratedRows.map((row: any) => ({
+        ...row,
+        responses: Array.isArray(row.responses)
+          ? row.responses.map((response: any) => ({
+              ...response,
+              evidences: [],
+            }))
+          : [],
+      }));
+    }
 
     const responseIds = hydratedRows.flatMap((rule: any) =>
       Array.isArray(rule.responses)
@@ -749,7 +790,7 @@ export const goldenRuleService = {
         : [],
     );
 
-    return this.appendResponseEvidences(responseIds, hydratedRows);
+    return this.appendResponseEvidences(responseIds, hydratedRows, includeResponseImageData);
   },
 
   async getAll() {
@@ -759,7 +800,12 @@ export const goldenRuleService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return this.hydrateRulesWithRelations(data || []);
+    return this.hydrateRulesWithRelations(data || [], {
+      includeAttachments: false,
+      includeEvidencePayloads: false,
+      includeResponseImageData: false,
+      includeAttachmentImageData: false,
+    });
   },
 
   async getById(id: string) {
@@ -772,7 +818,12 @@ export const goldenRuleService = {
     if (error) throw error;
     if (!data) return data;
 
-    const [hydrated] = await this.hydrateRulesWithRelations([data as any]);
+    const [hydrated] = await this.hydrateRulesWithRelations([data as any], {
+      includeAttachments: true,
+      includeEvidencePayloads: true,
+      includeResponseImageData: true,
+      includeAttachmentImageData: true,
+    });
     return hydrated;
   },
 
