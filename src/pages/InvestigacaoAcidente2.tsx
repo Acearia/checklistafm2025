@@ -457,6 +457,15 @@ const InvestigacaoAcidente2 = () => {
         evidences: [...previous[questionId].evidences, createEmptyEvidence()],
       },
     }));
+
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        document.getElementById(`evidencias-${questionId}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 50);
+    }
   };
 
   const updateEvidence = (
@@ -846,7 +855,7 @@ const InvestigacaoAcidente2 = () => {
                         size="sm"
                         onClick={() => addEvidence(item.id)}
                       >
-                        Adicionar foto/comentario
+                        Adicionar foto/comentário
                       </Button>
                     </div>
 
@@ -872,10 +881,10 @@ const InvestigacaoAcidente2 = () => {
                   </div>
 
                   {showExtra && (
-                    <div className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
+                    <div id={`evidencias-${item.id}`} className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm text-gray-600">
-                          Adicione uma ou mais evidencias com comentario e foto para este item.
+                          Adicione uma ou mais evidências com comentário e foto para este item.
                         </p>
                         <Button
                           type="button"
@@ -883,12 +892,12 @@ const InvestigacaoAcidente2 = () => {
                           size="sm"
                           onClick={() => addEvidence(item.id)}
                         >
-                          Adicionar outra evidencia
+                          Adicionar outra foto/comentário
                         </Button>
                       </div>
                       {response.evidences.length === 0 ? (
                         <p className="text-sm text-gray-500">
-                          Nenhuma evidencia adicionada para este item.
+                          Nenhuma evidência adicionada para este item.
                         </p>
                       ) : (
                         response.evidences.map((evidence, index) => (

@@ -383,6 +383,53 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
   }
 };
 
+const toLegacyGoldenRulePayload = (record: RegraOuroRecord) => ({
+  id: record.id,
+  numero_inspecao: record.numero_inspecao,
+  created_at: record.created_at,
+  titulo: record.titulo,
+  setor: record.setor,
+  gestor: record.gestor,
+  tecnico_seg: record.tecnico_seg,
+  acompanhante: record.acompanhante,
+  ass_tst: record.ass_tst,
+  ass_gestor: record.ass_gestor,
+  ass_acomp: record.ass_acomp,
+  responses: record.respostas.map((response) => ({
+    codigo: response.codigo,
+    numero: response.numero,
+    pergunta: response.pergunta,
+    resposta: response.resposta,
+    comentario: response.comentario,
+    foto: response.foto
+      ? {
+          name: response.foto.name,
+          size: response.foto.size,
+          type: response.foto.type,
+          data_url: response.foto.data_url || response.foto.dataUrl || response.foto.url || response.foto.preview_url,
+        }
+      : null,
+    evidencias: getResponseEvidences(response).map((evidence) => ({
+      comentario: evidence.comentario,
+      foto: evidence.foto
+        ? {
+            name: evidence.foto.name,
+            size: evidence.foto.size,
+            type: evidence.foto.type,
+            data_url:
+              evidence.foto.data_url || evidence.foto.dataUrl || evidence.foto.url || evidence.foto.preview_url,
+          }
+        : null,
+    })),
+  })),
+  attachments: record.anexos.map((attachment) => ({
+    name: attachment.name,
+    size: attachment.size,
+    type: attachment.type,
+    data_url: attachment.data_url || attachment.dataUrl || attachment.url || attachment.preview_url,
+  })),
+});
+
 const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
   const mapped = rows
     .map((row): RegraOuroRecord | null => {
@@ -438,7 +485,28 @@ const AdminRegrasOuro = () => {
     const localRecords = parseRegrasOuro();
 
     try {
-      const remoteRows = await goldenRuleService.safeGetAllWithFallback();
+      let remoteRows = await goldenRuleService.safeGetAllWithFallback();
+
+      if (localRecords.length > 0) {
+        const remoteIds = new Set((remoteRows || []).map((item: any) => String(item?.id || "").trim()));
+        const pendingLocalSync = localRecords.filter((item) => item.id && !remoteIds.has(item.id));
+
+        if (pendingLocalSync.length > 0) {
+          const syncResult = await goldenRuleService.syncLocalRecords(
+            pendingLocalSync.map(toLegacyGoldenRulePayload),
+          );
+
+          if (syncResult.syncedIds.length > 0) {
+            toast({
+              title: "Regras de Ouro sincronizadas",
+              description: `${syncResult.syncedIds.length} registro(s) local(is) foram enviados ao banco.`,
+            });
+          }
+
+          remoteRows = await goldenRuleService.safeGetAllWithFallback();
+        }
+      }
+
       if (remoteRows.length === 0) {
         setRecords(localRecords);
         return;

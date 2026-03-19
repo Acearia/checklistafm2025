@@ -730,40 +730,43 @@ export const goldenRuleService = {
   async upsertFromLegacy(payload: GoldenRuleRecordPayload) {
     let savedRule: any = null;
     let lastError: unknown = null;
-    let nextInspectionNumber = Number(payload.numero_inspecao) || 0;
+    const requestedInspectionNumber = Number(payload.numero_inspecao) || 0;
+    const triedNumbers = new Set<number>();
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      if (!nextInspectionNumber) {
-        try {
-          nextInspectionNumber = await this.getNextInspectionNumber();
-        } catch (error) {
-          if (!relationMissingError(error, "golden_rules")) {
-            throw error;
-          }
-          nextInspectionNumber = 1;
-        }
+    const buildRuleInsert = (numeroInspecao?: number): GoldenRuleInsert => ({
+      id: payload.id,
+      ...(numeroInspecao ? { numero_inspecao: numeroInspecao } : {}),
+      titulo: payload.titulo,
+      setor: payload.setor,
+      gestor: payload.gestor,
+      tecnico_seg: payload.tecnico_seg,
+      acompanhante: payload.acompanhante,
+      ass_tst: payload.ass_tst ?? null,
+      ass_gestor: payload.ass_gestor ?? null,
+      ass_acomp: payload.ass_acomp ?? null,
+      created_at: payload.created_at,
+    });
+
+    const trySaveRule = async (numeroInspecao?: number) => {
+      if (numeroInspecao) {
+        triedNumbers.add(numeroInspecao);
       }
 
-      const ruleInsert: GoldenRuleInsert = {
-        id: payload.id,
-        ...(nextInspectionNumber ? { numero_inspecao: nextInspectionNumber } : {}),
-        titulo: payload.titulo,
-        setor: payload.setor,
-        gestor: payload.gestor,
-        tecnico_seg: payload.tecnico_seg,
-        acompanhante: payload.acompanhante,
-        ass_tst: payload.ass_tst ?? null,
-        ass_gestor: payload.ass_gestor ?? null,
-        ass_acomp: payload.ass_acomp ?? null,
-        created_at: payload.created_at,
-      };
-
-      const { data, error } = await supabase
+      return supabase
         .from("golden_rules")
-        .upsert(ruleInsert, { onConflict: "id" })
+        .upsert(buildRuleInsert(numeroInspecao), { onConflict: "id" })
         .select()
         .single();
+    };
 
+    const attempts: Array<number | undefined> = [];
+    if (requestedInspectionNumber > 0) {
+      attempts.push(requestedInspectionNumber);
+    }
+    attempts.push(undefined);
+
+    for (const attemptNumber of attempts) {
+      const { data, error } = await trySaveRule(attemptNumber);
       if (!error) {
         savedRule = data;
         break;
@@ -773,11 +776,33 @@ export const goldenRuleService = {
       if (!isUniqueViolationError(error)) {
         throw error;
       }
+    }
+
+    for (let attempt = 0; !savedRule && attempt < 5; attempt += 1) {
+      let nextInspectionNumber = 0;
 
       try {
         nextInspectionNumber = await this.getNextInspectionNumber();
-      } catch {
+      } catch (error) {
+        if (!relationMissingError(error, "golden_rules")) {
+          throw error;
+        }
+        nextInspectionNumber = requestedInspectionNumber + attempt + 1;
+      }
+
+      while (triedNumbers.has(nextInspectionNumber)) {
         nextInspectionNumber += 1;
+      }
+
+      const { data, error } = await trySaveRule(nextInspectionNumber);
+      if (!error) {
+        savedRule = data;
+        break;
+      }
+
+      lastError = error;
+      if (!isUniqueViolationError(error)) {
+        throw error;
       }
     }
 
@@ -887,6 +912,28 @@ export const goldenRuleService = {
       if (relationMissingError(error, "golden_rules")) return [];
       throw error;
     }
+  },
+
+  async syncLocalRecords(records: GoldenRuleRecordPayload[]) {
+    const syncedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const record of records) {
+      try {
+        const saved = await this.upsertFromLegacy(record);
+        const savedId = String((saved as any)?.id || record.id || "").trim();
+        if (savedId) {
+          syncedIds.push(savedId);
+        }
+      } catch (error) {
+        console.error("[goldenRuleService] Falha ao sincronizar regra de ouro local:", error);
+        if (record.id) {
+          failedIds.push(record.id);
+        }
+      }
+    }
+
+    return { syncedIds, failedIds };
   },
 };
 export const accidentActionPlanService = {
