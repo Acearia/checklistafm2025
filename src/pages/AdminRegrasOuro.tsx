@@ -238,6 +238,48 @@ const hasCompleteSignatures = (
 const countNegativeResponses = (responses: QuestionResponse[]) =>
   responses.filter((response) => response.resposta === ANSWER_NO).length;
 
+const countResponseEvidences = (responses: QuestionResponse[]) =>
+  responses.reduce((acc, response) => acc + getResponseEvidences(response).length, 0);
+
+const getRecordCompletenessScore = (record: RegraOuroRecord | null | undefined) => {
+  if (!record) return 0;
+
+  return (
+    record.respostas.length * 100 +
+    countResponseEvidences(record.respostas) * 10 +
+    record.anexos.length * 10 +
+    (record.ass_tst.trim() ? 1 : 0) +
+    (record.ass_gestor.trim() ? 1 : 0) +
+    (record.ass_acomp.trim() ? 1 : 0)
+  );
+};
+
+const mergeGoldenRuleRecords = (
+  primary: RegraOuroRecord,
+  fallback?: RegraOuroRecord | null,
+): RegraOuroRecord => {
+  if (!fallback) return primary;
+
+  const primaryScore = getRecordCompletenessScore(primary);
+  const fallbackScore = getRecordCompletenessScore(fallback);
+  const richest = fallbackScore > primaryScore ? fallback : primary;
+  const secondary = richest === primary ? fallback : primary;
+
+  return {
+    ...richest,
+    titulo: richest.titulo || secondary.titulo,
+    setor: richest.setor || secondary.setor,
+    gestor: richest.gestor || secondary.gestor,
+    tecnico_seg: richest.tecnico_seg || secondary.tecnico_seg,
+    acompanhante: richest.acompanhante || secondary.acompanhante,
+    respostas: richest.respostas.length > 0 ? richest.respostas : secondary.respostas,
+    anexos: richest.anexos.length > 0 ? richest.anexos : secondary.anexos,
+    ass_tst: richest.ass_tst || secondary.ass_tst,
+    ass_gestor: richest.ass_gestor || secondary.ass_gestor,
+    ass_acomp: richest.ass_acomp || secondary.ass_acomp,
+  };
+};
+
 const getResponseEvidences = (response: QuestionResponse) =>
   response.evidencias.length > 0
     ? response.evidencias
@@ -498,10 +540,16 @@ const AdminRegrasOuro = () => {
 
     try {
       let remoteRows = await goldenRuleService.safeGetAllWithFallback();
+      let remoteRecords = mapSupabaseRegrasOuro(remoteRows);
 
       if (localRecords.length > 0) {
-        const remoteIds = new Set((remoteRows || []).map((item: any) => String(item?.id || "").trim()));
-        const pendingLocalSync = localRecords.filter((item) => item.id && !remoteIds.has(item.id));
+        const remoteById = new Map(remoteRecords.map((item) => [item.id, item]));
+        const pendingLocalSync = localRecords.filter((item) => {
+          if (!item.id) return false;
+          const remoteRecord = remoteById.get(item.id);
+          if (!remoteRecord) return true;
+          return getRecordCompletenessScore(item) > getRecordCompletenessScore(remoteRecord);
+        });
 
         if (pendingLocalSync.length > 0) {
           const syncResult = await goldenRuleService.syncLocalRecords(
@@ -516,6 +564,7 @@ const AdminRegrasOuro = () => {
           }
 
           remoteRows = await goldenRuleService.safeGetAllWithFallback();
+          remoteRecords = mapSupabaseRegrasOuro(remoteRows);
         }
       }
 
@@ -524,14 +573,11 @@ const AdminRegrasOuro = () => {
         return;
       }
 
-      const remoteRecords = mapSupabaseRegrasOuro(remoteRows);
       const mergedMap = new Map<string, RegraOuroRecord>();
-      // Mantem o remoto como fonte principal e usa local apenas como fallback.
       [...remoteRecords, ...localRecords].forEach((item) => {
         const key = item.id;
-        if (!mergedMap.has(key)) {
-          mergedMap.set(key, item);
-        }
+        const current = mergedMap.get(key);
+        mergedMap.set(key, current ? mergeGoldenRuleRecords(current, item) : item);
       });
       const mergedRecords = sortRecordsByCreatedAtDesc(Array.from(mergedMap.values()));
 
@@ -637,9 +683,12 @@ const AdminRegrasOuro = () => {
 
   const loadFullRecord = async (recordId: string) => {
     const remoteRow = await goldenRuleService.getById(recordId);
-    if (!remoteRow) return null;
+    const localFallback = records.find((item) => item.id === recordId) || null;
+    if (!remoteRow) return localFallback;
+
     const [mapped] = mapSupabaseRegrasOuro([remoteRow]);
-    return mapped || null;
+    if (!mapped) return localFallback;
+    return mergeGoldenRuleRecords(mapped, localFallback);
   };
 
   const handleViewDetails = async (record: RegraOuroRecord) => {
