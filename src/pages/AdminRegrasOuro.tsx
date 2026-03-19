@@ -235,11 +235,16 @@ const hasCompleteSignatures = (
   record: Pick<RegraOuroRecord, "ass_tst" | "ass_gestor" | "ass_acomp">,
 ) => Boolean(record.ass_tst.trim() && record.ass_gestor.trim() && record.ass_acomp.trim());
 
-const countNegativeResponses = (responses: QuestionResponse[]) =>
-  responses.filter((response) => response.resposta === ANSWER_NO).length;
-
 const countResponseEvidences = (responses: QuestionResponse[]) =>
   responses.reduce((acc, response) => acc + getResponseEvidences(response).length, 0);
+
+const responseHasNonConformityEvidence = (response: QuestionResponse) =>
+  getResponseEvidences(response).some(
+    (evidence) => evidence.comentario.trim().length > 0 || Boolean(evidence.foto),
+  );
+
+const countNonConformityResponses = (responses: QuestionResponse[]) =>
+  responses.filter(responseHasNonConformityEvidence).length;
 
 const getRecordCompletenessScore = (record: RegraOuroRecord | null | undefined) => {
   if (!record) return 0;
@@ -669,16 +674,16 @@ const AdminRegrasOuro = () => {
 
   const summary = useMemo(() => {
     const total = records.length;
-    const comPendencias = records.filter((item) =>
-      item.respostas.some((response) => response.resposta === ANSWER_NO),
+    const comNaoConformidade = records.filter((item) =>
+      item.respostas.some(responseHasNonConformityEvidence),
     ).length;
-    const totalItensNao = records.reduce(
-      (acc, item) => acc + countNegativeResponses(item.respostas),
+    const totalItensNaoConformes = records.reduce(
+      (acc, item) => acc + countNonConformityResponses(item.respostas),
       0,
     );
     const assinadas = records.filter(hasCompleteSignatures).length;
 
-    return { total, comPendencias, totalItensNao, assinadas };
+    return { total, comNaoConformidade, totalItensNaoConformes, assinadas };
   }, [records]);
 
   const loadFullRecord = async (recordId: string) => {
@@ -1132,14 +1137,14 @@ const AdminRegrasOuro = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Com pendências</CardDescription>
-            <CardTitle>{summary.comPendencias}</CardTitle>
+            <CardDescription>Com não conformidade</CardDescription>
+            <CardTitle>{summary.comNaoConformidade}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total de itens Não</CardDescription>
-            <CardTitle>{summary.totalItensNao}</CardTitle>
+            <CardDescription>Itens com não conformidade</CardDescription>
+            <CardTitle>{summary.totalItensNaoConformes}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -1238,14 +1243,14 @@ const AdminRegrasOuro = () => {
                     <TableHead>Setor</TableHead>
                     <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
-                    <TableHead>Itens Não</TableHead>
+                    <TableHead>Não conformidade</TableHead>
                     <TableHead>Assinaturas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRecords.map((item) => {
-                    const itensNao = countNegativeResponses(item.respostas);
+                    const itensNao = countNonConformityResponses(item.respostas);
                     const assinaturasCompletas = hasCompleteSignatures(item);
 
                     return (
@@ -1258,7 +1263,7 @@ const AdminRegrasOuro = () => {
                         <TableCell>{item.gestor || "N/A"}</TableCell>
                         <TableCell>
                           <Badge variant={itensNao > 0 ? "destructive" : "secondary"}>
-                            {itensNao}
+                            {itensNao > 0 ? `Com não conformidade${itensNao > 1 ? ` (${itensNao})` : ""}` : "Conforme"}
                           </Badge>
                         </TableCell>
                         <TableCell>
