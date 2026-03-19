@@ -674,16 +674,11 @@ const AdminRegrasOuro = () => {
 
   const summary = useMemo(() => {
     const total = records.length;
-    const comNaoConformidade = records.filter((item) =>
+    const inspecoesComNaoConformidade = records.filter((item) =>
       item.respostas.some(responseHasNonConformityEvidence),
     ).length;
-    const totalItensNaoConformes = records.reduce(
-      (acc, item) => acc + countNonConformityResponses(item.respostas),
-      0,
-    );
-    const assinadas = records.filter(hasCompleteSignatures).length;
 
-    return { total, comNaoConformidade, totalItensNaoConformes, assinadas };
+    return { total, inspecoesComNaoConformidade };
   }, [records]);
 
   const loadFullRecord = async (recordId: string) => {
@@ -790,15 +785,13 @@ const AdminRegrasOuro = () => {
       "tecnico_seg",
       "gestor",
       "acompanhante",
-      "itens_nao",
-      "assinaturas",
+      "nao_conformidade",
       "anexos",
     ];
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
     const rows = filteredRecords.map((item) => {
-      const itensNao = countNegativeResponses(item.respostas);
-      const assinaturas = hasCompleteSignatures(item) ? "completo" : "pendente";
+      const temNaoConformidade = item.respostas.some(responseHasNonConformityEvidence);
 
       return [
         formatInspectionNumber(item.numero_inspecao),
@@ -808,8 +801,7 @@ const AdminRegrasOuro = () => {
         item.tecnico_seg,
         item.gestor,
         item.acompanhante,
-        String(itensNao),
-        assinaturas,
+        temNaoConformidade ? "com nao conformidade" : "conforme",
         String(item.anexos.length),
       ]
         .map((cell) => escape(cell || ""))
@@ -1128,7 +1120,7 @@ const AdminRegrasOuro = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total</CardDescription>
@@ -1137,20 +1129,8 @@ const AdminRegrasOuro = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Com não conformidade</CardDescription>
-            <CardTitle>{summary.comNaoConformidade}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Itens com não conformidade</CardDescription>
-            <CardTitle>{summary.totalItensNaoConformes}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Assinaturas completas</CardDescription>
-            <CardTitle>{summary.assinadas}</CardTitle>
+            <CardDescription>Inspeções com não conformidade</CardDescription>
+            <CardTitle>{summary.inspecoesComNaoConformidade}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -1244,14 +1224,12 @@ const AdminRegrasOuro = () => {
                     <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
                     <TableHead>Não conformidade</TableHead>
-                    <TableHead>Assinaturas</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredRecords.map((item) => {
-                    const itensNao = countNonConformityResponses(item.respostas);
-                    const assinaturasCompletas = hasCompleteSignatures(item);
+                    const temNaoConformidade = item.respostas.some(responseHasNonConformityEvidence);
 
                     return (
                       <TableRow key={item.id}>
@@ -1262,13 +1240,8 @@ const AdminRegrasOuro = () => {
                         <TableCell>{item.tecnico_seg || "N/A"}</TableCell>
                         <TableCell>{item.gestor || "N/A"}</TableCell>
                         <TableCell>
-                          <Badge variant={itensNao > 0 ? "destructive" : "secondary"}>
-                            {itensNao > 0 ? `Com não conformidade${itensNao > 1 ? ` (${itensNao})` : ""}` : "Conforme"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={assinaturasCompletas ? "default" : "secondary"}>
-                            {assinaturasCompletas ? "Completo" : "Pendente"}
+                          <Badge variant={temNaoConformidade ? "destructive" : "secondary"}>
+                            {temNaoConformidade ? "Com não conformidade" : "Conforme"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
