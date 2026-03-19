@@ -1,5 +1,4 @@
-
-import React from "react";
+﻿import React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -65,10 +64,8 @@ export function EditEquipmentDialog({
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Ensure all required fields have values
     if (!values.name.trim() || !values.type.trim() || !values.kp.trim()) return;
-    
-    // Now we're sure required fields have values
+
     onEditEquipment({
       id: values.id,
       name: values.name,
@@ -77,7 +74,7 @@ export function EditEquipmentDialog({
       sector: values.sector || "",
       capacity: values.capacity || "",
     });
-    
+
     form.reset();
     onOpenChange(false);
   }
@@ -87,9 +84,7 @@ export function EditEquipmentDialog({
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Editar Equipamento</DialogTitle>
-          <DialogDescription>
-            Edite os dados do equipamento.
-          </DialogDescription>
+          <DialogDescription>Edite os dados do equipamento.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -125,10 +120,7 @@ export function EditEquipmentDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo*</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de equipamento" />
@@ -138,6 +130,7 @@ export function EditEquipmentDialog({
                       <SelectItem value="1">Ponte</SelectItem>
                       <SelectItem value="2">Talha</SelectItem>
                       <SelectItem value="3">Pórtico</SelectItem>
+                      <SelectItem value="5">Bobcat / Mini Carregadeira</SelectItem>
                       <SelectItem value="4">Outro</SelectItem>
                     </SelectContent>
                   </Select>
@@ -165,26 +158,20 @@ export function EditEquipmentDialog({
                 const currentValue = field.value ?? "";
                 const normalizedValue = currentValue || undefined;
                 const shouldShowFallbackOption =
-                  Boolean(currentValue) &&
-                  !sectors.some((sector) => sector.name === currentValue);
+                  Boolean(currentValue) && !sectors.some((sector) => sector.name === currentValue);
 
                 return (
                   <FormItem>
                     <FormLabel>Setor</FormLabel>
                     {sectors.length > 0 ? (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={normalizedValue}
-                      >
+                      <Select onValueChange={field.onChange} value={normalizedValue}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione o setor" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {shouldShowFallbackOption && (
-                            <SelectItem value={currentValue}>{currentValue}</SelectItem>
-                          )}
+                          {shouldShowFallbackOption && <SelectItem value={currentValue}>{currentValue}</SelectItem>}
                           {sectors.map((sector) => (
                             <SelectItem key={sector.id} value={sector.name}>
                               {sector.name}

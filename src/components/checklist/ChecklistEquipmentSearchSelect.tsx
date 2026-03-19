@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,23 +23,28 @@ interface ChecklistEquipmentSearchSelectProps {
   onEquipmentSelect: (equipmentId: string) => void;
 }
 
-const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectProps> = ({ 
-  equipments, 
-  selectedEquipment, 
-  onEquipmentSelect 
+const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectProps> = ({
+  equipments,
+  selectedEquipment,
+  onEquipmentSelect,
 }) => {
   const [open, setOpen] = useState(false);
 
   const getEquipmentTypeText = (type: string) => {
     switch (type) {
-      case "1": return "Ponte";
-      case "2": return "Talha";
-      case "3": return "Pórtico";
-      default: return "Outro";
+      case "1":
+        return "Ponte";
+      case "2":
+        return "Talha";
+      case "3":
+        return "Pórtico";
+      case "5":
+        return "Bobcat / Mini Carregadeira";
+      default:
+        return "Outro";
     }
   };
 
-  // Agrupar equipamentos por setor
   const equipmentsBySector = equipments.reduce((acc, equipment) => {
     const sector = equipment.sector || "Sem Setor";
     if (!acc[sector]) {
@@ -66,7 +71,7 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
+          <PopoverContent className="w-full p-0" style={{ width: "var(--radix-popover-trigger-width)" }}>
             <Command>
               <CommandInput placeholder="Buscar equipamento..." />
               <CommandList className="max-h-60">
@@ -108,42 +113,22 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col">
             <span className="text-sm text-gray-500 mb-1">KP</span>
-            <input 
-              type="text" 
-              value={selectedEquipment.kp} 
-              className="px-4 py-2 border border-gray-300 rounded bg-gray-100" 
-              readOnly 
-            />
+            <input type="text" value={selectedEquipment.kp} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
           </div>
 
           <div className="flex flex-col">
             <span className="text-sm text-gray-500 mb-1">Tipo</span>
-            <input 
-              type="text" 
-              value={getEquipmentTypeText(selectedEquipment.type)} 
-              className="px-4 py-2 border border-gray-300 rounded bg-gray-100" 
-              readOnly 
-            />
+            <input type="text" value={getEquipmentTypeText(selectedEquipment.type)} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
           </div>
 
           <div className="flex flex-col">
             <span className="text-sm text-gray-500 mb-1">Setor</span>
-            <input 
-              type="text" 
-              value={selectedEquipment.sector} 
-              className="px-4 py-2 border border-gray-300 rounded bg-gray-100" 
-              readOnly 
-            />
+            <input type="text" value={selectedEquipment.sector} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
           </div>
 
           <div className="flex flex-col">
             <span className="text-sm text-gray-500 mb-1">Capacidade</span>
-            <input 
-              type="text" 
-              value={selectedEquipment.capacity} 
-              className="px-4 py-2 border border-gray-300 rounded bg-gray-100" 
-              readOnly 
-            />
+            <input type="text" value={selectedEquipment.capacity} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
           </div>
         </div>
       )}

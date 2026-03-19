@@ -1,7 +1,7 @@
-import type { ChecklistItem } from "@/lib/data";
-import { normalizeQuestion } from "@/lib/alertRules";
+﻿import type { ChecklistItem } from "@/lib/data";
+import { applyAlertRuleToItem, normalizeQuestion } from "@/lib/alertRules";
 
-type EquipmentQuestionCategory = "ponte" | "talha" | "portico";
+type EquipmentQuestionCategory = "ponte" | "talha" | "portico" | "bobcat";
 
 const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "1": "ponte",
@@ -22,6 +22,14 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "portico": "portico",
   "portico rolante": "portico",
   "portico movel": "portico",
+  "5": "bobcat",
+  "bobcat": "bobcat",
+  "mini carregadeira": "bobcat",
+  "mini-carregadeira": "bobcat",
+  "mini carregadeira bobcat": "bobcat",
+  "mini carregadeira de direcao deslizante": "bobcat",
+  "mini carregadeira de direção deslizante": "bobcat",
+  "mini carregadeira direcao deslizante": "bobcat",
 };
 
 const normalizeValue = (value: string): string =>
@@ -115,6 +123,23 @@ const EQUIPMENT_TYPE_QUESTION_MAP: Record<EquipmentQuestionCategory, string[]> =
     "O equipamento apresenta ruídos estranhos?",
     "Os sensores antiesmagamento do pórtico estão funcionando?",
   ],
+  bobcat: [
+    "Os faróis dianteiros estão funcionando normalmente?",
+    "O stop de freio está funcionando normalmente?",
+    "O sinal sonoro (buzina) está funcionando normalmente?",
+    "A mini carregadeira possui ré sonora e está funcionando normalmente?",
+    "Os pneus estão em boas condições?",
+    "O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?",
+    "O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?",
+    "O óleo do motor apresenta nível normal?",
+    "O sistema de refrigeração do motor (radiador) apresenta nível de água normal?",
+    "A mini carregadeira está com os retrovisores em boas condições de uso?",
+    "O cinto de segurança está em boas condições de uso?",
+    "A torre de garfos está em boas condições de uso?",
+    "Possui catraca para amarração de cargas com risco de queda?",
+    "Possui placa de identificação de equipamento?",
+    "Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?",
+  ],
 };
 
 const normalizedQuestionsByType = Object.entries(EQUIPMENT_TYPE_QUESTION_MAP).reduce(
@@ -126,6 +151,17 @@ const normalizedQuestionsByType = Object.entries(EQUIPMENT_TYPE_QUESTION_MAP).re
   },
   {} as Record<EquipmentQuestionCategory, Set<string>>
 );
+
+const createSyntheticChecklistItems = (category: EquipmentQuestionCategory): ChecklistItem[] =>
+  EQUIPMENT_TYPE_QUESTION_MAP[category].map((question, index) =>
+    applyAlertRuleToItem({
+      id: `${category}-${index + 1}`,
+      question,
+      answer: null,
+      alertOnYes: false,
+      alertOnNo: false,
+    })
+  );
 
 const getQuestionCategory = (equipmentType?: string | null): EquipmentQuestionCategory | null => {
   if (!equipmentType) return null;
@@ -155,5 +191,9 @@ export const filterChecklistItemsByEquipmentType = (
   }
 
   const filtered = items.filter((item) => allowedSet.has(normalizeQuestion(item.question)));
-  return filtered.length > 0 ? filtered : items;
+  if (filtered.length > 0) {
+    return filtered;
+  }
+
+  return createSyntheticChecklistItems(category);
 };

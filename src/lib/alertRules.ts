@@ -1,4 +1,4 @@
-export interface AlertRule {
+﻿export interface AlertRule {
   onYes?: boolean;
   onNo?: boolean;
 }
@@ -67,6 +67,19 @@ registerRules(
     "O(s) gancho(s) da corrente possui(em) travas de segurança funcionando?",
     "O gancho possui trava de segurança funcionando?",
     "O freio do pórtico está funcionando?",
+    "Os faróis dianteiros estão funcionando normalmente?",
+    "O stop de freio está funcionando normalmente?",
+    "O sinal sonoro (buzina) está funcionando normalmente?",
+    "A mini carregadeira possui ré sonora e está funcionando normalmente?",
+    "Os pneus estão em boas condições?",
+    "O óleo do motor apresenta nível normal?",
+    "O sistema de refrigeração do motor (radiador) apresenta nível de água normal?",
+    "A mini carregadeira está com os retrovisores em boas condições de uso?",
+    "O cinto de segurança está em boas condições de uso?",
+    "A torre de garfos está em boas condições de uso?",
+    "Possui catraca para amarração de cargas com risco de queda?",
+    "Possui placa de identificação de equipamento?",
+    "Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?",
   ],
   { onNo: true }
 );
@@ -99,8 +112,8 @@ registerRules(
     "Os cabos de aço apresentam pontos de amassamento?",
     "Os cabos de aço apresentam alguma dobra?",
     "Ao movimentar o equipamento, é possível perceber balanço?",
-    "O(s) gancho(s) da corrente possui(em) sinais de desgaste?",
-    "O(s) gancho(s) da corrente possui(em) sinais de alongamento?",
+    "O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?",
+    "O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?",
   ],
   { onYes: true }
 );
@@ -117,6 +130,8 @@ const ALERT_ON_NO_KEYWORDS = [
   "funciona durante",
   "fixada",
   "presente",
+  "nivel normal",
+  "condicoes de operar normalmente",
 ];
 
 const ALERT_ON_YES_KEYWORDS = [
@@ -129,6 +144,8 @@ const ALERT_ON_YES_KEYWORDS = [
   "possui rasgos",
   "possui fios",
   "possui elos",
+  "apresenta algum problema",
+  "indique vazamento de oleo",
 ];
 
 export const getAlertRule = (
@@ -152,9 +169,7 @@ export const getAlertRule = (
   if (!onYes && !onNo) {
     if (ALERT_ON_NO_KEYWORDS.some((keyword) => normalized.includes(keyword))) {
       onNo = true;
-    } else if (
-      ALERT_ON_YES_KEYWORDS.some((keyword) => normalized.includes(keyword))
-    ) {
+    } else if (ALERT_ON_YES_KEYWORDS.some((keyword) => normalized.includes(keyword))) {
       onYes = true;
     }
   }

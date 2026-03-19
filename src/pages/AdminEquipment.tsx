@@ -224,7 +224,8 @@ const AdminEquipment = () => {
         
         const typeText = equipment.type === "1" ? "Ponte" : 
                           equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" : "Outro";
+                          equipment.type === "3" ? "Pórtico" :
+                          equipment.type === "5" ? "Bobcat / Mini Carregadeira" : "Outro";
         
         doc.setFontSize(12);
         doc.text(`${index + 1}. Nome: ${equipment.name}`, 20, yPosition);
@@ -449,7 +450,8 @@ const AdminEquipment = () => {
                         <td className="py-3 px-4">
                           {equipment.type === "1" ? "Ponte" : 
                           equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" : "Outro"}
+                          equipment.type === "3" ? "Pórtico" :
+                          equipment.type === "5" ? "Bobcat / Mini Carregadeira" : "Outro"}
                         </td>
                         <td className="py-3 px-4">
                           {activeOrder ? (

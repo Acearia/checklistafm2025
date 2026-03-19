@@ -1,5 +1,4 @@
-
-import React from "react";
+﻿import React from "react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -12,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -65,10 +63,8 @@ export function AddEquipmentDialog({
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    // Ensure all required fields have values
     if (!values.name.trim() || !values.type.trim() || !values.kp.trim()) return;
-    
-    // Now we're sure required fields have values
+
     onAddEquipment({
       name: values.name,
       type: values.type,
@@ -76,7 +72,7 @@ export function AddEquipmentDialog({
       sector: values.sector || "",
       capacity: values.capacity || "",
     });
-    
+
     form.reset();
     onOpenChange(false);
   }
@@ -111,10 +107,7 @@ export function AddEquipmentDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Tipo*</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de equipamento" />
@@ -124,6 +117,7 @@ export function AddEquipmentDialog({
                       <SelectItem value="1">Ponte</SelectItem>
                       <SelectItem value="2">Talha</SelectItem>
                       <SelectItem value="3">Pórtico</SelectItem>
+                      <SelectItem value="5">Bobcat / Mini Carregadeira</SelectItem>
                       <SelectItem value="4">Outro</SelectItem>
                     </SelectContent>
                   </Select>
