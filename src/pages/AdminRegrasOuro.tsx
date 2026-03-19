@@ -136,12 +136,23 @@ const decodePotentialMojibake = (value: string) => {
     0x0178: 0x9f,
   };
 
+  const fixReplacementChars = (input: string) =>
+    input
+      .replace(/EXPEDI\uFFFD+\s*O/gi, "EXPEDIÇÃO")
+      .replace(/N\uFFFDO/gi, "NÃO")
+      .replace(/JO\uFFFDO/gi, "JOÃO")
+      .replace(/T\uFFFDcnico/gi, "Técnico")
+      .replace(/T\uFFFDtulo/gi, "Título")
+      .replace(/A\uFFFD\uFFFDes/gi, "Ações")
+      .replace(/Pend\uFFFDncias/gi, "Pendências")
+      .replace(/\uFFFD+/g, "");
+
   const hasMojibake = /[ÃƒÃ‚]/.test(value);
   const hasReplacement = /\uFFFD/.test(value);
   if (!hasMojibake && !hasReplacement) return value;
 
   if (!hasMojibake) {
-    return value.replace(/\uFFFD+/g, "");
+    return fixReplacementChars(value);
   }
 
   try {
@@ -152,9 +163,9 @@ const decodePotentialMojibake = (value: string) => {
         return cp1252ReverseMap[codePoint] ?? 0x3f;
       }),
     );
-    return new TextDecoder("utf-8").decode(bytes);
+    return fixReplacementChars(new TextDecoder("utf-8").decode(bytes));
   } catch {
-    return value;
+    return fixReplacementChars(value);
   }
 };
 
