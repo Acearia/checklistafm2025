@@ -738,7 +738,13 @@ const AdminRegrasOuro = () => {
       }
 
       const updated = records.filter((item) => item.id !== record.id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      try {
+        const localCache = parseRegrasOuro();
+        const nextLocalCache = localCache.filter((item) => item.id !== record.id);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLocalCache));
+      } catch (storageError) {
+        console.warn("Falha ao atualizar cache local das regras de ouro apos exclusao:", storageError);
+      }
       window.dispatchEvent(new Event(STORAGE_EVENT));
       setRecords(updated);
 
