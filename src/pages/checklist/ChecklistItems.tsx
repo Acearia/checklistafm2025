@@ -25,13 +25,13 @@ const ChecklistItems = () => {
   const [currentState, setCurrentState] = useState(getChecklistState());
   const { checklistItems: supabaseChecklistItems } = useChecklistData();
 
-  const steps = ["Operador", "Equipamento", "Checklist", "MÃ­dia", "Enviar"];
+  const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
 
   useEffect(() => {
     const state = getChecklistState();
     setCurrentState(state);
 
-    // Verificar se as etapas anteriores foram concluÃ­das
+    // Verificar se as etapas anteriores foram concluídas
     if (!state.operator || !state.equipment) {
       navigate('/checklist-steps/operator');
       return;
@@ -95,7 +95,7 @@ const ChecklistItems = () => {
     if (unansweredItems.length > 0) {
       toast({
         title: "Checklist incompleto",
-        description: "Responda todos os itens da verificaÃ§Ã£o para continuar",
+        description: "Responda todos os itens da verificação para continuar",
         variant: "destructive",
       });
       return;
@@ -104,7 +104,7 @@ const ChecklistItems = () => {
     // Salvar as respostas do checklist no estado
     saveChecklistState({ checklist });
     
-    // Navegar para a prÃ³xima etapa
+    // Navegar para a próxima etapa
     navigate('/checklist-steps/media');
   };
 
@@ -120,10 +120,10 @@ const ChecklistItems = () => {
           
           <div className="bg-blue-50 p-3 rounded-md mb-4">
             <p className="text-sm">
-              <strong>Operador:</strong> {currentState.operator?.name || "NÃ£o selecionado"}
+              <strong>Operador:</strong> {currentState.operator?.name || "Não selecionado"}
             </p>
             <p className="text-sm">
-              <strong>Equipamento:</strong> {currentState.equipment?.name || "NÃ£o selecionado"} 
+              <strong>Equipamento:</strong> {currentState.equipment?.name || "Não selecionado"} 
               (KP: {currentState.equipment?.kp || "-"})
             </p>
           </div>
@@ -174,7 +174,7 @@ const ChecklistItems = () => {
             onClick={handleNext}
             className="bg-red-700 hover:bg-red-800 text-white px-6 py-2"
           >
-            PrÃ³ximo
+            Próximo
           </Button>
         </div>
       </div>

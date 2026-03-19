@@ -1,4 +1,4 @@
-﻿
+
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Save, CheckCircle } from "lucide-react";
@@ -248,8 +248,8 @@ const Checklist = () => {
     } else {
       console.warn("Operator not found for id:", operatorId);
       toast({
-        title: "Operador nÃ£o encontrado",
-        description: "NÃ£o foi possÃ­vel localizar o operador selecionado.",
+        title: "Operador não encontrado",
+        description: "Não foi possível localizar o operador selecionado.",
         variant: "destructive",
       });
     }
@@ -311,7 +311,7 @@ const Checklist = () => {
     try {
       return format(new Date(isoDate), "dd/MM/yyyy HH:mm", { locale: ptBR });
     } catch (error) {
-      console.warn("NÃ£o foi possÃ­vel formatar data da OS:", error);
+      console.warn("Não foi possível formatar data da OS:", error);
       return "-";
     }
   };
@@ -348,7 +348,7 @@ const Checklist = () => {
       (op) => getOperatorIdentifier(op) === operatorUnlockSelection,
     );
     if (!matchingOperator) {
-      setOperatorUnlockError("Operador selecionado nÃ£o encontrado.");
+      setOperatorUnlockError("Operador selecionado não encontrado.");
       return;
     }
 
@@ -356,7 +356,7 @@ const Checklist = () => {
     const [expectedPassword, senhaFlag] = rawSenha.split("|");
 
     if (!expectedPassword) {
-      setOperatorUnlockError("Este operador nÃ£o possui senha cadastrada. Solicite ao administrador.");
+      setOperatorUnlockError("Este operador não possui senha cadastrada. Solicite ao administrador.");
       return;
     }
 
@@ -435,7 +435,7 @@ const Checklist = () => {
       console.error('Erro ao adicionar operador:', error);
       toast({
         title: "Erro",
-        description: "NÃ£o foi possÃ­vel adicionar o operador. Tente novamente.",
+        description: "Não foi possível adicionar o operador. Tente novamente.",
         variant: "destructive",
       });
     }
@@ -455,14 +455,14 @@ const Checklist = () => {
         canvas.height = height;
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-          reject(new Error("NÃ£o foi possÃ­vel processar a imagem."));
+          reject(new Error("Não foi possível processar a imagem."));
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
         canvas.toBlob(
           (blob) => {
             if (!blob) {
-              reject(new Error("NÃ£o foi possÃ­vel gerar a imagem."));
+              reject(new Error("Não foi possível gerar a imagem."));
               return;
             }
             const reader = new FileReader();
@@ -487,7 +487,7 @@ const Checklist = () => {
     if (photos.length >= MAX_PHOTOS) {
       toast({
         title: "Limite de fotos atingido",
-        description: `VocÃª pode anexar atÃ© ${MAX_PHOTOS} fotos por checklist.`,
+        description: `Você pode anexar até ${MAX_PHOTOS} fotos por checklist.`,
         variant: "destructive",
       });
       return;
@@ -503,7 +503,7 @@ const Checklist = () => {
       console.error("Erro ao processar foto:", err);
       toast({
         title: "Erro ao anexar foto",
-        description: err instanceof Error ? err.message : "NÃ£o foi possÃ­vel adicionar a imagem. Tente novamente.",
+        description: err instanceof Error ? err.message : "Não foi possível adicionar a imagem. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -543,8 +543,8 @@ const Checklist = () => {
     const trimmedNumber = maintenanceOrderNumber.trim();
     if (!trimmedNumber) {
       toast({
-        title: "NÃºmero da OS obrigatÃ³rio",
-        description: "Informe o nÃºmero da ordem de serviÃ§o para continuar.",
+        title: "Número da OS obrigatório",
+        description: "Informe o número da ordem de serviço para continuar.",
         variant: "destructive",
       });
       return;
@@ -583,7 +583,7 @@ const Checklist = () => {
   const handleDeleteMaintenanceOrders = () => {
     if (!selectedEquipment) return;
 
-    const confirmationMessage = `Remover todas as ordens de serviÃ§o do equipamento "${selectedEquipment.name}"?`;
+    const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${selectedEquipment.name}"?`;
     const confirmed =
       typeof window === "undefined" ? true : window.confirm(confirmationMessage);
 
@@ -601,7 +601,7 @@ const Checklist = () => {
 
     toast({
       title: "OS removidas",
-      description: `Todas as OS do equipamento ${selectedEquipment.name} foram excluÃ­das.`,
+      description: `Todas as OS do equipamento ${selectedEquipment.name} foram excluídas.`,
     });
   };
 
@@ -632,7 +632,7 @@ const Checklist = () => {
       setHasInteractedWithChecklist(true);
       toast({
         title: "Checklist incompleto",
-        description: "Responda todos os itens da verificaÃ§Ã£o para continuar",
+        description: "Responda todos os itens da verificação para continuar",
         variant: "destructive",
       });
       return;
@@ -640,8 +640,8 @@ const Checklist = () => {
 
     if (!signature) {
       toast({
-        title: "Assinatura nÃ£o encontrada",
-        description: "Por favor, assine o formulÃ¡rio para confirmar a inspeÃ§Ã£o",
+        title: "Assinatura não encontrada",
+        description: "Por favor, assine o formulário para confirmar a inspeção",
         variant: "destructive",
       });
       return;
@@ -686,8 +686,8 @@ const Checklist = () => {
             if (sectorLeaders.length > 0) {
               // If we have leaders for this sector, simulate sending email notification
               toast({
-                title: "NotificaÃ§Ã£o enviada",
-                description: `${sectorLeaders.length} lÃ­der(es) do setor ${selectedEquipment.sector} foram notificados`,
+                title: "Notificação enviada",
+                description: `${sectorLeaders.length} líder(es) do setor ${selectedEquipment.sector} foram notificados`,
               });
             }
           }
@@ -698,7 +698,7 @@ const Checklist = () => {
 
       toast({
         title: "Checklist enviado com sucesso!",
-        description: `InspeÃ§Ã£o do equipamento ${selectedEquipment.name} registrada`,
+        description: `Inspeção do equipamento ${selectedEquipment.name} registrada`,
         variant: "default",
       });
 
@@ -731,7 +731,7 @@ const Checklist = () => {
       console.error('Error saving inspection:', error);
       toast({
         title: "Erro ao salvar",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a inspeÃ§Ã£o. Tente novamente.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -745,12 +745,12 @@ const Checklist = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-700/95 px-6 text-white">
           <div className="flex max-w-md flex-col items-center gap-4 text-center">
             <CheckCircle size={64} className="text-white" />
-            <h2 className="text-2xl font-bold">InspeÃ§Ã£o enviada!</h2>
+            <h2 className="text-2xl font-bold">Inspeção enviada!</h2>
             <p className="text-sm text-green-100">
               {successEquipmentName
-                ? `A inspeÃ§Ã£o do equipamento ${successEquipmentName} foi registrada com sucesso.`
-                : "InspeÃ§Ã£o registrada com sucesso."}
-              {" "}VocÃª serÃ¡ redirecionado para a tela inicial em instantes.
+                ? `A inspeção do equipamento ${successEquipmentName} foi registrada com sucesso.`
+                : "Inspeção registrada com sucesso."}
+              {" "}Você será redirecionado para a tela inicial em instantes.
             </p>
           </div>
         </div>
@@ -769,7 +769,7 @@ const Checklist = () => {
                     {selectedOperator.name}
                   </p>
                   <div className="mt-1 text-sm text-green-800">
-                    <div>MatrÃ­cula: {selectedOperator.matricula}</div>
+                    <div>Matrícula: {selectedOperator.matricula}</div>
                     {selectedOperator.setor && <div>Setor: {selectedOperator.setor}</div>}
                     {selectedOperator.cargo && <div>Cargo: {selectedOperator.cargo}</div>}
                   </div>
@@ -799,7 +799,7 @@ const Checklist = () => {
             disabled={!selectedOperator}
             emptyMessage={
               selectedOperator
-                ? `Nenhum equipamento disponÃ­vel para o setor ${selectedOperator.setor ?? ""}.`
+                ? `Nenhum equipamento disponível para o setor ${selectedOperator.setor ?? ""}.`
                 : "Selecione o operador para listar os equipamentos do setor."
             }
           />
@@ -828,7 +828,7 @@ const Checklist = () => {
                   ) : latestMaintenanceOrder ? (
                     <div className="mt-2 space-y-1">
                       <Badge variant="secondary" className="text-xs">
-                        Ãšltima OS #{latestMaintenanceOrder.orderNumber} â€¢ {getMaintenanceStatusLabel(latestMaintenanceOrder.status)}
+                        Última OS #{latestMaintenanceOrder.orderNumber} • {getMaintenanceStatusLabel(latestMaintenanceOrder.status)}
                       </Badge>
                       <p className="text-xs text-gray-600">
                         Atualizada em {formatOrderDate(latestMaintenanceOrder.updatedAt)}
@@ -855,7 +855,7 @@ const Checklist = () => {
               </div>
               {ordersForSelectedEquipment.length > 1 && (
                 <div className="mt-3 text-xs text-gray-500">
-                  HistÃ³rico recente:
+                  Histórico recente:
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                     {ordersForSelectedEquipment.slice(0, 3).map((order) => (
                       <span key={order.id}>
@@ -917,7 +917,7 @@ const Checklist = () => {
               ) : (
                 <span className="flex items-center gap-2">
                   <Save size={20} />
-                  Enviar InspeÃ§Ã£o
+                  Enviar Inspeção
                 </span>
               )}
             </Button>
@@ -948,12 +948,12 @@ const Checklist = () => {
 
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase text-gray-600">
-                NÃºmero da OS
+                Número da OS
               </label>
               <Input
                 value={maintenanceOrderNumber}
                 onChange={(event) => setMaintenanceOrderNumber(event.target.value)}
-                placeholder="Informe o nÃºmero da OS"
+                placeholder="Informe o número da OS"
               />
             </div>
 
@@ -978,13 +978,13 @@ const Checklist = () => {
 
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase text-gray-600">
-                ObservaÃ§Ãµes (opcional)
+                Observações (opcional)
               </label>
               <Textarea
                 value={maintenanceNotes}
                 onChange={(event) => setMaintenanceNotes(event.target.value)}
                 rows={3}
-                placeholder="Descreva detalhes da manutenÃ§Ã£o ou responsÃ¡veis"
+                placeholder="Descreva detalhes da manutenção ou responsáveis"
               />
             </div>
           </div>

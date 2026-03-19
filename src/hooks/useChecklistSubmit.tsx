@@ -1,4 +1,4 @@
-﻿
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -97,8 +97,8 @@ export const useChecklistSubmit = () => {
   const handleSubmit = async () => {
     if (!signature) {
       toast({
-        title: "Assinatura nÃ£o encontrada",
-        description: "Por favor, assine o formulÃ¡rio para confirmar a inspeÃ§Ã£o",
+        title: "Assinatura não encontrada",
+        description: "Por favor, assine o formulário para confirmar a inspeção",
         variant: "destructive",
       });
       return;
@@ -165,16 +165,16 @@ export const useChecklistSubmit = () => {
 
           toast({
             title: "Dados sincronizados",
-            description: "InspeÃ§Ã£o salva e sincronizada com o banco de dados.",
+            description: "Inspeção salva e sincronizada com o banco de dados.",
           });
         } else {
-          throw new Error('Operador ou equipamento nÃ£o encontrado no banco');
+          throw new Error("Operador ou equipamento não encontrado no banco");
         }
       } catch (supabaseError) {
         console.error('Erro ao salvar no Supabase:', supabaseError);
         toast({
           title: "Dados salvos localmente",
-          description: "InspeÃ§Ã£o salva no armazenamento local. Erro na sincronizaÃ§Ã£o com o banco.",
+          description: "Inspeção salva no armazenamento local. Erro na sincronização com o banco.",
           variant: "destructive",
         });
       }
@@ -189,8 +189,8 @@ export const useChecklistSubmit = () => {
           if (sectorLeaders.length > 0) {
             // If we have leaders for this sector, simulate sending email notification
             toast({
-              title: "NotificaÃ§Ã£o enviada",
-              description: `${sectorLeaders.length} lÃ­der(es) do setor ${currentState.equipment?.sector} foram notificados`,
+              title: "Notificação enviada",
+              description: `${sectorLeaders.length} líder(es) do setor ${currentState.equipment?.sector} foram notificados`,
             });
           }
         }
@@ -200,14 +200,14 @@ export const useChecklistSubmit = () => {
 
       toast({
         title: "Checklist enviado com sucesso!",
-        description: `InspeÃ§Ã£o do equipamento ${currentState.equipment?.name} registrada`,
+        description: `Inspeção do equipamento ${currentState.equipment?.name} registrada`,
         variant: "default",
       });
 
       if (alertsGenerated > 0) {
         toast({
-          title: "Alerta de seguranÃ§a emitido",
-          description: `${alertsGenerated} alerta(s) foram enviados para acompanhamento pelo administrativo e lÃ­deres.`,
+          title: "Alerta de segurança emitido",
+          description: `${alertsGenerated} alerta(s) foram enviados para acompanhamento pelo administrativo e líderes.`,
         });
       }
 
@@ -224,7 +224,7 @@ export const useChecklistSubmit = () => {
       console.error('Error saving inspection:', error);
       toast({
         title: "Erro ao salvar",
-        description: "Ocorreu um erro ao salvar a inspeÃ§Ã£o. Tente novamente.",
+        description: "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
         variant: "destructive",
       });
     } finally {

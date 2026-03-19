@@ -1,4 +1,4 @@
-﻿import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 // Types
@@ -62,7 +62,7 @@ export interface GoldenRuleRecordPayload {
     codigo: string;
     numero: string;
     pergunta: string;
-    resposta: "Sim" | "NÃ£o" | "Nao" | "N/A";
+    resposta: "Sim" | "Não" | "Nao" | "N/A";
     comentario?: string;
     foto?: {
       name?: string;
@@ -129,10 +129,10 @@ const notifyInspectionEmail = async (inspectionId: string) => {
     });
 
     if (error) {
-      console.error("[inspectionService] Falha ao enviar e-mail de inspeÃ§Ã£o:", error);
+      console.error("[inspectionService] Falha ao enviar e-mail de inspeção:", error);
     }
   } catch (error) {
-    console.error("[inspectionService] Erro ao acionar funÃ§Ã£o de e-mail:", error);
+    console.error("[inspectionService] Erro ao acionar função de e-mail:", error);
   }
 };
 
@@ -200,7 +200,7 @@ export const operatorService = {
     if (error) {
       if (isMissingSenhaColumnError(error)) {
         console.warn(
-          "[operatorService.create] Coluna 'senha' nÃ£o encontrada. Inserindo sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
+          "[operatorService.create] Coluna 'senha' não encontrada. Inserindo sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
         );
         const { senha, ...fallbackPayload } = payload;
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -235,7 +235,7 @@ export const operatorService = {
     if (error) {
       if (isMissingSenhaColumnError(error)) {
         console.warn(
-          "[operatorService.update] Coluna 'senha' nÃ£o encontrada. Atualizando sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
+          "[operatorService.update] Coluna 'senha' não encontrada. Atualizando sem a coluna. Execute a migration mais recente para habilitar armazenamento de senha."
         );
         const { senha, ...fallbackPayload } = payload;
         const { data: fallbackData, error: fallbackError } = await supabase
@@ -665,7 +665,7 @@ export const goldenRuleService = {
     try {
       const evidenceRows: any[] = [];
 
-      for (const batchIds of chunkArray(responseIds, 40)) {
+      for (const batchIds of chunkArray(responseIds, 10)) {
         const { data, error } = await (supabase as any)
           .from("golden_rule_response_evidences")
           .select(
@@ -730,7 +730,7 @@ export const goldenRuleService = {
     const attachmentMap = new Map<string, any[]>();
 
     try {
-      for (const batchIds of chunkArray(ruleIds, 20)) {
+      for (const batchIds of chunkArray(ruleIds, 5)) {
         const { data: responseRows, error: responsesError } = await supabase
           .from("golden_rule_responses")
           .select(
@@ -760,7 +760,7 @@ export const goldenRuleService = {
 
     if (includeAttachments) {
       try {
-        for (const batchIds of chunkArray(ruleIds, 20)) {
+        for (const batchIds of chunkArray(ruleIds, 5)) {
           const { data: attachmentRows, error: attachmentsError } = await supabase
             .from("golden_rule_attachments")
             .select(
