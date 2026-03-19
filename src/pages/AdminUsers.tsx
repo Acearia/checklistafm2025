@@ -1,8 +1,12 @@
 import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
-import { KeyRound, RefreshCw, Save, UserPlus } from "lucide-react";
+import { KeyRound, RefreshCw, Save, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { operatorService, leaderService } from "@/lib/supabase-service";
+import {
+  leaderService,
+  operatorService,
+  sectorLeaderAssignmentService,
+} from "@/lib/supabase-service";
 import { supabase } from "@/integrations/supabase/client";
 import { upsertInvestigatorAccount } from "@/lib/adminCredentials";
 import { Button } from "@/components/ui/button";
@@ -126,6 +130,7 @@ const AdminUsers = () => {
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [saving, setSaving] = useState(false);
   const [resettingUserMatricula, setResettingUserMatricula] = useState<string | null>(null);
+  const [deletingUserMatricula, setDeletingUserMatricula] = useState<string | null>(null);
   const [securityRoleTags, setSecurityRoleTags] = useState<Record<string, UnifiedRole[]>>(
     () => loadSecurityRoleTags(),
   );
@@ -138,6 +143,8 @@ const AdminUsers = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRoles, setSelectedRoles] = useState<Set<UnifiedRole>>(new Set(["operador"]));
+  const [editingOriginalMatricula, setEditingOriginalMatricula] = useState<string | null>(null);
+  const [editingLeaderId, setEditingLeaderId] = useState<string | null>(null);
   const selectedSetores = useMemo(() => parseSectorList(setor), [setor]);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
@@ -263,6 +270,8 @@ const AdminUsers = () => {
     setEmail("");
     setPassword("");
     setSelectedRoles(new Set(["operador"]));
+    setEditingOriginalMatricula(null);
+    setEditingLeaderId(null);
   };
 
   const setRole = (role: UnifiedRole, checked: boolean) => {
@@ -290,6 +299,7 @@ const AdminUsers = () => {
   };
 
   const loadUserInForm = (user: UnifiedUser) => {
+    const matchedLeader = findLeaderByMatricula(user.matricula);
     setMatricula(user.matricula);
     setName(user.name);
     setCargo(user.cargo);
@@ -297,6 +307,8 @@ const AdminUsers = () => {
     setEmail(user.email);
     setPassword("");
     setSelectedRoles(new Set(user.roles));
+    setEditingOriginalMatricula(user.matricula);
+    setEditingLeaderId(matchedLeader?.id || null);
   };
 
   const findLeaderByMatricula = (targetMatricula: string) =>
@@ -312,6 +324,7 @@ const AdminUsers = () => {
     const passwordTrim = password.trim();
     const setorNormalized = stringifySectorList(parseSectorList(setor));
     const roleList = Array.from(selectedRoles);
+    const lookupMatricula = (editingOriginalMatricula || matriculaTrim).trim();
 
     if (!matriculaTrim || !nameTrim) {
       toast({
@@ -377,16 +390,29 @@ const AdminUsers = () => {
     setSaving(true);
     try {
       const existingOperator = operators.find(
-        (operator) => String(operator.matricula || "").trim() === matriculaTrim,
+        (operator) => String(operator.matricula || "").trim() === lookupMatricula,
       );
-      const existingLeader = findLeaderByMatricula(matriculaTrim);
+      const existingLeader =
+        (editingLeaderId
+          ? leaders.find((leader) => leader.id === editingLeaderId)
+          : undefined) ||
+        findLeaderByMatricula(lookupMatricula) ||
+        findLeaderByMatricula(matriculaTrim) ||
+        leaders.find(
+          (leader) =>
+            email.trim().length > 0 &&
+            String(leader.email || "").trim().toLowerCase() === email.trim().toLowerCase(),
+        );
       const existingAdmin = adminAccounts.find(
-        (account) => account.username === matriculaTrim,
+        (account) => account.username === lookupMatricula,
       );
 
       if (roleList.includes("operador")) {
         if (existingOperator) {
-          await operatorService.update(matriculaTrim, {
+          await operatorService.update(String(existingOperator.matricula || "").trim(), {
+            ...(String(existingOperator.matricula || "").trim() !== matriculaTrim
+              ? { matricula: matriculaTrim }
+              : {}),
             name: nameTrim,
             cargo: cargo.trim() || null,
             setor: setorNormalized || null,
@@ -651,6 +677,115 @@ const AdminUsers = () => {
     }
   };
 
+  const handleDeleteUser = async (user: UnifiedUser) => {
+    if (typeof window !== "undefined") {
+      const confirmed = window.confirm(
+        `Excluir o usuário ${user.name} (${user.matricula})? Isso remove os perfis vinculados a essa matrícula.`,
+      );
+      if (!confirmed) return;
+    }
+
+    setDeletingUserMatricula(user.matricula);
+    const removedProfiles: string[] = [];
+
+    try {
+      const leaderRecord =
+        findLeaderByMatricula(user.matricula) ||
+        leaders.find(
+          (leader) =>
+            user.email.trim().length > 0 &&
+            String(leader.email || "").trim().toLowerCase() === user.email.trim().toLowerCase(),
+        );
+
+      if (user.roles.includes("operador")) {
+        const { count, error: inspectionCountError } = await supabase
+          .from("inspections")
+          .select("id", { count: "exact", head: true })
+          .eq("operator_matricula", user.matricula);
+
+        if (inspectionCountError) throw inspectionCountError;
+
+        if ((count || 0) > 0) {
+          toast({
+            title: "Exclusão bloqueada",
+            description:
+              "Não é possível excluir operador com inspeções já registradas. Remova apenas os demais perfis, se necessário.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (leaderRecord) {
+        const assignments = await sectorLeaderAssignmentService.getAll();
+        const relatedAssignments = assignments.filter(
+          (assignment) => assignment.leader_id === leaderRecord.id,
+        );
+
+        for (const assignment of relatedAssignments) {
+          await sectorLeaderAssignmentService.delete(assignment.id);
+        }
+
+        await leaderService.delete(leaderRecord.id);
+        removedProfiles.push("Líder");
+      }
+
+      if (user.roles.includes("operador")) {
+        await operatorService.delete(user.matricula);
+        removedProfiles.push("Operador");
+      }
+
+      if (
+        user.roles.includes("investigador") ||
+        user.roles.some((role) => SECURITY_ROLES.includes(role))
+      ) {
+        const { error } = await supabase.from("admin_users").delete().eq("username", user.matricula);
+        if (error) throw error;
+
+        setSecurityRoleTags((previous) => {
+          if (!(user.matricula in previous)) return previous;
+          const next = { ...previous };
+          delete next[user.matricula];
+          return next;
+        });
+
+        if (user.roles.includes("investigador")) removedProfiles.push("Investigador");
+        if (user.roles.some((role) => SECURITY_ROLES.includes(role))) {
+          removedProfiles.push("Perfis administrativos");
+        }
+      }
+
+      if (removedProfiles.length === 0) {
+        toast({
+          title: "Nada para excluir",
+          description: "Nenhum perfil removível foi encontrado para este usuário.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Usuário excluído",
+        description: `Perfis removidos: ${removedProfiles.join(", ")}.`,
+      });
+
+      if (editingOriginalMatricula === user.matricula) {
+        clearForm();
+      }
+
+      await Promise.all([refresh(), loadAdminAccounts()]);
+    } catch (error) {
+      console.error("Erro ao excluir usuário:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível concluir a exclusão do usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingUserMatricula(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -860,19 +995,38 @@ const AdminUsers = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={resettingUserMatricula === user.matricula}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            void handleResetUserPassword(user);
-                          }}
-                        >
-                          <KeyRound className="mr-2 h-4 w-4" />
-                          {resettingUserMatricula === user.matricula ? "Resetando..." : "Resetar senha"}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={resettingUserMatricula === user.matricula}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleResetUserPassword(user);
+                            }}
+                          >
+                            <KeyRound className="mr-2 h-4 w-4" />
+                            {resettingUserMatricula === user.matricula
+                              ? "Resetando..."
+                              : "Resetar senha"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={deletingUserMatricula === user.matricula}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleDeleteUser(user);
+                            }}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {deletingUserMatricula === user.matricula
+                              ? "Excluindo..."
+                              : "Excluir"}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
