@@ -39,7 +39,7 @@ interface UnifiedUser {
 
 interface AdminAccount {
   username: string;
-  role: "admin" | "seguranca" | "investigador";
+  role: "admin" | "seguranca" | "diretoria" | "investigador";
   password_hash: string;
 }
 

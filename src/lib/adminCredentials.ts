@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type AdminRole = "admin" | "seguranca";
+export type AdminRole = "admin" | "seguranca" | "diretoria";
 type InvestigatorRole = "investigador" | "investigator";
 export type SystemRole = AdminRole | InvestigatorRole;
 
@@ -27,7 +27,7 @@ const encodePassword = (value: string): string => {
 
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 const isAdminRole = (role: string): role is AdminRole =>
-  role === "admin" || role === "seguranca";
+  role === "admin" || role === "seguranca" || role === "diretoria";
 const isSystemRole = (role: string): role is SystemRole =>
   role === "admin" ||
   role === "seguranca" ||

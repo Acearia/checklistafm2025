@@ -680,50 +680,99 @@ export const goldenRuleService = {
           : [],
       }));
     } catch (error) {
-      if (relationMissingError(error, "golden_rule_response_evidences")) return rows;
-      throw error;
+      console.warn("[goldenRuleService] Falha ao carregar evidencias das respostas:", error);
+      return rows;
     }
+  },
+
+  async hydrateRulesWithRelations(ruleRows: any[]) {
+    const rows = Array.isArray(ruleRows) ? ruleRows : [];
+    if (rows.length === 0) return [];
+
+    const ruleIds = rows.map((rule: any) => rule?.id).filter(Boolean);
+    const responseMap = new Map<string, any[]>();
+    const attachmentMap = new Map<string, any[]>();
+
+    try {
+      const { data: responseRows, error: responsesError } = await supabase
+        .from("golden_rule_responses")
+        .select("*")
+        .in("regra_id", ruleIds)
+        .order("numero", { ascending: true });
+
+      if (responsesError) {
+        if (!relationMissingError(responsesError, "golden_rule_responses")) {
+          console.warn("[goldenRuleService] Falha ao carregar respostas das regras de ouro:", responsesError);
+        }
+      } else {
+        (responseRows || []).forEach((response: any) => {
+          const current = responseMap.get(response.regra_id) || [];
+          current.push(response);
+          responseMap.set(response.regra_id, current);
+        });
+      }
+    } catch (error) {
+      console.warn("[goldenRuleService] Erro ao hidratar respostas das regras de ouro:", error);
+    }
+
+    try {
+      const { data: attachmentRows, error: attachmentsError } = await supabase
+        .from("golden_rule_attachments")
+        .select("*")
+        .in("regra_id", ruleIds)
+        .order("created_at", { ascending: true });
+
+      if (attachmentsError) {
+        if (!relationMissingError(attachmentsError, "golden_rule_attachments")) {
+          console.warn("[goldenRuleService] Falha ao carregar anexos das regras de ouro:", attachmentsError);
+        }
+      } else {
+        (attachmentRows || []).forEach((attachment: any) => {
+          const current = attachmentMap.get(attachment.regra_id) || [];
+          current.push(attachment);
+          attachmentMap.set(attachment.regra_id, current);
+        });
+      }
+    } catch (error) {
+      console.warn("[goldenRuleService] Erro ao hidratar anexos das regras de ouro:", error);
+    }
+
+    const hydratedRows = rows.map((rule: any) => ({
+      ...rule,
+      responses: responseMap.get(rule.id) || [],
+      attachments: attachmentMap.get(rule.id) || [],
+    }));
+
+    const responseIds = hydratedRows.flatMap((rule: any) =>
+      Array.isArray(rule.responses)
+        ? rule.responses.map((response: any) => response?.id).filter(Boolean)
+        : [],
+    );
+
+    return this.appendResponseEvidences(responseIds, hydratedRows);
   },
 
   async getAll() {
     const { data, error } = await supabase
       .from("golden_rules")
-      .select(`
-        *,
-        responses:golden_rule_responses(*),
-        attachments:golden_rule_attachments(*)
-      `)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    const rows = data || [];
-    const responseIds = rows.flatMap((rule: any) =>
-      Array.isArray(rule.responses)
-        ? rule.responses.map((response: any) => response?.id).filter(Boolean)
-        : [],
-    );
-    return this.appendResponseEvidences(responseIds, rows);
+    return this.hydrateRulesWithRelations(data || []);
   },
 
   async getById(id: string) {
     const { data, error } = await supabase
       .from("golden_rules")
-      .select(`
-        *,
-        responses:golden_rule_responses(*),
-        attachments:golden_rule_attachments(*)
-      `)
+      .select("*")
       .eq("id", id)
       .maybeSingle();
 
     if (error) throw error;
     if (!data) return data;
 
-    const responseIds = Array.isArray((data as any).responses)
-      ? (data as any).responses.map((response: any) => response?.id).filter(Boolean)
-      : [];
-
-    const [hydrated] = await this.appendResponseEvidences(responseIds, [data as any]);
+    const [hydrated] = await this.hydrateRulesWithRelations([data as any]);
     return hydrated;
   },
 
