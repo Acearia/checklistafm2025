@@ -241,17 +241,17 @@ const Index = () => {
   };
   
   const HomeCard = (
-    <Card className="bg-white/85 backdrop-blur-md border border-white/50 shadow-lg mt-6">
+      <Card className="mt-6 border border-white/50 bg-white/85 shadow-lg backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/75">
       <CardContent className="pt-6 flex flex-col items-center">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao Checklist AFM</h2>
-          <p className="text-gray-600">Sistema de inspeção de equipamentos</p>
+          <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Bem-vindo ao Checklist AFM</h2>
+          <p className="text-gray-600 dark:text-slate-300">Sistema de inspeção de equipamentos</p>
         </div>
         
         <div className="w-full space-y-4">
           <div className="space-y-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200">
                 Matrícula
               </label>
               <Input
@@ -268,7 +268,7 @@ const Index = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200">
                 Senha (mínimo 4 dígitos)
               </label>
               <Input
@@ -307,11 +307,11 @@ const Index = () => {
           </div>
 
           {validatedOperator && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/40">
               <p className="text-sm font-medium text-green-900">
                 {validatedOperator.name}
               </p>
-                    <p className="text-xs text-green-700">
+                    <p className="text-xs text-green-700 dark:text-green-300">
                       {validatedOperator.cargo} {operatorSectors.length > 0 ? `- ${operatorSectors.join(", ")}` : ""}
                     </p>
                   </div>
@@ -337,7 +337,7 @@ const Index = () => {
         "home-background"
       )}
     >
-      <header className="bg-red-700 text-white px-4 py-3 shadow-md flex justify-between items-center">
+      <header className="flex items-center justify-between bg-red-700 px-4 py-3 text-white shadow-md dark:border-b dark:border-slate-800 dark:bg-slate-950/95">
         <div className="flex items-center gap-4">
           <img src={logoUrl} alt="Checklist AFM" className="h-16 w-auto md:h-24 drop-shadow-md" />
           <div className="leading-tight text-white">
@@ -363,7 +363,7 @@ const Index = () => {
                 <Link to="/leader/login" className="w-full">
                   <Button
                     variant="ghost"
-                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 dark:text-slate-200 dark:hover:text-slate-50 sm:text-base"
                   >
                     Acesso de Líderes
                   </Button>
@@ -371,7 +371,7 @@ const Index = () => {
                 <Link to="/admin/login" className="w-full">
                   <Button
                     variant="ghost"
-                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 sm:text-base"
+                    className="h-11 w-full justify-center text-[15px] font-medium text-gray-700 hover:text-gray-900 dark:text-slate-200 dark:hover:text-slate-50 sm:text-base"
                   >
                     Acesso Administrativo
                   </Button>
@@ -380,23 +380,23 @@ const Index = () => {
               <div className="grid w-full grid-cols-1 gap-3 pt-1 sm:grid-cols-2">
                 <Link
                   to="/investigacao-acidente"
-                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 shadow-sm transition-colors hover:bg-amber-100"
+                  className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900 shadow-sm transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
                 >
                   <div className="flex items-center gap-2">
                     <ShieldAlert className="h-5 w-5 shrink-0" />
                     <span className="text-base font-semibold sm:text-lg">Investigação de Acidente</span>
                   </div>
-                  <p className="mt-1 text-sm text-amber-800">Abrir formulário de investigação.</p>
+                  <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">Abrir formulário de investigação.</p>
                 </Link>
                 <Link
                   to="/regras-de-ouro"
-                  className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900 shadow-sm transition-colors hover:bg-blue-100"
+                  className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-blue-900 shadow-sm transition-colors hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-100 dark:hover:bg-blue-950/60"
                 >
                   <div className="flex items-center gap-2">
                     <ClipboardCheck className="h-5 w-5 shrink-0" />
                     <span className="text-base font-semibold sm:text-lg">Regras de Ouro</span>
                   </div>
-                  <p className="mt-1 text-sm text-blue-800">Abrir formulário de regras de ouro.</p>
+                  <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">Abrir formulário de regras de ouro.</p>
                 </Link>
               </div>
             </>
@@ -418,8 +418,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área de Líderes</h2>
-                      <p className="text-gray-600 mb-6">Acesse o dashboard de líderes do sistema</p>
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Área de Líderes</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Acesse o dashboard de líderes do sistema</p>
                     </div>
                     
                     <Link to="/leader/login">
@@ -437,8 +437,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Área Administrativa</h2>
-                      <p className="text-gray-600 mb-6">Acesse as funções administrativas do sistema</p>
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Área Administrativa</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Acesse as funções administrativas do sistema</p>
                     </div>
                     
                     <Link to="/admin/login">
@@ -455,8 +455,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Investigação de Acidente</h2>
-                      <p className="text-gray-600 mb-6">Acesse o formulário de investigação.</p>
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Investigação de Acidente</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Acesse o formulário de investigação.</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
@@ -476,8 +476,8 @@ const Index = () => {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="text-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">Regras de Ouro</h2>
-                      <p className="text-gray-600 mb-6">Acesse o formulário de regras de ouro.</p>
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Regras de Ouro</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Acesse o formulário de regras de ouro.</p>
                     </div>
 
                     <Link to="/regras-de-ouro">

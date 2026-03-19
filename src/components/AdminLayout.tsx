@@ -59,7 +59,7 @@ const AdminLayout = () => {
       title: "Logout realizado",
       description: "Você saiu do painel administrativo",
     });
-    navigate("/admin/login");
+      navigate("/admin/login");
   };
 
   const handleBackToChecklist = () => {
@@ -79,9 +79,9 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="admin-layout min-h-screen bg-gray-100/70 flex flex-col backdrop-blur">
+    <div className="admin-layout min-h-screen bg-gray-100/70 text-gray-900 flex flex-col backdrop-blur dark:bg-slate-950 dark:text-slate-100">
       {/* Top navbar */}
-      <header className="admin-layout-header bg-red-700 text-white shadow-md">
+      <header className="admin-layout-header bg-red-700 text-white shadow-md dark:bg-slate-950 dark:border-b dark:border-slate-800">
         <div className="flex justify-between items-center py-3 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button 
@@ -101,7 +101,7 @@ const AdminLayout = () => {
               variant="outline" 
               size="sm" 
               onClick={handleBackToChecklist}
-              className="bg-white text-red-700 hover:bg-red-50 border-white"
+              className="bg-white text-red-700 hover:bg-red-50 border-white dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800 dark:border-slate-700"
             >
               <ArrowLeft size={16} className="mr-1" />
               <span>Voltar ao Checklist</span>
@@ -110,7 +110,7 @@ const AdminLayout = () => {
               variant="ghost" 
               size="sm" 
               onClick={handleLogout}
-              className="text-white hover:bg-red-800"
+              className="text-white hover:bg-red-800 dark:hover:bg-slate-800"
             >
               <LogOut size={16} className="mr-1" />
               <span>Sair</span>
@@ -124,7 +124,7 @@ const AdminLayout = () => {
         <aside 
           className={`admin-layout-sidebar bg-white/85 backdrop-blur-md shadow-md transition-all duration-300 ${
             sidebarOpen ? "w-64" : "w-0"
-          } overflow-hidden flex-shrink-0`}
+          } overflow-hidden flex-shrink-0 dark:bg-slate-950/90 dark:border-r dark:border-slate-800`}
         >
           <nav className="p-4 flex flex-col h-full">
             <div className="space-y-1 flex-1">
@@ -146,7 +146,7 @@ const AdminLayout = () => {
         </aside>
 
         {/* Main content */}
-        <main className="admin-layout-main flex-1 overflow-auto p-6 bg-white/80 backdrop-blur-md">
+        <main className="admin-layout-main flex-1 overflow-auto p-6 bg-white/80 backdrop-blur-md dark:bg-slate-900/65">
           <div className="container mx-auto space-y-4">
             <Outlet />
           </div>
@@ -170,7 +170,7 @@ const SidebarLink = ({
   return (
     <Link
       to={to}
-      className="flex items-center p-2 text-gray-600 rounded-md hover:bg-gray-100"
+      className="flex items-center rounded-md p-2 text-gray-600 hover:bg-gray-100 dark:text-slate-200 dark:hover:bg-slate-800"
     >
       <span className="mr-3">{icon}</span>
       <span>{label}</span>

@@ -121,6 +121,12 @@
   pointer-events: none;
 }
 
+.dark .home-background::before {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.86), rgba(2, 6, 23, 0.76)),
+    rgba(2, 6, 23, 0.66);
+}
+
 .home-background > * {
   position: relative;
 }
