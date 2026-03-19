@@ -483,6 +483,7 @@ const AdminRegrasOuro = () => {
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
 
@@ -634,9 +635,33 @@ const AdminRegrasOuro = () => {
     return { total, comPendencias, totalItensNao, assinadas };
   }, [records]);
 
-  const handleViewDetails = (record: RegraOuroRecord) => {
+  const loadFullRecord = async (recordId: string) => {
+    const remoteRow = await goldenRuleService.getById(recordId);
+    if (!remoteRow) return null;
+    const [mapped] = mapSupabaseRegrasOuro([remoteRow]);
+    return mapped || null;
+  };
+
+  const handleViewDetails = async (record: RegraOuroRecord) => {
     setSelected(record);
     setDetailsOpen(true);
+    setIsLoadingDetails(true);
+
+    try {
+      const fullRecord = await loadFullRecord(record.id);
+      if (fullRecord) {
+        setSelected(fullRecord);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar detalhes completos da regra de ouro:", error);
+      toast({
+        title: "Detalhes parciais",
+        description: "Nao foi possivel carregar todas as respostas e anexos deste registro.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
   const handleDeleteRecord = async (record: RegraOuroRecord) => {
@@ -761,7 +786,18 @@ const AdminRegrasOuro = () => {
     setImagePreview({ url: trimmedUrl, title: title || "Imagem" });
   };
 
-  const handleExportRecordPdf = (record: RegraOuroRecord) => {
+  const handleExportRecordPdf = async (summaryRecord: RegraOuroRecord) => {
+    let record = summaryRecord;
+
+    try {
+      const fullRecord = await loadFullRecord(summaryRecord.id);
+      if (fullRecord) {
+        record = fullRecord;
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados completos para o PDF da regra de ouro:", error);
+    }
+
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -1177,11 +1213,11 @@ const AdminRegrasOuro = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => handleExportRecordPdf(item)}>
+                            <Button variant="ghost" size="sm" onClick={() => void handleExportRecordPdf(item)}>
                               <FileText className="mr-2 h-4 w-4" />
                               PDF
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
+                            <Button variant="ghost" size="sm" onClick={() => void handleViewDetails(item)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Detalhes
                             </Button>
@@ -1235,13 +1271,47 @@ const AdminRegrasOuro = () => {
                   <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Não"}</p>
                   <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Não"}</p>
                   <p><strong>Anexos:</strong> {selected.anexos.length}</p>
+                  <div className="mt-3 grid grid-cols-1 gap-3">
+                    {[
+                      { label: "Técnico", value: selected.ass_tst },
+                      { label: "Gestor", value: selected.ass_gestor },
+                      { label: "Acompanhante", value: selected.ass_acomp },
+                    ].map((signature) => (
+                      <div key={signature.label} className="rounded border bg-gray-50 p-2">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                          Assinatura {signature.label}
+                        </p>
+                        {signature.value ? (
+                          <img
+                            src={signature.value}
+                            alt={`Assinatura ${signature.label}`}
+                            className="h-24 w-full cursor-zoom-in rounded border bg-white object-contain"
+                            onClick={() =>
+                              handleOpenImagePreview(signature.value, `Assinatura ${signature.label}`)
+                            }
+                          />
+                        ) : (
+                          <p className="text-xs text-gray-500">Nao assinada.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div>
                 <h3 className="mb-2 font-semibold">Respostas</h3>
-                <div className="space-y-2">
-                  {selected.respostas.map((response) => (
+                {isLoadingDetails ? (
+                  <div className="rounded border bg-gray-50 p-4 text-sm text-gray-500">
+                    Carregando respostas completas...
+                  </div>
+                ) : selected.respostas.length === 0 ? (
+                  <div className="rounded border bg-gray-50 p-4 text-sm text-gray-500">
+                    Nenhuma resposta detalhada encontrada para este registro.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selected.respostas.map((response) => (
                     <div key={`${response.codigo}-${response.numero}`} className="rounded border p-3 text-sm">
                       <div className="mb-1 flex items-center justify-between gap-3">
                         <p className="font-medium">
@@ -1333,8 +1403,9 @@ const AdminRegrasOuro = () => {
                         </div>
                       ))}
                     </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {selected.anexos.length > 0 && (
@@ -1414,7 +1485,7 @@ const AdminRegrasOuro = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleExportRecordPdf(selected)}
+                onClick={() => void handleExportRecordPdf(selected)}
               >
                 <FileText className="mr-2 h-4 w-4" />
                 Gerar PDF
