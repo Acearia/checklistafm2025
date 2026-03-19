@@ -22,6 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import logoUrl from "@/assets/afm-logo.png";
+import ThemeToggle from "@/components/ThemeToggle";
+import AppFooter from "@/components/AppFooter";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -97,6 +99,7 @@ const AdminLayout = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <Button 
               variant="outline" 
               size="sm" 
@@ -152,6 +155,7 @@ const AdminLayout = () => {
           </div>
         </main>
       </div>
+      <AppFooter />
       <Toaster />
     </div>
   );

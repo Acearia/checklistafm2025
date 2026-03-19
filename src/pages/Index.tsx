@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import SupabaseStatus from "@/components/SupabaseStatus";
+import AppFooter from "@/components/AppFooter";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistState } from "@/lib/checklistState";
@@ -542,6 +543,7 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AppFooter className="border-white/40 bg-white/88" />
     </div>
   );
 };

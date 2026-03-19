@@ -30,11 +30,9 @@ import ChecklistEquipment from "./pages/checklist/ChecklistEquipment";
 import ChecklistItems from "./pages/checklist/ChecklistItems";
 import ChecklistMedia from "./pages/checklist/ChecklistMedia";
 import ChecklistSubmit from "./pages/checklist/ChecklistSubmit";
-import AppChrome from "./components/AppChrome";
 function App() {
   return (
     <Router>
-      <AppChrome />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/checklist" element={<Checklist />} />
