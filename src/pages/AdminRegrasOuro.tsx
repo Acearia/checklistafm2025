@@ -1300,35 +1300,42 @@ const AdminRegrasOuro = () => {
                   <p><strong>Acompanhante:</strong> {selected.acompanhante || "N/A"}</p>
                 </div>
                 <div className="rounded border p-3 text-sm">
+                  <p className="mb-3 text-sm font-semibold">Resumo do registro</p>
                   <p><strong>Assinatura técnico:</strong> {selected.ass_tst ? "Sim" : "Não"}</p>
                   <p><strong>Assinatura gestor:</strong> {selected.ass_gestor ? "Sim" : "Não"}</p>
                   <p><strong>Assinatura acompanhante:</strong> {selected.ass_acomp ? "Sim" : "Não"}</p>
                   <p><strong>Anexos:</strong> {selected.anexos.length}</p>
-                  <div className="mt-3 grid grid-cols-1 gap-3">
-                    {[
-                      { label: "Técnico", value: selected.ass_tst },
-                      { label: "Gestor", value: selected.ass_gestor },
-                      { label: "Acompanhante", value: selected.ass_acomp },
-                    ].map((signature) => (
-                      <div key={signature.label} className="rounded border bg-gray-50 p-2">
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-                          Assinatura {signature.label}
-                        </p>
-                        {signature.value ? (
-                          <img
-                            src={signature.value}
-                            alt={`Assinatura ${signature.label}`}
-                            className="h-24 w-full cursor-zoom-in rounded border bg-white object-contain"
-                            onClick={() =>
-                              handleOpenImagePreview(signature.value, `Assinatura ${signature.label}`)
-                            }
-                          />
-                        ) : (
-                          <p className="text-xs text-gray-500">Nao assinada.</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-2 font-semibold">Assinaturas</h3>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  {[
+                    { label: "Técnico", value: selected.ass_tst },
+                    { label: "Gestor", value: selected.ass_gestor },
+                    { label: "Acompanhante", value: selected.ass_acomp },
+                  ].map((signature) => (
+                    <div key={signature.label} className="rounded border bg-gray-50 p-3">
+                      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Assinatura {signature.label}
+                      </p>
+                      {signature.value ? (
+                        <img
+                          src={signature.value}
+                          alt={`Assinatura ${signature.label}`}
+                          className="h-24 w-full cursor-zoom-in rounded border bg-white object-contain"
+                          onClick={() =>
+                            handleOpenImagePreview(signature.value, `Assinatura ${signature.label}`)
+                          }
+                        />
+                      ) : (
+                        <div className="flex h-24 items-center justify-center rounded border bg-white text-xs text-gray-500">
+                          Não assinada.
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
