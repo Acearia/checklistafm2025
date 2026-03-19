@@ -39,7 +39,7 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
       case "3":
         return "Pórtico";
       case "5":
-        return "Bobcat / Mini Carregadeira";
+        return "Empilhadeira";
       default:
         return "Outro";
     }
@@ -137,3 +137,4 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
 };
 
 export default ChecklistEquipmentSearchSelect;
+

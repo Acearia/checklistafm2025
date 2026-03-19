@@ -22,7 +22,6 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "portico": "portico",
   "portico rolante": "portico",
   "portico movel": "portico",
-  "5": "bobcat",
   "bobcat": "bobcat",
   "mini carregadeira": "bobcat",
   "mini-carregadeira": "bobcat",
@@ -30,6 +29,7 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "mini carregadeira de direcao deslizante": "bobcat",
   "mini carregadeira de direção deslizante": "bobcat",
   "mini carregadeira direcao deslizante": "bobcat",
+  "1239": "bobcat",
 };
 
 const normalizeValue = (value: string): string =>

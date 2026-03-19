@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,7 +138,7 @@ const AdminEquipment = () => {
       console.error('Erro ao adicionar equipamento:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível adicionar o equipamento.",
+        description: "NÃ£o foi possÃ­vel adicionar o equipamento.",
         variant: "destructive",
       });
     }
@@ -167,7 +167,7 @@ const AdminEquipment = () => {
       console.error('Erro ao editar equipamento:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível editar o equipamento.",
+        description: "NÃ£o foi possÃ­vel editar o equipamento.",
         variant: "destructive",
       });
     }
@@ -188,7 +188,7 @@ const AdminEquipment = () => {
       console.error('Erro ao remover equipamento:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível remover o equipamento.",
+        description: "NÃ£o foi possÃ­vel remover o equipamento.",
         variant: "destructive",
       });
     }
@@ -203,12 +203,12 @@ const AdminEquipment = () => {
     try {
       const doc = new jsPDF();
       
-      // Cabeçalho
+      // CabeÃ§alho
       doc.setFontSize(20);
       doc.text("Lista de Equipamentos - Checklist AFM", 20, 20);
       
       doc.setFontSize(12);
-      doc.text(`Data do relatório: ${format(new Date(), "PP", { locale: ptBR })}`, 20, 30);
+      doc.text(`Data do relatÃ³rio: ${format(new Date(), "PP", { locale: ptBR })}`, 20, 30);
       
       // Adicionar dados ao PDF
       doc.setFontSize(14);
@@ -224,8 +224,8 @@ const AdminEquipment = () => {
         
         const typeText = equipment.type === "1" ? "Ponte" : 
                           equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" :
-                          equipment.type === "5" ? "Bobcat / Mini Carregadeira" : "Outro";
+                          equipment.type === "3" ? "PÃ³rtico" :
+                          equipment.type === "5" ? "Empilhadeira" : "Outro";
         
         doc.setFontSize(12);
         doc.text(`${index + 1}. Nome: ${equipment.name}`, 20, yPosition);
@@ -248,7 +248,7 @@ const AdminEquipment = () => {
       console.error('Erro ao gerar PDF:', error);
       toast({
         title: "Erro ao gerar PDF",
-        description: "Não foi possível gerar o relatório",
+        description: "NÃ£o foi possÃ­vel gerar o relatÃ³rio",
         variant: "destructive",
       });
     }
@@ -272,7 +272,7 @@ const AdminEquipment = () => {
     try {
       return format(new Date(isoDate), "dd/MM/yyyy HH:mm", { locale: ptBR });
     } catch (error) {
-      console.warn("Não foi possível formatar data da OS:", error);
+      console.warn("NÃ£o foi possÃ­vel formatar data da OS:", error);
       return "-";
     }
   };
@@ -298,8 +298,8 @@ const AdminEquipment = () => {
     const orderNumber = maintenanceOrderNumber.trim();
     if (!orderNumber) {
       toast({
-        title: "Número da OS obrigatório",
-        description: "Informe o número da ordem de serviço para continuar.",
+        title: "NÃºmero da OS obrigatÃ³rio",
+        description: "Informe o nÃºmero da ordem de serviÃ§o para continuar.",
         variant: "destructive",
       });
       return;
@@ -330,7 +330,7 @@ const AdminEquipment = () => {
   };
   const handleDeleteMaintenanceOrders = () => {
     if (!maintenanceEquipment) return;
-    const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${maintenanceEquipment.name}"?`;
+    const confirmationMessage = `Remover todas as ordens de serviÃ§o do equipamento "${maintenanceEquipment.name}"?`;
     const confirmed =
       typeof window === "undefined" ? true : window.confirm(confirmationMessage);
     if (!confirmed) {
@@ -347,7 +347,7 @@ const AdminEquipment = () => {
 
     toast({
       title: "OS removidas",
-      description: `Todas as OS do equipamento ${maintenanceEquipment.name} foram excluídas.`,
+      description: `Todas as OS do equipamento ${maintenanceEquipment.name} foram excluÃ­das.`,
     });
   };
   // Pagination
@@ -417,7 +417,7 @@ const AdminEquipment = () => {
         <CardContent>
           {displayedEquipments.length === 0 ? (
             <div className="text-center p-8 border rounded-md bg-gray-50">
-              <p className="text-gray-500">Nenhum equipamento encontrado. Ajuste os termos da busca ou adicione equipamentos usando o botão acima.</p>
+              <p className="text-gray-500">Nenhum equipamento encontrado. Ajuste os termos da busca ou adicione equipamentos usando o botÃ£o acima.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -429,8 +429,8 @@ const AdminEquipment = () => {
                     <th className="text-left py-3 px-4">Setor</th>
                     <th className="text-left py-3 px-4">Capacidade</th>
                     <th className="text-left py-3 px-4">Tipo</th>
-                    <th className="text-left py-3 px-4">OS / Manutenção</th>
-                    <th className="text-center py-3 px-4">Ações</th>
+                    <th className="text-left py-3 px-4">OS / ManutenÃ§Ã£o</th>
+                    <th className="text-center py-3 px-4">AÃ§Ãµes</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -450,14 +450,14 @@ const AdminEquipment = () => {
                         <td className="py-3 px-4">
                           {equipment.type === "1" ? "Ponte" : 
                           equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" :
-                          equipment.type === "5" ? "Bobcat / Mini Carregadeira" : "Outro"}
+                          equipment.type === "3" ? "PÃ³rtico" :
+                          equipment.type === "5" ? "Empilhadeira" : "Outro"}
                         </td>
                         <td className="py-3 px-4">
                           {activeOrder ? (
                             <div className="space-y-1">
                               <Badge variant="destructive" className="text-xs">
-                                OS #{activeOrder.orderNumber} • Em andamento
+                                OS #{activeOrder.orderNumber} â€¢ Em andamento
                               </Badge>
                               <p className="text-[11px] text-gray-500">
                                 Aberta em {formatOrderDate(activeOrder.createdAt)}
@@ -471,7 +471,7 @@ const AdminEquipment = () => {
                           ) : latestOrder ? (
                             <div className="space-y-1">
                               <Badge variant="secondary" className="text-xs">
-                                Última OS #{latestOrder.orderNumber} • {getMaintenanceStatusLabel(latestOrder.status)}
+                                Ãšltima OS #{latestOrder.orderNumber} â€¢ {getMaintenanceStatusLabel(latestOrder.status)}
                               </Badge>
                               <p className="text-[11px] text-gray-500">
                                 Atualizada em {formatOrderDate(latestOrder.updatedAt)}
@@ -488,7 +488,7 @@ const AdminEquipment = () => {
 
                           {ordersForEquipment.length > 1 && (
                             <div className="mt-2 text-[11px] text-gray-500">
-                              Histórico recente:
+                              HistÃ³rico recente:
                               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                                 {ordersForEquipment.slice(0, 3).map(order => (
                                   <span key={order.id}>
@@ -547,7 +547,7 @@ const AdminEquipment = () => {
                 Anterior
               </Button>
               <span className="text-sm text-gray-600">
-                Página {currentPage} de {totalPages}
+                PÃ¡gina {currentPage} de {totalPages}
               </span>
               <Button
                 variant="outline"
@@ -555,7 +555,7 @@ const AdminEquipment = () => {
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
               >
-                Próxima
+                PrÃ³xima
               </Button>
             </div>
           )}
@@ -591,7 +591,7 @@ const AdminEquipment = () => {
             <DialogDescription>
               {maintenanceEquipment ? (
                 <>
-                  Equipamento <strong>{maintenanceEquipment.name}</strong> (KP {maintenanceEquipment.kp}) — Setor {maintenanceEquipment.sector}
+                  Equipamento <strong>{maintenanceEquipment.name}</strong> (KP {maintenanceEquipment.kp}) â€” Setor {maintenanceEquipment.sector}
                 </>
               ) : (
                 "Selecione um equipamento para registrar a OS."
@@ -602,12 +602,12 @@ const AdminEquipment = () => {
           <div className="space-y-4 py-2">
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase text-gray-600">
-                Número da OS
+                NÃºmero da OS
               </label>
               <Input
                 value={maintenanceOrderNumber}
                 onChange={(event) => setMaintenanceOrderNumber(event.target.value)}
-                placeholder="Informe o número da OS"
+                placeholder="Informe o nÃºmero da OS"
               />
             </div>
 
@@ -632,13 +632,13 @@ const AdminEquipment = () => {
 
             <div className="space-y-1">
               <label className="text-xs font-semibold uppercase text-gray-600">
-                Observações (opcional)
+                ObservaÃ§Ãµes (opcional)
               </label>
               <Textarea
                 value={maintenanceNotes}
                 onChange={(event) => setMaintenanceNotes(event.target.value)}
                 rows={3}
-                placeholder="Descreva ações, prazos ou responsáveis"
+                placeholder="Descreva aÃ§Ãµes, prazos ou responsÃ¡veis"
               />
             </div>
           </div>
@@ -668,3 +668,4 @@ const AdminEquipment = () => {
 };
 
 export default AdminEquipment;
+

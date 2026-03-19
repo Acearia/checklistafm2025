@@ -117,7 +117,7 @@ export function AddEquipmentDialog({
                       <SelectItem value="1">Ponte</SelectItem>
                       <SelectItem value="2">Talha</SelectItem>
                       <SelectItem value="3">Pórtico</SelectItem>
-                      <SelectItem value="5">Bobcat / Mini Carregadeira</SelectItem>
+                      <SelectItem value="5">Empilhadeira</SelectItem>
                       <SelectItem value="4">Outro</SelectItem>
                     </SelectContent>
                   </Select>
@@ -173,3 +173,4 @@ export function AddEquipmentDialog({
     </Dialog>
   );
 }
+

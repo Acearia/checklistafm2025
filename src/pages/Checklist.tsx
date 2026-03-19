@@ -163,7 +163,9 @@ const Checklist = () => {
       ? groupItems
       : filterChecklistItemsByEquipmentType(
           sourceItems,
-          selectedEquipment?.type ?? selectedEquipment?.name
+          selectedEquipment
+            ? `${selectedEquipment.type} ${selectedEquipment.name} ${selectedEquipment.kp}`
+            : null
         );
 
     const needsUpdate =

@@ -15,7 +15,7 @@ const EquipmentDetails: React.FC<EquipmentDetailsProps> = ({ equipment }) => {
       case "3":
         return "Pórtico";
       case "5":
-        return "Bobcat / Mini Carregadeira";
+        return "Empilhadeira";
       default:
         return "Outro";
     }
@@ -47,3 +47,4 @@ const EquipmentDetails: React.FC<EquipmentDetailsProps> = ({ equipment }) => {
 };
 
 export default EquipmentDetails;
+

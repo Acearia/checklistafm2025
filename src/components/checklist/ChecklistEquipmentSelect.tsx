@@ -32,7 +32,7 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
       case "3":
         return "Pórtico";
       case "5":
-        return "Bobcat / Mini Carregadeira";
+        return "Empilhadeira";
       default:
         return "Outro";
     }
@@ -84,3 +84,4 @@ const ChecklistEquipmentSelect: React.FC<ChecklistEquipmentSelectProps> = ({
 };
 
 export default ChecklistEquipmentSelect;
+

@@ -42,7 +42,9 @@ const ChecklistItems = () => {
 
     const filteredSourceItems = filterChecklistItemsByEquipmentType(
       sourceItems,
-      state.equipment?.type ?? state.equipment?.name
+      state.equipment
+        ? `${state.equipment.type} ${state.equipment.name} ${state.equipment.kp}`
+        : null
     );
 
     const templateItems = filteredSourceItems.map((item) => ({
