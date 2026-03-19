@@ -1,4 +1,4 @@
-
+﻿
 import React from "react";
 import { 
   Select, 
@@ -11,7 +11,7 @@ import { ChecklistItem } from "@/lib/data";
 
 interface ChecklistItemsProps {
   checklist: ChecklistItem[];
-  onChecklistChange: (id: string, answer: "Sim" | "Não" | "N/A" | "Selecione") => void;
+  onChecklistChange: (id: string, answer: "Sim" | "Não" | "P" | "N/A" | "Selecione") => void;
   highlightUnanswered?: boolean;
 }
 
@@ -45,7 +45,7 @@ const ChecklistItems: React.FC<ChecklistItemsProps> = ({
               <div className="w-full sm:w-36">
                 <Select
                   onValueChange={(value) =>
-                    onChecklistChange(item.id, value as "Sim" | "Não" | "N/A" | "Selecione")
+                    onChecklistChange(item.id, value as "Sim" | "Não" | "P" | "N/A" | "Selecione")
                   }
                   value={item.answer || "Selecione"}
                 >
@@ -56,6 +56,7 @@ const ChecklistItems: React.FC<ChecklistItemsProps> = ({
                     <SelectItem value="Selecione">Selecione</SelectItem>
                     <SelectItem value="Sim">Sim</SelectItem>
                     <SelectItem value="Não">Não</SelectItem>
+                    <SelectItem value="P">P</SelectItem>
                     <SelectItem value="N/A">N/A</SelectItem>
                   </SelectContent>
                 </Select>
@@ -74,3 +75,4 @@ const ChecklistItems: React.FC<ChecklistItemsProps> = ({
 };
 
 export default ChecklistItems;
+

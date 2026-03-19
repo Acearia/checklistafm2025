@@ -7,11 +7,8 @@ const normalizeAnswer = (value: string | null | undefined): string =>
   (value || "")
     .trim()
     .toLowerCase()
-    .replace(/[ãâáà]/g, "a")
-    .replace(/[êéè]/g, "e")
-    .replace(/[îíì]/g, "i")
-    .replace(/[ôóò]/g, "o")
-    .replace(/[ûúù]/g, "u");
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 
 export const normalizeQuestion = (question: string | null | undefined): string => {
   if (!question) return "";
@@ -120,6 +117,26 @@ registerRules(
 
 registerRule("A corrente possui a plaqueta de identificação instalada?", { onNo: false });
 registerRule("Os ganchos da corrente possuem sinais de alongamento?", { onYes: true });
+registerRules(
+  [
+    "Os faróis dianteiros estão funcionando normalmente?",
+    "O stop de freio está funcionando normalmente?",
+    "O sinal sonoro (buzina) está funcionando normalmente?",
+    "A mini carregadeira possui ré sonora e está funcionando normalmente?",
+    "Os pneus estão em boas condições?",
+    "O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?",
+    "O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?",
+    "O óleo do motor apresenta nível normal?",
+    "O sistema de refrigeração do motor (radiador) apresenta nível de água normal?",
+    "A mini carregadeira está com os retrovisores em boas condições de uso?",
+    "O cinto de segurança está em boas condições de uso?",
+    "A torre de garfos está em boas condições de uso?",
+    "Possui catraca para amarração de cargas com risco de queda?",
+    "Possui placa de identificação de equipamento?",
+    "Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?",
+  ],
+  { onYes: false, onNo: true }
+);
 
 const ALERT_ON_NO_KEYWORDS = [
   "esta funcionando",
@@ -192,7 +209,12 @@ export const shouldTriggerAlert = (
     return onYes;
   }
 
-  if (normalizedAnswer === "nao" || normalizedAnswer === "não") {
+  if (
+    normalizedAnswer === "nao" ||
+    normalizedAnswer === "n" ||
+    normalizedAnswer === "p" ||
+    normalizedAnswer === "parcialmente"
+  ) {
     return onNo;
   }
 

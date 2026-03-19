@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +37,7 @@ const countProblems = (answers: ChecklistAnswer[] | null | undefined) => {
   return answers.reduce((total, item) => {
     const normalizedAnswer = normalize(String(item.answer || ""));
     const isYes = normalizedAnswer === "sim";
-    const isNo = normalizedAnswer === "nao" || normalizedAnswer === "não";
+    const isNo =`r`n      normalizedAnswer === "nao" ||`r`n      normalizedAnswer === "n" ||`r`n      normalizedAnswer === "p" ||`r`n      normalizedAnswer === "parcialmente";
     const triggered = (isYes && Boolean(item.alertOnYes)) || (isNo && Boolean(item.alertOnNo));
     return triggered ? total + 1 : total;
   }, 0);
@@ -244,3 +244,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+

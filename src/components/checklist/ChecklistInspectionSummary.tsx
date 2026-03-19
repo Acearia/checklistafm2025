@@ -1,11 +1,11 @@
-
+﻿
 import React from "react";
 
 interface SummaryProps {
   operator: { name?: string } | null;
   equipment: { name?: string, kp?: string } | null;
   inspectionDate: string;
-  summary: { sim: number, nao: number, na: number };
+  summary: { sim: number, nao: number, p: number, na: number };
 }
 
 const ChecklistInspectionSummary: React.FC<SummaryProps> = ({ 
@@ -26,7 +26,7 @@ const ChecklistInspectionSummary: React.FC<SummaryProps> = ({
       <p>
         <strong>Data da inspeção:</strong> {new Date(inspectionDate).toLocaleDateString()}
       </p>
-      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+      <div className="mt-2 grid grid-cols-2 gap-2 text-center md:grid-cols-4">
         <div className="bg-green-100 p-2 rounded">
           <span className="block text-sm text-green-800">Respostas "Sim"</span>
           <span className="font-bold text-lg">{summary.sim}</span>
@@ -34,6 +34,10 @@ const ChecklistInspectionSummary: React.FC<SummaryProps> = ({
         <div className="bg-red-100 p-2 rounded">
           <span className="block text-sm text-red-800">Respostas "Não"</span>
           <span className="font-bold text-lg">{summary.nao}</span>
+        </div>
+        <div className="bg-amber-100 p-2 rounded">
+          <span className="block text-sm text-amber-800">Respostas "P"</span>
+          <span className="font-bold text-lg">{summary.p}</span>
         </div>
         <div className="bg-gray-100 p-2 rounded">
           <span className="block text-sm text-gray-800">Respostas "N/A"</span>
@@ -45,3 +49,4 @@ const ChecklistInspectionSummary: React.FC<SummaryProps> = ({
 };
 
 export default ChecklistInspectionSummary;
+

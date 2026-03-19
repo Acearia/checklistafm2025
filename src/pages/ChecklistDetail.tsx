@@ -42,7 +42,7 @@ interface ChecklistItem {
   id: string;
   question: string;
   required: boolean;
-  answer: "Sim" | "Não" | "";
+  answer: "Sim" | "Não" | "P" | "";
   alertOnYes?: boolean;
   alertOnNo?: boolean;
   triggersAlert?: boolean;
@@ -99,10 +99,15 @@ const ChecklistDetail = () => {
     };
   }, []);
 
-  const normalizeChecklistAnswer = (value: unknown): "Sim" | "Não" | "" => {
-    const normalized = String(value ?? "").trim().toLowerCase();
+  const normalizeChecklistAnswer = (value: unknown): "Sim" | "Não" | "P" | "" => {
+    const normalized = String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
     if (normalized === "sim") return "Sim";
-    if (normalized === "não" || normalized === "nao") return "Não";
+    if (normalized === "nao" || normalized === "n") return "Não";
+    if (normalized === "p" || normalized === "parcialmente") return "P";
     return "";
   };
 
@@ -290,7 +295,7 @@ const ChecklistDetail = () => {
     supabaseLoading,
   ]);
   
-  const handleAnswerChange = (itemId: string, value: "Sim" | "Não") => {
+  const handleAnswerChange = (itemId: string, value: "Sim" | "Não" | "P") => {
     if (!inspection || !canEdit) return;
     
     const updatedChecklistBase = inspection.checklist.map(item => {
@@ -545,6 +550,7 @@ const ChecklistDetail = () => {
                   <TableHead className="w-[60%]">Item de verificação</TableHead>
                   <TableHead className="checklist-answer-checkbox-col text-center">Sim</TableHead>
                   <TableHead className="checklist-answer-checkbox-col text-center">Não</TableHead>
+                  <TableHead className="checklist-answer-checkbox-col text-center">P</TableHead>
                   <TableHead className="checklist-answer-text-col text-center">Resposta</TableHead>
                   <TableHead className="text-center">Obrigatório</TableHead>
                   <TableHead className="text-center">Irregularidade</TableHead>
@@ -568,6 +574,13 @@ const ChecklistDetail = () => {
                       <Checkbox 
                         checked={item.answer === "Não"}
                         onCheckedChange={() => handleAnswerChange(item.id, "Não")}
+                        disabled={!canEdit}
+                      />
+                    </TableCell>
+                    <TableCell className="checklist-answer-checkbox-col text-center">
+                      <Checkbox 
+                        checked={item.answer === "P"}
+                        onCheckedChange={() => handleAnswerChange(item.id, "P")}
                         disabled={!canEdit}
                       />
                     </TableCell>

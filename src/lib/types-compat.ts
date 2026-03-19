@@ -1,4 +1,4 @@
-// Types for backward compatibility between localStorage and Supabase
+﻿// Types for backward compatibility between localStorage and Supabase
 import type { Tables } from "@/integrations/supabase/types";
 
 export interface Operator {
@@ -21,7 +21,7 @@ export interface Equipment {
 export interface ChecklistItem {
   id: string;
   question: string;
-  answer: "Sim" | "Não" | "N/A" | "Selecione" | null;
+  answer: "Sim" | "Não" | "P" | "N/A" | "Selecione" | null;
   alertOnYes?: boolean;
   alertOnNo?: boolean;
 }
@@ -75,3 +75,4 @@ export const convertSupabaseChecklistItemToLegacy = (supabaseItem: Tables<"check
   alertOnYes: Boolean(supabaseItem.alert_on_yes),
   alertOnNo: Boolean(supabaseItem.alert_on_no),
 });
+
