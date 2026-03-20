@@ -28,6 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { EQUIPMENT_TYPE_OPTIONS } from "@/lib/equipmentType";
 
 const formSchema = z.object({
   id: z.string(),
@@ -122,17 +123,16 @@ export function EditEquipmentDialog({
                   <FormLabel>Tipo*</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                    <SelectTrigger>
                         <SelectValue placeholder="Selecione o tipo de equipamento" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="1">Ponte</SelectItem>
-                      <SelectItem value="2">Talha</SelectItem>
-                      <SelectItem value="3">Pórtico</SelectItem>
-                      <SelectItem value="5">Empilhadeira</SelectItem>
-                      <SelectItem value="6">Bobcat</SelectItem>
-                      <SelectItem value="4">Outro</SelectItem>
+                      {EQUIPMENT_TYPE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

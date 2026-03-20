@@ -111,6 +111,11 @@ const ChecklistDetail = () => {
     return "";
   };
 
+  const getAnswerLabel = (value: "Sim" | "Não" | "P" | "" | null | undefined) => {
+    if (value === "P") return "Parcialmente";
+    return value || "-";
+  };
+
   const applyAlertContextToChecklist = (checklist: ChecklistItem[]): ChecklistItem[] => {
     return checklist.map((item) => {
       const question = String(item.question || "").trim();
@@ -537,7 +542,7 @@ const ChecklistDetail = () => {
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-700">
                   {irregularItems.map((item, index) => (
                     <li key={`${item.id}-irregular-${index}`}>
-                      {item.question} (resposta: {item.answer || "Não respondido"})
+                      {item.question} (resposta: {getAnswerLabel(item.answer)})
                     </li>
                   ))}
                 </ul>
@@ -550,7 +555,7 @@ const ChecklistDetail = () => {
                   <TableHead className="w-[60%]">Item de verificação</TableHead>
                   <TableHead className="checklist-answer-checkbox-col text-center">Sim</TableHead>
                   <TableHead className="checklist-answer-checkbox-col text-center">Não</TableHead>
-                  <TableHead className="checklist-answer-checkbox-col text-center">P</TableHead>
+                  <TableHead className="checklist-answer-checkbox-col text-center">Parcialmente</TableHead>
                   <TableHead className="checklist-answer-text-col text-center">Resposta</TableHead>
                   <TableHead className="text-center">Obrigatório</TableHead>
                   <TableHead className="text-center">Irregularidade</TableHead>
@@ -585,7 +590,7 @@ const ChecklistDetail = () => {
                       />
                     </TableCell>
                     <TableCell className="checklist-answer-text-col text-center">
-                      {item.answer || "-"}
+                      {getAnswerLabel(item.answer)}
                     </TableCell>
                     <TableCell className="text-center">
                       {item.required ? "Sim" : "Não"}

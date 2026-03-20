@@ -36,7 +36,7 @@ const ChecklistInspectionSummary: React.FC<SummaryProps> = ({
           <span className="font-bold text-lg">{summary.nao}</span>
         </div>
         <div className="bg-amber-100 p-2 rounded">
-          <span className="block text-sm text-amber-800">Respostas "P"</span>
+          <span className="block text-sm text-amber-800">Respostas "Parcialmente"</span>
           <span className="font-bold text-lg">{summary.p}</span>
         </div>
         <div className="bg-gray-100 p-2 rounded">

@@ -30,6 +30,7 @@ export interface ChecklistGroup {
   id: string;
   name: string;
   description?: string | null;
+  equipment_type?: string | null;
 }
 
 export interface GroupQuestion {

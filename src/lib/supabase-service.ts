@@ -22,6 +22,7 @@ export type ChecklistGroup = {
   id: string;
   name: string;
   description?: string | null;
+  equipment_type?: string | null;
 };
 export type GroupQuestion = {
   id: string;
@@ -566,13 +567,21 @@ export const checklistGroupService = {
     if (error) throw error;
     return data || [];
   },
-  async create(group: { name: string; description?: string | null }) {
-    const { data, error } = await supabase.from("checklist_groups").insert(group).select().single();
+  async create(group: { name: string; description?: string | null; equipment_type?: string | null }) {
+    const { data, error } = await supabase.from("checklist_groups").insert(group as any).select().single();
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: Partial<{ name: string; description?: string | null }>) {
-    const { data, error } = await supabase.from("checklist_groups").update(updates).eq("id", id).select().single();
+  async update(
+    id: string,
+    updates: Partial<{ name: string; description?: string | null; equipment_type?: string | null }>,
+  ) {
+    const { data, error } = await supabase
+      .from("checklist_groups")
+      .update(updates as any)
+      .eq("id", id)
+      .select()
+      .single();
     if (error) throw error;
     return data;
   },

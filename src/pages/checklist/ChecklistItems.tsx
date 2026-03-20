@@ -150,7 +150,7 @@ const ChecklistItems = () => {
                         <SelectItem value="Selecione">Selecione</SelectItem>
                         <SelectItem value="Sim">Sim</SelectItem>
                         <SelectItem value="Não">Não</SelectItem>
-                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="P">Parcialmente</SelectItem>
                         <SelectItem value="N/A">N/A</SelectItem>
                       </SelectContent>
                     </Select>

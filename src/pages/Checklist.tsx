@@ -28,6 +28,7 @@ import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
 import { applyAlertRuleToItem } from "@/lib/alertRules";
 import type { GroupQuestion } from "@/lib/types-compat";
+import { isEquipmentTypeMatch } from "@/lib/equipmentType";
 
 const Checklist = () => {
   const { toast } = useToast();
@@ -87,10 +88,17 @@ const Checklist = () => {
 
   const equipmentGroupIds = useMemo(() => {
     if (!selectedEquipment) return [];
-    return equipmentGroups
+
+    const explicitGroupIds = equipmentGroups
       .filter((eg) => eg.equipment_id === selectedEquipment.id)
       .map((eg) => eg.group_id);
-  }, [equipmentGroups, selectedEquipment]);
+
+    const typeLinkedGroupIds = groups
+      .filter((group: any) => isEquipmentTypeMatch(selectedEquipment, group?.equipment_type))
+      .map((group: any) => group.id);
+
+    return Array.from(new Set([...explicitGroupIds, ...typeLinkedGroupIds]));
+  }, [equipmentGroups, groups, selectedEquipment]);
 
   const unansweredCount = useMemo(
     () =>
@@ -1088,4 +1096,3 @@ const Checklist = () => {
 };
 
 export default Checklist;
-
