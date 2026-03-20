@@ -131,6 +131,7 @@ export function EditEquipmentDialog({
                       <SelectItem value="2">Talha</SelectItem>
                       <SelectItem value="3">Pórtico</SelectItem>
                       <SelectItem value="5">Empilhadeira</SelectItem>
+                      <SelectItem value="6">Bobcat</SelectItem>
                       <SelectItem value="4">Outro</SelectItem>
                     </SelectContent>
                   </Select>

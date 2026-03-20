@@ -1,26 +1,12 @@
-﻿import React from "react";
+import React from "react";
 import { Equipment } from "@/lib/data";
+import { getEquipmentTypeLabel } from "@/lib/equipmentType";
 
 interface EquipmentDetailsProps {
   equipment: Equipment;
 }
 
 const EquipmentDetails: React.FC<EquipmentDetailsProps> = ({ equipment }) => {
-  const getEquipmentTypeText = (type: string) => {
-    switch (type) {
-      case "1":
-        return "Ponte";
-      case "2":
-        return "Talha";
-      case "3":
-        return "Pórtico";
-      case "5":
-        return "Empilhadeira";
-      default:
-        return "Outro";
-    }
-  };
-
   return (
     <div className="mt-4 grid grid-cols-2 gap-4">
       <div className="flex flex-col">
@@ -30,7 +16,7 @@ const EquipmentDetails: React.FC<EquipmentDetailsProps> = ({ equipment }) => {
 
       <div className="flex flex-col">
         <span className="text-sm text-gray-500 mb-1">Tipo</span>
-        <input type="text" value={getEquipmentTypeText(equipment.type)} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
+        <input type="text" value={getEquipmentTypeLabel(equipment.type, equipment.kp)} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
       </div>
 
       <div className="flex flex-col">
@@ -47,4 +33,3 @@ const EquipmentDetails: React.FC<EquipmentDetailsProps> = ({ equipment }) => {
 };
 
 export default EquipmentDetails;
-

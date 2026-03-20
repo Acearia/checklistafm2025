@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
+import { getEquipmentTypeLabel } from "@/lib/equipmentType";
 
 const AdminEquipment = () => {
   const { equipment: supabaseEquipments, sectors, refresh, loading } = useSupabaseData([
@@ -222,10 +223,7 @@ const AdminEquipment = () => {
           yPosition = 20;
         }
         
-        const typeText = equipment.type === "1" ? "Ponte" : 
-                          equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" :
-                          equipment.type === "5" ? "Empilhadeira" : "Outro";
+        const typeText = getEquipmentTypeLabel(equipment.type, equipment.kp);
         
         doc.setFontSize(12);
         doc.text(`${index + 1}. Nome: ${equipment.name}`, 20, yPosition);
@@ -448,10 +446,7 @@ const AdminEquipment = () => {
                         <td className="py-3 px-4">{equipment.sector}</td>
                         <td className="py-3 px-4">{equipment.capacity}</td>
                         <td className="py-3 px-4">
-                          {equipment.type === "1" ? "Ponte" : 
-                          equipment.type === "2" ? "Talha" : 
-                          equipment.type === "3" ? "Pórtico" :
-                          equipment.type === "5" ? "Empilhadeira" : "Outro"}
+                          {getEquipmentTypeLabel(equipment.type, equipment.kp)}
                         </td>
                         <td className="py-3 px-4">
                           {activeOrder ? (
@@ -668,5 +663,4 @@ const AdminEquipment = () => {
 };
 
 export default AdminEquipment;
-
 

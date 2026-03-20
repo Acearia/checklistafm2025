@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Equipment } from "@/lib/data";
+import { getEquipmentTypeLabel } from "@/lib/equipmentType";
 
 interface ChecklistEquipmentSearchSelectProps {
   equipments: Equipment[];
@@ -29,21 +30,6 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
   onEquipmentSelect,
 }) => {
   const [open, setOpen] = useState(false);
-
-  const getEquipmentTypeText = (type: string) => {
-    switch (type) {
-      case "1":
-        return "Ponte";
-      case "2":
-        return "Talha";
-      case "3":
-        return "Pórtico";
-      case "5":
-        return "Empilhadeira";
-      default:
-        return "Outro";
-    }
-  };
 
   const equipmentsBySector = equipments.reduce((acc, equipment) => {
     const sector = equipment.sector || "Sem Setor";
@@ -81,7 +67,7 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
                     {sectorEquipments.map((equipment) => (
                       <CommandItem
                         key={equipment.id}
-                        value={`${equipment.name} ${equipment.kp} ${getEquipmentTypeText(equipment.type)}`}
+                        value={`${equipment.name} ${equipment.kp} ${getEquipmentTypeLabel(equipment.type, equipment.kp)}`}
                         onSelect={() => {
                           onEquipmentSelect(equipment.id);
                           setOpen(false);
@@ -96,7 +82,7 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
                         <div className="flex flex-col">
                           <span>{equipment.name}</span>
                           <span className="text-xs text-gray-500">
-                            KP: {equipment.kp} | {getEquipmentTypeText(equipment.type)}
+                            KP: {equipment.kp} | {getEquipmentTypeLabel(equipment.type, equipment.kp)}
                           </span>
                         </div>
                       </CommandItem>
@@ -118,7 +104,7 @@ const ChecklistEquipmentSearchSelect: React.FC<ChecklistEquipmentSearchSelectPro
 
           <div className="flex flex-col">
             <span className="text-sm text-gray-500 mb-1">Tipo</span>
-            <input type="text" value={getEquipmentTypeText(selectedEquipment.type)} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
+            <input type="text" value={getEquipmentTypeLabel(selectedEquipment.type, selectedEquipment.kp)} className="px-4 py-2 border border-gray-300 rounded bg-gray-100" readOnly />
           </div>
 
           <div className="flex flex-col">

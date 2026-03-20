@@ -22,6 +22,7 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "portico": "portico",
   "portico rolante": "portico",
   "portico movel": "portico",
+  "6": "bobcat",
   "bobcat": "bobcat",
   "mini carregadeira": "bobcat",
   "mini-carregadeira": "bobcat",
