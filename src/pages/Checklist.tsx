@@ -177,14 +177,22 @@ const Checklist = () => {
       supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
 
     const groupItems = getGroupItems(equipmentGroupIds);
-    const filteredItems = groupItems.length > 0
+
+    const selectedEquipmentType = selectedEquipment ? String(selectedEquipment.type || "").trim() : null;
+    const isForklift = selectedEquipmentType === "5" || selectedEquipmentType === "7";
+
+    const defaultItemsForType = filterChecklistItemsByEquipmentType(
+      sourceItems,
+      selectedEquipment
+        ? `${selectedEquipment.type} ${selectedEquipment.name} ${selectedEquipment.kp}`
+        : null
+    );
+
+    const filteredItems = isForklift
+      ? defaultItemsForType
+      : groupItems.length > 0
       ? groupItems
-      : filterChecklistItemsByEquipmentType(
-          sourceItems,
-          selectedEquipment
-            ? `${selectedEquipment.type} ${selectedEquipment.name} ${selectedEquipment.kp}`
-            : null
-        );
+      : defaultItemsForType;
 
     const needsUpdate =
       checklist.length !== filteredItems.length ||
