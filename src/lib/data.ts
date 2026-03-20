@@ -69,14 +69,14 @@ export const leaders: Leader[] = [
     name: "Ana Pereira",
     email: "ana.pereira@checklistafm.com",
     sector: "Manutenção",
-    password_hash: "bGlkZXIxMjM=", // senha: lider123
+    password_hash: "bGlkZXIxMjM=",
   },
   {
     id: "leader-2",
     name: "Bruno Santos",
     email: "bruno.santos@checklistafm.com",
     sector: "Produção",
-    password_hash: "Z3VhcmRhMTIz", // senha: guarda123
+    password_hash: "Z3VhcmRhMTIz",
   },
 ];
 
@@ -112,4 +112,3 @@ export const checklistItems: ChecklistItem[] = [
   { id: "29", question: "Os trilhos do pórtico estão desobstruídos?", answer: null, alertOnYes: false, alertOnNo: true },
   { id: "30", question: "Os sensores antiesmagamento do pórtico estão funcionando?", answer: null, alertOnYes: false, alertOnNo: true },
 ];
-

@@ -669,3 +669,4 @@ const AdminEquipment = () => {
 
 export default AdminEquipment;
 
+

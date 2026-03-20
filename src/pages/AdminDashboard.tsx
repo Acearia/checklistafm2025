@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Card, 
   CardContent, 
@@ -115,14 +115,7 @@ const AdminDashboard = () => {
   }, []);
 
   const loadDashboardData = () => {
-    try {
-      console.log("Loading dashboard data from Supabase...");
-      console.log("Loaded operators:", operators.length);
-      console.log("Loaded equipments:", equipment.length);
-      console.log("Loaded inspections:", inspections.length);
-      console.log("Loaded leaders:", leaders.length);
-      console.log("Loaded sectors:", sectors.length);
-      
+    try {      
       // Estatísticas gerais
       setStats({
         totalInspections: inspections.length,
@@ -157,17 +150,11 @@ const AdminDashboard = () => {
         
         // Count inspections for this month
         const monthStart = new Date(year, monthIndex, 1);
-        const monthEnd = new Date(year, monthIndex + 1, 0);
-        
-        console.log(`Counting inspections for ${monthName} ${year}: ${monthStart.toLocaleDateString()} to ${monthEnd.toLocaleDateString()}`);
-        
+        const monthEnd = new Date(year, monthIndex + 1, 0);        
         const count = inspections.filter(inspection => {
           const inspDate = new Date(inspection.submission_date || inspection.created_at);
           return inspDate >= monthStart && inspDate <= monthEnd;
-        }).length;
-        
-        console.log(`Found ${count} inspections for ${monthName}`);
-        
+        }).length;        
         lastFourMonthsData.push({
           name: monthName,
           value: count
@@ -215,8 +202,6 @@ const AdminDashboard = () => {
         .slice(0, 5);
       
       setInspectionsByEquipment(topEquipments);
-      console.log("Equipment distribution:", topEquipments);
-
       // Summary by sector
       const equipmentById = new Map(
         (equipment || []).map((item: any) => [item.id, item])
@@ -836,4 +821,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
 
