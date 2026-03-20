@@ -59,7 +59,7 @@ const AdminLayout = () => {
     setSession(null);
     toast({
       title: "Logout realizado",
-      description: "Você saiu do painel administrativo",
+      description: "VocÃª saiu do painel administrativo",
     });
       navigate("/admin/login");
   };
@@ -68,7 +68,7 @@ const AdminLayout = () => {
     navigate("/");
     toast({
       title: "Retornando ao Checklist",
-      description: "Você foi redirecionado para a página de checklist",
+      description: "VocÃª foi redirecionado para a pÃ¡gina de checklist",
     });
   };
 
@@ -84,21 +84,18 @@ const AdminLayout = () => {
     <div className="admin-layout min-h-screen bg-gray-100/70 text-gray-900 flex flex-col backdrop-blur dark:bg-slate-950 dark:text-slate-100">
       {/* Top navbar */}
       <header className="admin-layout-header bg-red-700 text-white shadow-md dark:bg-slate-950 dark:border-b dark:border-slate-800">
-        <div className="flex justify-between items-center py-3 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+        <div className="relative flex items-center justify-center py-3 px-4 sm:px-6 lg:px-8">
+          <div className="absolute left-4 flex items-center sm:left-6 lg:left-8">
             <button 
               onClick={toggleSidebar} 
-              className="mr-4 focus:outline-none"
+              className="focus:outline-none"
               aria-label="Toggle sidebar"
             >
               {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
-            <img src={logoUrl} alt="AFM" className="h-10 w-auto hidden sm:block" />
-            <div className="leading-tight text-white">
-              <h1 className="text-3xl font-extrabold tracking-wide">Checklist AFM Admin</h1>
-            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <img src={logoUrl} alt="AFM" className="h-12 w-auto sm:h-14" />
+          <div className="absolute right-4 flex items-center gap-2 sm:right-6 lg:right-8">
             <ThemeToggle />
             <Button 
               variant="outline" 
@@ -132,18 +129,18 @@ const AdminLayout = () => {
           <nav className="p-4 flex flex-col h-full">
             <div className="space-y-1 flex-1">
               <SidebarLink to="/admin" icon={<Home size={20} />} label="Dashboard" />
-              <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
-              <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
-              <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="Investigações" />
-              <SidebarLink to="/admin/planos-acao" icon={<ClipboardList size={20} />} label="Planos de Ação" />
+              <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard LÃ­deres" />
+              <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="InspeÃ§Ãµes" />
+              <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="InvestigaÃ§Ãµes" />
+              <SidebarLink to="/admin/planos-acao" icon={<ClipboardList size={20} />} label="Planos de AÃ§Ã£o" />
               <SidebarLink to="/admin/regras-ouro" icon={<ClipboardCheck size={20} />} label="Regras de Ouro" />
-              <SidebarLink to="/admin/users" icon={<Users size={20} />} label="Usuários" />
+              <SidebarLink to="/admin/users" icon={<Users size={20} />} label="UsuÃ¡rios" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
-             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relatórios" />
+             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="RelatÃ³rios" />
               
-              <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configurações" />
+              <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="ConfiguraÃ§Ãµes" />
             </div>
           </nav>
         </aside>
@@ -183,5 +180,6 @@ const SidebarLink = ({
 };
 
 export default AdminLayout;
+
 
 
