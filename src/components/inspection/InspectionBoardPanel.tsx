@@ -1,4 +1,4 @@
-ï»¿import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type {
@@ -60,7 +60,7 @@ const InspectionBoardPanel = <TInspection,>({
               />
             </div>
             <div className="min-w-[150px] flex-1 space-y-1">
-              <p className="text-xs font-medium text-slate-600">AtÃ©</p>
+              <p className="text-xs font-medium text-slate-600">Até</p>
               <Input
                 type="date"
                 value={dateTo || ""}
@@ -92,11 +92,11 @@ const InspectionBoardPanel = <TInspection,>({
             <p className="text-xl font-semibold text-slate-900">{boardStats.equipmentCount}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">InspeÃ§Ãµes hoje</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Inspeções hoje</p>
             <p className="text-xl font-semibold text-slate-900">{boardStats.inspectionsToday}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-            <p className="text-xs uppercase tracking-wide text-slate-500">NÃ£o conforme hoje</p>
+            <p className="text-xs uppercase tracking-wide text-slate-500">Não conforme hoje</p>
             <p className="text-xl font-semibold text-red-700">{boardStats.inspectionsWithProblemsToday}</p>
           </div>
         </div>
@@ -111,7 +111,7 @@ const InspectionBoardPanel = <TInspection,>({
               {boardBySector.map((sectorEntry) => (
                 <div
                   key={sectorEntry.sector}
-                  className="w-[280px] xl:w-[248px] shrink-0 rounded-lg border border-slate-200 bg-white shadow-sm"
+                  className="w-[260px] xl:w-[236px] 2xl:w-[228px] shrink-0 rounded-lg border border-slate-200 bg-white shadow-sm"
                 >
                   <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5">
                     <p className="text-[15px] font-semibold uppercase tracking-wide text-slate-800">
@@ -131,7 +131,7 @@ const InspectionBoardPanel = <TInspection,>({
                         <div className="max-h-48 overflow-y-auto">
                           {equipmentEntry.inspections.length === 0 ? (
                             <p className="px-2.5 py-2.5 text-xs text-slate-500">
-                              Sem inspeÃ§Ãµes registradas.
+                              Sem inspeções registradas.
                             </p>
                           ) : (
                             equipmentEntry.inspections.map((inspectionEntry) => (
@@ -165,7 +165,7 @@ const InspectionBoardPanel = <TInspection,>({
         </div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm border bg-red-100" />
-          <span>Checklist nÃ£o conforme hoje</span>
+          <span>Checklist não conforme hoje</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="h-3 w-3 rounded-sm border bg-amber-100" />
@@ -181,3 +181,4 @@ const InspectionBoardPanel = <TInspection,>({
 };
 
 export default InspectionBoardPanel;
+

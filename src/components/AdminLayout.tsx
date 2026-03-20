@@ -1,4 +1,4 @@
-ï»¿
+
 import React, { useEffect, useState } from "react";
 import { useNavigate, Outlet, Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ const AdminLayout = () => {
     setSession(null);
     toast({
       title: "Logout realizado",
-      description: "VocÃª saiu do painel administrativo",
+      description: "Você saiu do painel administrativo",
     });
       navigate("/admin/login");
   };
@@ -68,7 +68,7 @@ const AdminLayout = () => {
     navigate("/");
     toast({
       title: "Retornando ao Checklist",
-      description: "VocÃª foi redirecionado para a pÃ¡gina de checklist",
+      description: "Você foi redirecionado para a página de checklist",
     });
   };
 
@@ -132,25 +132,25 @@ const AdminLayout = () => {
           <nav className="p-4 flex flex-col h-full">
             <div className="space-y-1 flex-1">
               <SidebarLink to="/admin" icon={<Home size={20} />} label="Dashboard" />
-              <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard LÃ­deres" />
-              <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="InspeÃ§Ãµes" />
-              <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="InvestigaÃ§Ãµes" />
-              <SidebarLink to="/admin/planos-acao" icon={<ClipboardList size={20} />} label="Planos de AÃ§Ã£o" />
+              <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
+              <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
+              <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="Investigações" />
+              <SidebarLink to="/admin/planos-acao" icon={<ClipboardList size={20} />} label="Planos de Ação" />
               <SidebarLink to="/admin/regras-ouro" icon={<ClipboardCheck size={20} />} label="Regras de Ouro" />
-              <SidebarLink to="/admin/users" icon={<Users size={20} />} label="UsuÃ¡rios" />
+              <SidebarLink to="/admin/users" icon={<Users size={20} />} label="Usuários" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
-             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="RelatÃ³rios" />
+             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relatórios" />
               
-              <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="ConfiguraÃ§Ãµes" />
+              <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configurações" />
             </div>
           </nav>
         </aside>
 
         {/* Main content */}
-        <main className="admin-layout-main flex-1 overflow-auto p-6 bg-white/80 backdrop-blur-md dark:bg-slate-900/65">
-          <div className="container mx-auto space-y-4">
+        <main className="admin-layout-main flex-1 overflow-auto bg-white/80 p-4 backdrop-blur-md dark:bg-slate-900/65 sm:p-5 lg:p-6">
+          <div className="mx-auto w-full max-w-[1880px] space-y-4">
             <Outlet />
           </div>
         </main>
@@ -183,4 +183,5 @@ const SidebarLink = ({
 };
 
 export default AdminLayout;
+
 
