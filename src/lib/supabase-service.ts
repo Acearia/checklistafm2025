@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
 
 // Types
 export type Operator = Tables<"operators">;
@@ -148,6 +149,26 @@ const isUniqueViolationError = (error: unknown) => {
   return code === "23505" || message.includes("duplicate key") || message.includes("unique constraint");
 };
 
+const ensureOperatorPasswordHash = async (senha?: string | null) => {
+  const trimmed = (senha || "").trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const [rawPassword, maybeFlag] = trimmed.split("|");
+  if (!rawPassword) {
+    return null;
+  }
+
+  const isAlreadyHashed = rawPassword.startsWith("sha256:");
+  if (isAlreadyHashed) {
+    return maybeFlag ? `${rawPassword}|${maybeFlag}` : rawPassword;
+  }
+
+  const hashed = await buildStoredPassword(rawPassword);
+  return maybeFlag ? `${hashed}|${maybeFlag}` : hashed;
+};
+
 const toNullableDate = (value?: string | null) => {
   if (!value) return null;
   const trimmed = String(value).trim();
@@ -187,9 +208,10 @@ export const operatorService = {
   },
 
   async create(operator: OperatorInsert) {
+    const password = await ensureOperatorPasswordHash(operator.senha);
     const payload: OperatorInsert = {
       ...operator,
-      senha: operator.senha ? operator.senha.trim() : null,
+      senha: password,
     };
 
     const { data, error } = await supabase
@@ -223,7 +245,7 @@ export const operatorService = {
     };
 
     if (payload.senha !== undefined) {
-      payload.senha = payload.senha ? payload.senha.trim() : null;
+      payload.senha = await ensureOperatorPasswordHash(payload.senha as string | null);
     }
 
     const { data, error } = await supabase

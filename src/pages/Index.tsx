@@ -19,6 +19,7 @@ import AppFooter from "@/components/AppFooter";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistState } from "@/lib/checklistState";
+import { parseStoredPassword, verifyPassword } from "@/lib/password-utils";
 import logoUrl from "@/assets/afm-logo.png";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +65,7 @@ const Index = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleValidateMatricula = () => {
+  const handleValidateMatricula = async () => {
     if (!matricula.trim()) {
       toast({
         title: "Erro",
@@ -100,8 +101,9 @@ const Index = () => {
       operatorSenhaRaw === null || operatorSenhaRaw === undefined
         ? ""
         : String(operatorSenhaRaw).trim();
-    const [operatorSenha, senhaFlag] = operatorSenhaStr.split("|");
-    const requiresReset = (senhaFlag || "").toUpperCase() === "RESET";
+    const parsed = parseStoredPassword(operatorSenhaStr);
+    const operatorSenha = parsed.raw;
+    const requiresReset = parsed.requiresReset;
     const senhaInformada = senha.trim();
 
     if (!operatorSenha) {
@@ -131,7 +133,8 @@ const Index = () => {
       return;
     }
 
-    if (operatorSenha !== senhaInformada) {
+    const verification = await verifyPassword(operatorSenhaStr, senhaInformada);
+    if (!verification.valid) {
       console.log(`[LOG] Senha incorreta para matrícula: ${matricula}`);
       setValidatedOperator(null);
       setPasswordError("Senha incorreta. Verifique e tente novamente.");
@@ -166,8 +169,21 @@ const Index = () => {
       id: operatorMatricula,
       matricula: operatorMatricula,
     };
+
     setValidatedOperator(normalizedOperator);
     setPasswordError(null);
+
+    // Atualizar para hash em segundo plano se ainda for legacy plain text
+    if (verification.isLegacyPlain) {
+      try {
+        const { operatorService } = await import("@/lib/supabase-service");
+        await operatorService.update(operatorMatricula, { senha: senhaInformada });
+        void refresh();
+      } catch (error) {
+        console.error("Erro ao migrar senha para hash:", error);
+      }
+    }
+
     toast({
       title: "Matrícula validada",
       description: `Bem-vindo, ${operator.name}!`,
