@@ -5,7 +5,6 @@ WITH empilhadeira AS (
   SELECT id
   FROM public.checklist_groups
   WHERE lower(name) LIKE '%empilhadeira%'
-  LIMIT 1
 )
 INSERT INTO public.group_questions (group_id, question, alert_on_yes, alert_on_no, order_number)
 SELECT
