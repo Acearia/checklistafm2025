@@ -42,6 +42,7 @@ const AdminGroups = () => {
   const { toast } = useToast();
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [isCreatingNewGroup, setIsCreatingNewGroup] = useState(false);
   const [groupForm, setGroupForm] = useState<GroupFormState>({
     name: "",
     description: "",
@@ -75,10 +76,10 @@ const AdminGroups = () => {
   };
 
   useEffect(() => {
-    if (groups.length > 0 && !selectedGroupId) {
+    if (groups.length > 0 && !selectedGroupId && !isCreatingNewGroup) {
       setSelectedGroupId(groups[0].id);
     }
-  }, [groups, selectedGroupId]);
+  }, [groups, selectedGroupId, isCreatingNewGroup]);
 
   useEffect(() => {
     if (!selectedGroupId) return;
@@ -144,6 +145,7 @@ const AdminGroups = () => {
   };
 
   const handleNewGroup = () => {
+    setIsCreatingNewGroup(true);
     setSelectedGroupId(null);
     setGroupForm({ name: "", description: "", equipmentType: MANUAL_GROUP_TYPE });
     setSelectedEquipments([]);
@@ -183,6 +185,7 @@ const AdminGroups = () => {
       await equipmentGroupService.setGroupsForGroup(targetGroupId, equipmentIdsToPersist);
 
       setSelectedGroupId(targetGroupId);
+      setIsCreatingNewGroup(false);
       toast({
         title: "Grupo salvo",
         description:
@@ -206,6 +209,7 @@ const AdminGroups = () => {
   const handleDeleteGroup = async () => {
     if (!selectedGroupId) return;
     if (!window.confirm("Excluir este grupo e suas perguntas?")) return;
+    setIsCreatingNewGroup(false);
 
     try {
       setIsSaving(true);
@@ -378,7 +382,10 @@ const AdminGroups = () => {
                 size="sm"
                 className="mt-2 w-full"
                 variant={selectedGroupId === group.id ? "default" : "outline"}
-                onClick={() => setSelectedGroupId(group.id)}
+                onClick={() => {
+                  setSelectedGroupId(group.id);
+                  setIsCreatingNewGroup(false);
+                }}
               >
                 Editar grupo
               </Button>
@@ -410,7 +417,10 @@ const AdminGroups = () => {
                 key={group.id}
                 variant={selectedGroupId === group.id ? "default" : "outline"}
                 className="cursor-pointer"
-                onClick={() => setSelectedGroupId(group.id)}
+                onClick={() => {
+                  setSelectedGroupId(group.id);
+                  setIsCreatingNewGroup(false);
+                }}
               >
                 {group.name}
               </Badge>
