@@ -83,6 +83,35 @@ registerRules(
 
 registerRules(
   [
+    "Estou apto a operar?",
+    "Painel geral ok?",
+    "Torre ok?",
+    "Mangueiras ok?",
+    "Sistema hidráulico ok?",
+    "Cinto segurança ok?",
+    "Faróis ok?",
+    "Blue spot/Redzone ok?",
+    "Garfos ok?",
+    "Pneus ok?",
+    "Sinais sonoros ok?",
+    "Freio estacionário ok?",
+    "Freio de serviço ok?",
+    "Aparência geral ok?",
+    "Extintor incêndio ok?",
+    "Retrovisores ok?",
+    "Rodas de carga ok?",
+    "Roda de tração ok?",
+    "Bateria ok?",
+    "Conector e cabos ok?",
+    "Timão ok?",
+    "Botão antiesmagamento ok?",
+    "Limpeza ok?",
+  ],
+  { onNo: true }
+);
+
+registerRules(
+  [
     "O gancho possui sinais de alongamento?",
     "O equipamento está fazendo algum barulho estranho?",
     "O equipamento apresenta ruídos estranhos?",
@@ -111,6 +140,15 @@ registerRules(
     "Ao movimentar o equipamento, é possível perceber balanço?",
     "O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?",
     "O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?",
+  ],
+  { onYes: true }
+);
+
+registerRules(
+  [
+    "Possui vazamentos?",
+    "Direção pesada?",
+    "Existem ruídos?",
   ],
   { onYes: true }
 );

@@ -33,6 +33,7 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "1239": "bobcat",
   "5": "empilhadeira",
   "empilhadeira": "empilhadeira",
+  "7": "transpaleteira",
   "transpaleteira": "transpaleteira",
 };
 

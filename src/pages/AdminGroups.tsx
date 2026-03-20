@@ -23,7 +23,7 @@ import {
   getEquipmentTypeLabel,
   isEquipmentTypeMatch,
 } from "@/lib/equipmentType";
-import { normalizeQuestion } from "@/lib/alertRules";
+import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
 
 const MANUAL_GROUP_TYPE = "manual";
 
@@ -239,11 +239,12 @@ const AdminGroups = () => {
         );
 
         if (!exists) {
+          const alertRule = getAlertRule(question);
           missingQuestions.push({
             group_id: group.id,
             question,
-            alert_on_yes: false,
-            alert_on_no: true,
+            alert_on_yes: alertRule.onYes,
+            alert_on_no: alertRule.onNo,
             order_number: index + 1,
           });
         }
