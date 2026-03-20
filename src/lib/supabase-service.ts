@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
+import { normalizeQuestion } from "@/lib/alertRules";
 
 // Types
 export type Operator = Tables<"operators">;
@@ -617,7 +618,17 @@ export const groupQuestionService = {
   async getAll() {
     const { data, error } = await supabase.from("group_questions").select("*").order("order_number");
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+
+    const uniqueMap = new Map<string, GroupQuestion>();
+    rows.forEach((row) => {
+      const key = `${row.group_id}::${normalizeQuestion(String(row.question || ""))}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, row);
+      }
+    });
+
+    return Array.from(uniqueMap.values());
   },
   async upsert(question: Partial<GroupQuestion>) {
     const { data, error } = await supabase.from("group_questions").upsert(question).select().single();
