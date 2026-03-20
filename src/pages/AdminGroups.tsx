@@ -41,6 +41,8 @@ const AdminGroups = () => {
   ]);
   const { toast } = useToast();
 
+  const [initialGroupsEnsured, setInitialGroupsEnsured] = useState(false);
+
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isCreatingNewGroup, setIsCreatingNewGroup] = useState(false);
   const [groupForm, setGroupForm] = useState<GroupFormState>({
@@ -101,6 +103,66 @@ const AdminGroups = () => {
     () => groups.find((group: any) => group.id === selectedGroupId) || null,
     [groups, selectedGroupId],
   );
+
+  useEffect(() => {
+    if (initialGroupsEnsured || groups.length === 0) return;
+
+    const requiredGroups = [
+      {
+        name: "Empilhadeira",
+        description: "Checklist padrão para empilhadeiras",
+        equipment_type: "5",
+      },
+      {
+        name: "Transpaleteira",
+        description: "Checklist padrão para transpaleteiras",
+        equipment_type: "7",
+      },
+    ];
+
+    const missingGroups = requiredGroups.filter((required) => {
+      const foundByType = groups.some(
+        (group: any) => String(group.equipment_type || "").trim() === required.equipment_type,
+      );
+      const foundByName = groups.some(
+        (group: any) => String(group.name || "").trim().toLowerCase() === required.name.toLowerCase(),
+      );
+      return !foundByType && !foundByName;
+    });
+
+    if (missingGroups.length === 0) {
+      setInitialGroupsEnsured(true);
+      return;
+    }
+
+    const createMissingGroups = async () => {
+      try {
+        for (const group of missingGroups) {
+          await checklistGroupService.create({
+            name: group.name,
+            description: group.description,
+            equipment_type: group.equipment_type,
+          });
+        }
+        setInitialGroupsEnsured(true);
+        toast({
+          title: "Grupos criados",
+          description: "Empilhadeira e Transpaleteira foram criados automaticamente.",
+        });
+        await refresh();
+      } catch (error) {
+        console.error("Erro ao criar grupos obrigatórios:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar os grupos automáticos de Empilhadeira e Transpaleteira.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    void createMissingGroups();
+  }, [groups, initialGroupsEnsured, refresh, toast]);
+
 
   const questionsForGroup = useMemo(
     () =>
