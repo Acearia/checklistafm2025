@@ -261,9 +261,8 @@ const AdminGroups = () => {
 
     const upsertMissing = async () => {
       try {
-        for (const item of missingQuestions) {
-          await groupQuestionService.upsert(item);
-        }
+        // utiliza upsert em lote com conflito por group_id + question para evitar duplicações
+        await groupQuestionService.upsertMany(missingQuestions);
         setInitialGroupQuestionsEnsured(true);
         toast({
           title: "Perguntas criadas",

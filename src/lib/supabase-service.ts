@@ -624,6 +624,15 @@ export const groupQuestionService = {
     if (error) throw error;
     return data;
   },
+  async upsertMany(questions: Partial<GroupQuestion>[]) {
+    if (!questions || questions.length === 0) return [];
+    const { data, error } = await supabase
+      .from("group_questions")
+      .upsert(questions, { onConflict: "group_id,question" })
+      .select();
+    if (error) throw error;
+    return data || [];
+  },
   async delete(id: string) {
     const { error } = await supabase.from("group_questions").delete().eq("id", id);
     if (error) throw error;
