@@ -814,7 +814,7 @@ const Checklist = () => {
                   {activeMaintenanceOrder ? (
                     <div className="mt-2 space-y-1">
                       <Badge variant="destructive" className="text-xs">
-                        OS #{activeMaintenanceOrder.orderNumber} â€¢ Em andamento
+                        OS #{activeMaintenanceOrder.orderNumber} • Em andamento
                       </Badge>
                       <p className="text-xs text-gray-600">
                         Aberta em {formatOrderDate(activeMaintenanceOrder.createdAt)}

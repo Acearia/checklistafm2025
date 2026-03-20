@@ -3,7 +3,7 @@ DECLARE
   canonical_sector_id uuid;
   duplicate_sector record;
   canonical_leader_id uuid;
-  canonical_name constant text := 'LOG?STICA INTERNA';
+  canonical_name constant text := 'LOGÍSTICA INTERNA';
 BEGIN
   SELECT id, leader_id
     INTO canonical_sector_id, canonical_leader_id
@@ -17,7 +17,7 @@ BEGIN
       INTO canonical_sector_id, canonical_leader_id
     FROM public.sectors
     WHERE regexp_replace(
-            translate(lower(trim(name)), '???????????????????????', 'aaaaaeeeeiiiiooooouuuuc'),
+            translate(lower(trim(name)), 'áàãâäéèêëíìîïóòõôöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
             '\s+',
             ' ',
             'g'
@@ -27,12 +27,12 @@ BEGIN
   END IF;
 
   IF canonical_sector_id IS NULL THEN
-    RAISE EXCEPTION 'Setor LOG?STICA INTERNA n?o encontrado para consolida??o';
+    RAISE EXCEPTION 'Setor LOGÍSTICA INTERNA não encontrado para consolidação';
   END IF;
 
   UPDATE public.sectors
      SET name = canonical_name,
-         description = COALESCE(NULLIF(description, ''), 'Setor de log?stica interna')
+         description = COALESCE(NULLIF(description, ''), 'Setor de logística interna')
    WHERE id = canonical_sector_id;
 
   UPDATE public.equipment
@@ -40,7 +40,7 @@ BEGIN
          type = '5'
    WHERE kp IN ('1239', '1257', '1814', '2856', '3186', '3236', '3413', '3429', '5780', '5813', '5834', '6242', '6250', '6257')
       OR regexp_replace(
-           translate(lower(trim(sector)), '???????????????????????', 'aaaaaeeeeiiiiooooouuuuc'),
+           translate(lower(trim(sector)), 'áàãâäéèêëíìîïóòõôöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
            '\s+',
            ' ',
            'g'
@@ -49,7 +49,7 @@ BEGIN
   UPDATE public.leaders
      SET sector = canonical_name
    WHERE regexp_replace(
-           translate(lower(trim(sector)), '???????????????????????', 'aaaaaeeeeiiiiooooouuuuc'),
+           translate(lower(trim(sector)), 'áàãâäéèêëíìîïóòõôöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
            '\s+',
            ' ',
            'g'
@@ -58,7 +58,7 @@ BEGIN
   UPDATE public.operators
      SET setor = canonical_name
    WHERE regexp_replace(
-           translate(lower(trim(setor)), '???????????????????????', 'aaaaaeeeeiiiiooooouuuuc'),
+           translate(lower(trim(setor)), 'áàãâäéèêëíìîïóòõôöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
            '\s+',
            ' ',
            'g'
@@ -69,7 +69,7 @@ BEGIN
     FROM public.sectors
     WHERE id <> canonical_sector_id
       AND regexp_replace(
-            translate(lower(trim(name)), '???????????????????????', 'aaaaaeeeeiiiiooooouuuuc'),
+            translate(lower(trim(name)), 'áàãâäéèêëíìîïóòõôöúùûüç', 'aaaaaeeeeiiiiooooouuuuc'),
             '\s+',
             ' ',
             'g'

@@ -29,13 +29,13 @@ BEGIN
     INSERT INTO public.checklist_groups (name, description)
     VALUES (
       'Bobcat / Mini Carregadeira',
-      'Checklist padr?o da mini carregadeira Bobcat / dire??o deslizante (KP 1239)'
+      'Checklist padrão da mini carregadeira Bobcat / direção deslizante (KP 1239)'
     )
     RETURNING id INTO bobcat_group_id;
   ELSE
     UPDATE public.checklist_groups
        SET name = 'Bobcat / Mini Carregadeira',
-           description = 'Checklist padr?o da mini carregadeira Bobcat / dire??o deslizante (KP 1239)'
+           description = 'Checklist padrão da mini carregadeira Bobcat / direção deslizante (KP 1239)'
      WHERE id = bobcat_group_id;
   END IF;
 
@@ -43,21 +43,21 @@ BEGIN
   SELECT bobcat_group_id, src.question, false, true, src.order_number
   FROM (
     VALUES
-      ('Os far?is dianteiros est?o funcionando normalmente?', 1),
-      ('O stop de freio est? funcionando normalmente?', 2),
-      ('O sinal sonoro (buzina) est? funcionando normalmente?', 3),
-      ('A mini carregadeira possui r? sonora e est? funcionando normalmente?', 4),
-      ('Os pneus est?o em boas condi??es?', 5),
-      ('O sistema hidr?ulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de ?leo?', 6),
-      ('O sistema de frenagem, testado pelo operador no momento da inspe??o, apresenta algum problema?', 7),
-      ('O ?leo do motor apresenta n?vel normal?', 8),
-      ('O sistema de refrigera??o do motor (radiador) apresenta n?vel de ?gua normal?', 9),
-      ('A mini carregadeira est? com os retrovisores em boas condi??es de uso?', 10),
-      ('O cinto de seguran?a est? em boas condi??es de uso?', 11),
-      ('A torre de garfos est? em boas condi??es de uso?', 12),
-      ('Possui catraca para amarra??o de cargas com risco de queda?', 13),
-      ('Possui placa de identifica??o de equipamento?', 14),
-      ('Diante dos pontos observados nesta inspe??o, a mini carregadeira de dire??o deslizante est? em condi??es de operar normalmente?', 15)
+      ('Os faróis dianteiros estão funcionando normalmente?', 1),
+      ('O stop de freio está funcionando normalmente?', 2),
+      ('O sinal sonoro (buzina) está funcionando normalmente?', 3),
+      ('A mini carregadeira possui ré sonora e está funcionando normalmente?', 4),
+      ('Os pneus estão em boas condições?', 5),
+      ('O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?', 6),
+      ('O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?', 7),
+      ('O óleo do motor apresenta nível normal?', 8),
+      ('O sistema de refrigeração do motor (radiador) apresenta nível de água normal?', 9),
+      ('A mini carregadeira está com os retrovisores em boas condições de uso?', 10),
+      ('O cinto de segurança está em boas condições de uso?', 11),
+      ('A torre de garfos está em boas condições de uso?', 12),
+      ('Possui catraca para amarração de cargas com risco de queda?', 13),
+      ('Possui placa de identificação de equipamento?', 14),
+      ('Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?', 15)
   ) AS src(question, order_number)
   WHERE NOT EXISTS (
     SELECT 1
@@ -72,21 +72,21 @@ BEGIN
          alert_on_no = true
     FROM (
       VALUES
-        ('Os far?is dianteiros est?o funcionando normalmente?', 1),
-        ('O stop de freio est? funcionando normalmente?', 2),
-        ('O sinal sonoro (buzina) est? funcionando normalmente?', 3),
-        ('A mini carregadeira possui r? sonora e est? funcionando normalmente?', 4),
-        ('Os pneus est?o em boas condi??es?', 5),
-        ('O sistema hidr?ulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de ?leo?', 6),
-        ('O sistema de frenagem, testado pelo operador no momento da inspe??o, apresenta algum problema?', 7),
-        ('O ?leo do motor apresenta n?vel normal?', 8),
-        ('O sistema de refrigera??o do motor (radiador) apresenta n?vel de ?gua normal?', 9),
-        ('A mini carregadeira est? com os retrovisores em boas condi??es de uso?', 10),
-        ('O cinto de seguran?a est? em boas condi??es de uso?', 11),
-        ('A torre de garfos est? em boas condi??es de uso?', 12),
-        ('Possui catraca para amarra??o de cargas com risco de queda?', 13),
-        ('Possui placa de identifica??o de equipamento?', 14),
-        ('Diante dos pontos observados nesta inspe??o, a mini carregadeira de dire??o deslizante est? em condi??es de operar normalmente?', 15)
+        ('Os faróis dianteiros estão funcionando normalmente?', 1),
+        ('O stop de freio está funcionando normalmente?', 2),
+        ('O sinal sonoro (buzina) está funcionando normalmente?', 3),
+        ('A mini carregadeira possui ré sonora e está funcionando normalmente?', 4),
+        ('Os pneus estão em boas condições?', 5),
+        ('O sistema hidráulico (mangueiras e bomba) apresenta algum aspecto que indique vazamento de óleo?', 6),
+        ('O sistema de frenagem, testado pelo operador no momento da inspeção, apresenta algum problema?', 7),
+        ('O óleo do motor apresenta nível normal?', 8),
+        ('O sistema de refrigeração do motor (radiador) apresenta nível de água normal?', 9),
+        ('A mini carregadeira está com os retrovisores em boas condições de uso?', 10),
+        ('O cinto de segurança está em boas condições de uso?', 11),
+        ('A torre de garfos está em boas condições de uso?', 12),
+        ('Possui catraca para amarração de cargas com risco de queda?', 13),
+        ('Possui placa de identificação de equipamento?', 14),
+        ('Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?', 15)
     ) AS src(question, order_number)
    WHERE q.group_id = bobcat_group_id
      AND q.order_number = src.order_number;
