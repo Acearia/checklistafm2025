@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useSupabaseData } from "./useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
+import { normalizeQuestion } from "@/lib/alertRules";
 import { 
   type Operator, 
   type Equipment, 
@@ -93,7 +94,17 @@ export const useChecklistData = () => {
 
   useEffect(() => {
     setGroups(supabaseGroups as ChecklistGroup[]);
-    setGroupQuestions(supabaseGroupQuestions as GroupQuestion[]);
+
+    // deduplicate by group_id + normalized question to evitar repetições
+    const grouped = new Map<string, GroupQuestion>();
+    (supabaseGroupQuestions as GroupQuestion[]).forEach((q) => {
+      const key = `${q.group_id}::${normalizeQuestion(String(q.question || ""))}`;
+      if (!grouped.has(key)) {
+        grouped.set(key, q);
+      }
+    });
+
+    setGroupQuestions(Array.from(grouped.values()));
     setGroupProcedures(supabaseGroupProcedures as GroupProcedure[]);
     setEquipmentGroups(supabaseEquipmentGroups as any[]);
   }, [supabaseGroups, supabaseGroupQuestions, supabaseGroupProcedures, supabaseEquipmentGroups]);
