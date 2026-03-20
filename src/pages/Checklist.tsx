@@ -110,14 +110,21 @@ const Checklist = () => {
   const getOperatorSectors = (op?: Operator | null) => {
     const raw = normalizeText(op?.setor);
     if (!raw) return [];
-    return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    return raw
+      .split(/[,;]+/) // suporta vírgula ou ponto-e-vírgula
+      .map((s) => s.trim())
+      .filter(Boolean);
   };
 
   const filteredEquipments = useMemo(() => {
     const sectors = getOperatorSectors(selectedOperator);
     if (sectors.length === 0) return equipments;
+
     const sectorSet = new Set(sectors);
-    return equipments.filter((eq) => sectorSet.has(normalizeText(eq.sector)));
+    const matched = equipments.filter((eq) => sectorSet.has(normalizeText(eq.sector)));
+
+    // fallback: se não encontrar matching (dados de setor inconsistentes), mostrar todo conjunto para não bloquear uso
+    return matched.length > 0 ? matched : equipments;
   }, [equipments, selectedOperator]);
 
   const ordersForSelectedEquipment = useMemo(() => {

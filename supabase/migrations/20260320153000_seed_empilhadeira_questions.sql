@@ -1,19 +1,19 @@
--- Seed para perguntas do checklist de Empilhadeira
+-- Seed para perguntas do checklist de Empilhadeira e Transpaleteira
 -- No campo alert_on_no true, pois se a resposta for NÃO gera alerta
 
-WITH empilhadeira AS (
+WITH target_groups AS (
   SELECT id
   FROM public.checklist_groups
-  WHERE lower(name) LIKE '%empilhadeira%'
+  WHERE lower(name) LIKE '%empilhadeira%' OR lower(name) LIKE '%transpaleteira%'
 )
 INSERT INTO public.group_questions (group_id, question, alert_on_yes, alert_on_no, order_number)
 SELECT
-  e.id,
+  tg.id,
   q.question,
   false AS alert_on_yes,
   true AS alert_on_no,
   q.order_number
-FROM empilhadeira e
+FROM target_groups tg
 CROSS JOIN (VALUES
   ('Estou apto a operar?', 1),
   ('Painel geral ok?', 2),
@@ -37,6 +37,6 @@ CROSS JOIN (VALUES
 ) AS q(question, order_number)
 WHERE NOT EXISTS (
   SELECT 1 FROM public.group_questions gq
-  WHERE gq.group_id = e.id
+  WHERE gq.group_id = tg.id
     AND lower(gq.question) = lower(q.question)
 );

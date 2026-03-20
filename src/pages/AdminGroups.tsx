@@ -23,6 +23,7 @@ import {
   getEquipmentTypeLabel,
   isEquipmentTypeMatch,
 } from "@/lib/equipmentType";
+import { normalizeQuestion } from "@/lib/alertRules";
 
 const MANUAL_GROUP_TYPE = "manual";
 
@@ -30,6 +31,51 @@ type GroupFormState = {
   name: string;
   description: string;
   equipmentType: string;
+};
+
+const GROUP_QUESTION_TEMPLATES: Record<string, string[]> = {
+  "5": [
+    "Estou apto a operar?",
+    "Painel geral ok?",
+    "Torre ok?",
+    "Mangueiras ok?",
+    "Sistema hidráulico ok?",
+    "Cinto segurança ok?",
+    "Faróis ok?",
+    "Blue spot/Redzone ok?",
+    "Possui vazamentos?",
+    "Garfos ok?",
+    "Pneus ok?",
+    "Sinais sonoros ok?",
+    "Freio estacionário ok?",
+    "Freio de serviço ok?",
+    "Aparência geral ok?",
+    "Extintor incêndio ok?",
+    "Direção pesada?",
+    "Existem ruídos?",
+    "Retrovisores ok?",
+  ],
+  "7": [
+    "Estou apto a operar?",
+    "Painel geral ok?",
+    "Torre ok?",
+    "Mangueiras ok?",
+    "Sistema hidráulico ok?",
+    "Cinto segurança ok?",
+    "Faróis ok?",
+    "Blue spot/Redzone ok?",
+    "Possui vazamentos?",
+    "Garfos ok?",
+    "Pneus ok?",
+    "Sinais sonoros ok?",
+    "Freio estacionário ok?",
+    "Freio de serviço ok?",
+    "Aparência geral ok?",
+    "Extintor incêndio ok?",
+    "Direção pesada?",
+    "Existem ruídos?",
+    "Retrovisores ok?",
+  ],
 };
 
 const AdminGroups = () => {
@@ -42,6 +88,7 @@ const AdminGroups = () => {
   const { toast } = useToast();
 
   const [initialGroupsEnsured, setInitialGroupsEnsured] = useState(false);
+  const [initialGroupQuestionsEnsured, setInitialGroupQuestionsEnsured] = useState(false);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [isCreatingNewGroup, setIsCreatingNewGroup] = useState(false);
@@ -163,6 +210,78 @@ const AdminGroups = () => {
     void createMissingGroups();
   }, [groups, initialGroupsEnsured, refresh, toast]);
 
+  useEffect(() => {
+    if (initialGroupQuestionsEnsured || groups.length === 0) return;
+
+    const targetGroups = groups.filter((group: any) =>
+      String(group.equipment_type || "").trim() === "5" ||
+      String(group.equipment_type || "").trim() === "7"
+    );
+
+    if (targetGroups.length === 0) {
+      setInitialGroupQuestionsEnsured(true);
+      return;
+    }
+
+    const missingQuestions: Array<{
+      group_id: string;
+      question: string;
+      alert_on_yes: boolean;
+      alert_on_no: boolean;
+      order_number: number;
+    }> = [];
+
+    for (const group of targetGroups) {
+      const template = GROUP_QUESTION_TEMPLATES[String(group.equipment_type)];
+      if (!template || template.length === 0) continue;
+
+      template.forEach((question, index) => {
+        const exists = groupQuestions.some(
+          (q: any) =>
+            q.group_id === group.id &&
+            normalizeQuestion(String(q.question || "")) === normalizeQuestion(question),
+        );
+
+        if (!exists) {
+          missingQuestions.push({
+            group_id: group.id,
+            question,
+            alert_on_yes: false,
+            alert_on_no: true,
+            order_number: index + 1,
+          });
+        }
+      });
+    }
+
+    if (missingQuestions.length === 0) {
+      setInitialGroupQuestionsEnsured(true);
+      return;
+    }
+
+    const upsertMissing = async () => {
+      try {
+        for (const item of missingQuestions) {
+          await groupQuestionService.upsert(item);
+        }
+        setInitialGroupQuestionsEnsured(true);
+        toast({
+          title: "Perguntas criadas",
+          description: "Perguntas de Empilhadeira e Transpaleteira foram geradas automaticamente.",
+        });
+        await refresh();
+      } catch (error) {
+        console.error("Erro ao criar perguntas de grupos automáticos:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível gerar as perguntas automáticas para Empilhadeira/Transpaleteira.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    void upsertMissing();
+  }, [groups, groupQuestions, initialGroupQuestionsEnsured, refresh, toast]);
 
   const questionsForGroup = useMemo(
     () =>

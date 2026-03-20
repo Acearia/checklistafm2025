@@ -1,7 +1,7 @@
 ﻿import type { ChecklistItem } from "@/lib/data";
 import { applyAlertRuleToItem, normalizeQuestion } from "@/lib/alertRules";
 
-type EquipmentQuestionCategory = "ponte" | "talha" | "portico" | "bobcat";
+type EquipmentQuestionCategory = "ponte" | "talha" | "portico" | "bobcat" | "empilhadeira" | "transpaleteira";
 
 const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "1": "ponte",
@@ -31,6 +31,9 @@ const EQUIPMENT_TYPE_ALIAS: Record<string, EquipmentQuestionCategory> = {
   "mini carregadeira de direção deslizante": "bobcat",
   "mini carregadeira direcao deslizante": "bobcat",
   "1239": "bobcat",
+  "5": "empilhadeira",
+  "empilhadeira": "empilhadeira",
+  "transpaleteira": "transpaleteira",
 };
 
 const normalizeValue = (value: string): string =>
@@ -140,6 +143,50 @@ const EQUIPMENT_TYPE_QUESTION_MAP: Record<EquipmentQuestionCategory, string[]> =
     "Possui catraca para amarração de cargas com risco de queda?",
     "Possui placa de identificação de equipamento?",
     "Diante dos pontos observados nesta inspeção, a mini carregadeira de direção deslizante está em condições de operar normalmente?",
+  ],
+
+  empilhadeira: [
+    "Estou apto a operar?",
+    "Painel geral ok?",
+    "Torre ok?",
+    "Mangueiras ok?",
+    "Sistema hidráulico ok?",
+    "Cinto segurança ok?",
+    "Faróis ok?",
+    "Blue spot/Redzone ok?",
+    "Possui vazamentos?",
+    "Garfos ok?",
+    "Pneus ok?",
+    "Sinais sonoros ok?",
+    "Freio estacionário ok?",
+    "Freio de serviço ok?",
+    "Aparência geral ok?",
+    "Extintor incêndio ok?",
+    "Direção pesada?",
+    "Existem ruídos?",
+    "Retrovisores ok?",
+  ],
+
+  transpaleteira: [
+    "Estou apto a operar?",
+    "Painel geral ok?",
+    "Torre ok?",
+    "Mangueiras ok?",
+    "Sistema hidráulico ok?",
+    "Cinto segurança ok?",
+    "Faróis ok?",
+    "Blue spot/Redzone ok?",
+    "Possui vazamentos?",
+    "Garfos ok?",
+    "Pneus ok?",
+    "Sinais sonoros ok?",
+    "Freio estacionário ok?",
+    "Freio de serviço ok?",
+    "Aparência geral ok?",
+    "Extintor incêndio ok?",
+    "Direção pesada?",
+    "Existem ruídos?",
+    "Retrovisores ok?",
   ],
 };
 
