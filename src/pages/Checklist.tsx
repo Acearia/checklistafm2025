@@ -159,6 +159,9 @@ const Checklist = () => {
     const getGroupItems = (groupIds: string[]): ChecklistItem[] => {
       if (!groupIds || groupIds.length === 0) return [];
       const relevant = (groupQuestions as GroupQuestion[]).filter((q) => groupIds.includes(q.group_id));
+      const isForklift = selectedEquipment
+        ? ["5", "7"].includes(String(selectedEquipment.type || "").trim())
+        : false;
       return relevant
         .sort((a, b) => (a.order_number || 0) - (b.order_number || 0))
         .map((q) => ({
@@ -166,7 +169,7 @@ const Checklist = () => {
           question: q.question,
           alertOnYes: Boolean(q.alert_on_yes),
           alertOnNo: Boolean(q.alert_on_no),
-          answer: null,
+          answer: isForklift ? "Não" : null,
         }));
     };
 
