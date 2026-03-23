@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+﻿import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, Save, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -8,7 +8,6 @@ import {
   sectorLeaderAssignmentService,
 } from "@/lib/supabase-service";
 import { supabase } from "@/integrations/supabase/client";
-import { upsertInvestigatorAccount } from "@/lib/adminCredentials";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +27,7 @@ type UnifiedRole =
   | "operador"
   | "lider"
   | "investigador"
+  | "tecnico_admin"
   | "supervisor"
   | "tec_seguranca"
   | "inspetor";
@@ -43,11 +43,12 @@ interface UnifiedUser {
 
 interface AdminAccount {
   username: string;
-  role: "admin" | "seguranca" | "diretoria" | "investigador";
+  role: "admin" | "seguranca" | "diretoria" | "investigador" | "tecnico";
   password_hash: string;
 }
 
 const SECURITY_ROLES: UnifiedRole[] = ["supervisor", "tec_seguranca", "inspetor"];
+const ADMIN_PANEL_ROLE = "tecnico_admin" as const;
 const SECURITY_ROLE_STORAGE_KEY = "checklistafm-users-security-role-tags";
 const DEFAULT_PASSWORD = "1234";
 const USER_PAGE_SIZE = 120;
@@ -77,6 +78,7 @@ const ROLE_LABEL: Record<UnifiedRole, string> = {
   operador: "Operador",
   lider: "Líder",
   investigador: "Investigador",
+  tecnico_admin: "Técnico",
   supervisor: "Supervisor",
   tec_seguranca: "Téc. Segurança",
   inspetor: "Inspetor",
@@ -87,6 +89,41 @@ const encodePassword = (value: string): string => {
     return window.btoa(value);
   }
   return value;
+};
+
+const persistAdminUserRole = async ({
+  currentUsername,
+  nextUsername,
+  role,
+  passwordHash,
+}: {
+  currentUsername?: string | null;
+  nextUsername: string;
+  role: AdminAccount["role"],
+  passwordHash: string;
+}) => {
+  const fromAdminUsers = supabase.from("admin_users");
+
+  if (currentUsername && currentUsername !== nextUsername) {
+    return fromAdminUsers
+      .update({
+        username: nextUsername,
+        role,
+        password_hash: passwordHash,
+      })
+      .eq("username", currentUsername);
+  }
+
+  return fromAdminUsers.upsert(
+    [
+      {
+        username: nextUsername,
+        role,
+        password_hash: passwordHash,
+      },
+    ],
+    { onConflict: "username" },
+  );
 };
 
 const loadSecurityRoleTags = () => {
@@ -154,7 +191,7 @@ const AdminUsers = () => {
       const { data, error } = await supabase
         .from("admin_users")
         .select("username, role, password_hash")
-        .in("role", ["seguranca", "investigador"]);
+        .in("role", ["admin", "seguranca", "diretoria", "investigador", "tecnico"]);
 
       if (error) {
         console.error("Erro ao carregar contas administrativas:", error);
@@ -232,6 +269,10 @@ const AdminUsers = () => {
         taggedRoles.forEach((role) => {
           if (!user.roles.includes(role)) user.roles.push(role);
         });
+      }
+
+      if (account.role === "tecnico") {
+        if (!user.roles.includes(ADMIN_PANEL_ROLE)) user.roles.push(ADMIN_PANEL_ROLE);
       }
     });
 
@@ -347,6 +388,19 @@ const AdminUsers = () => {
     const hasOperator = roleList.includes("operador");
     const hasInvestigator = roleList.includes("investigador");
     const hasSecurity = roleList.some((role) => SECURITY_ROLES.includes(role));
+    const hasAdminPanelTechnician = roleList.includes(ADMIN_PANEL_ROLE);
+    const selectedAdminRole: AdminAccount["role"] | null = hasInvestigator
+      ? "investigador"
+      : hasSecurity
+        ? "seguranca"
+        : hasAdminPanelTechnician
+          ? "tecnico"
+          : null;
+    const adminCredentialRolesSelected = [
+      hasInvestigator,
+      hasSecurity,
+      hasAdminPanelTechnician,
+    ].filter(Boolean).length;
 
     if (passwordTrim) {
       if (hasOperator && !/^\d{4,}$/.test(passwordTrim)) {
@@ -368,11 +422,11 @@ const AdminUsers = () => {
       }
     }
 
-    if (hasInvestigator && hasSecurity) {
+    if (adminCredentialRolesSelected > 1) {
       toast({
         title: "Conflito de perfil",
         description:
-          "No banco atual, a matrícula aceita somente 1 perfil administrativo. Use Investigador ou Segurança.",
+          "No banco atual, a matrícula aceita somente 1 perfil administrativo. Use Investigador, Segurança ou Técnico.",
         variant: "destructive",
       });
       return;
@@ -403,9 +457,9 @@ const AdminUsers = () => {
             email.trim().length > 0 &&
             String(leader.email || "").trim().toLowerCase() === email.trim().toLowerCase(),
         );
-      const existingAdmin = adminAccounts.find(
-        (account) => account.username === lookupMatricula,
-      );
+      const existingAdmin =
+        adminAccounts.find((account) => account.username === lookupMatricula) ||
+        adminAccounts.find((account) => account.username === matriculaTrim);
 
       if (roleList.includes("operador")) {
         if (existingOperator) {
@@ -455,14 +509,16 @@ const AdminUsers = () => {
         }
       }
 
-      if (hasInvestigator) {
-        const canKeepCurrentPassword = existingAdmin?.role === "investigador" && !passwordTrim;
+      if (selectedAdminRole) {
+        const canKeepCurrentPassword =
+          existingAdmin?.role === selectedAdminRole && !passwordTrim;
 
+        let adminPasswordHash = existingAdmin?.password_hash || "";
         if (!canKeepCurrentPassword) {
           if (!passwordTrim) {
             toast({
               title: "Senha obrigatória",
-              description: "Informe senha para perfil investigador.",
+              description: "Informe senha para o perfil administrativo selecionado.",
               variant: "destructive",
             });
             setSaving(false);
@@ -472,81 +528,81 @@ const AdminUsers = () => {
           if (passwordTrim.length < 4) {
             toast({
               title: "Senha inválida",
-              description: "A senha do investigador deve ter no mínimo 4 caracteres.",
+              description: "A senha do perfil administrativo deve ter no mínimo 4 caracteres.",
               variant: "destructive",
             });
             setSaving(false);
             return;
           }
 
-          const ok = await upsertInvestigatorAccount(matriculaTrim, passwordTrim);
-          if (!ok) {
-            toast({
-              title: "Erro ao salvar investigador",
-              description: "Não foi possível atualizar as credenciais do investigador.",
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
+          adminPasswordHash = encodePassword(passwordTrim);
+        }
+
+        if (!adminPasswordHash) {
+          toast({
+            title: "Senha obrigatória",
+            description: "Informe uma senha válida para o perfil administrativo.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+
+        const { error } = await persistAdminUserRole({
+          currentUsername: existingAdmin?.username || null,
+          nextUsername: matriculaTrim,
+          role: selectedAdminRole,
+          passwordHash: adminPasswordHash,
+        });
+
+        if (error) {
+          toast({
+            title: `Erro ao salvar ${
+              selectedAdminRole === "investigador"
+                ? "investigador"
+                : selectedAdminRole === "tecnico"
+                  ? "técnico"
+                  : "segurança"
+            }`,
+            description: "Não foi possível atualizar as credenciais administrativas.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
+        }
+      } else if (existingAdmin) {
+        const { error } = await supabase
+          .from("admin_users")
+          .delete()
+          .eq("username", existingAdmin.username);
+
+        if (error) {
+          toast({
+            title: "Erro ao remover perfil administrativo",
+            description: "Não foi possível remover a credencial administrativa antiga.",
+            variant: "destructive",
+          });
+          setSaving(false);
+          return;
         }
       }
 
-      if (hasSecurity) {
-        const canKeepCurrentPassword = existingAdmin?.role === "seguranca" && !passwordTrim;
-
-        if (!canKeepCurrentPassword) {
-          if (!passwordTrim) {
-            toast({
-              title: "Senha obrigatória",
-              description: "Informe senha para perfil de supervisor/segurança.",
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
-
-          if (passwordTrim.length < 4) {
-            toast({
-              title: "Senha inválida",
-              description: "A senha de supervisor/segurança deve ter no mínimo 4 caracteres.",
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
-
-          const { error } = await supabase
-            .from("admin_users")
-            .upsert(
-              [
-                {
-                  username: matriculaTrim,
-                  role: "seguranca",
-                  password_hash: encodePassword(passwordTrim),
-                },
-              ],
-              { onConflict: "username" },
-            );
-
-          if (error) {
-            toast({
-              title: "Erro ao salvar segurança",
-              description: "Não foi possível atualizar as credenciais de segurança.",
-              variant: "destructive",
-            });
-            setSaving(false);
-            return;
-          }
+      setSecurityRoleTags((previous) => {
+        const next = { ...previous };
+        if (lookupMatricula && lookupMatricula !== matriculaTrim) {
+          delete next[lookupMatricula];
         }
 
-        setSecurityRoleTags((previous) => ({
-          ...previous,
-          [matriculaTrim]: roleList.filter((role): role is UnifiedRole =>
+        if (hasSecurity) {
+          next[matriculaTrim] = roleList.filter((role): role is UnifiedRole =>
             SECURITY_ROLES.includes(role),
-          ),
-        }));
-      }
+          );
+        } else {
+          delete next[matriculaTrim];
+        }
+
+        return next;
+      });
 
       toast({
         title: "Usuário salvo",
@@ -569,10 +625,12 @@ const AdminUsers = () => {
 
   const handleResetUserPassword = async (user: UnifiedUser) => {
     const hasSecurityRole = user.roles.some((role) => SECURITY_ROLES.includes(role));
+    const hasAdminPanelTechnician = user.roles.includes(ADMIN_PANEL_ROLE);
     const hasAnyResettableProfile =
       user.roles.includes("operador") ||
       user.roles.includes("lider") ||
       user.roles.includes("investigador") ||
+      hasAdminPanelTechnician ||
       hasSecurityRole;
 
     if (!hasAnyResettableProfile) {
@@ -626,27 +684,43 @@ const AdminUsers = () => {
       }
 
       if (user.roles.includes("investigador")) {
-        const ok = await upsertInvestigatorAccount(user.matricula, DEFAULT_PASSWORD);
-        if (ok) {
+        const { error } = await persistAdminUserRole({
+          currentUsername: user.matricula,
+          nextUsername: user.matricula,
+          role: "investigador",
+          passwordHash: encodePassword(DEFAULT_PASSWORD),
+        });
+        if (!error) {
           updatedProfiles.push("Investigador");
         } else {
+          console.error("Erro ao resetar senha de investigador:", error);
           errors.push("Investigador");
         }
       }
 
+      if (hasAdminPanelTechnician) {
+        const { error } = await persistAdminUserRole({
+          currentUsername: user.matricula,
+          nextUsername: user.matricula,
+          role: "tecnico",
+          passwordHash: encodePassword(DEFAULT_PASSWORD),
+        });
+
+        if (error) {
+          console.error("Erro ao resetar senha de técnico:", error);
+          errors.push("Técnico");
+        } else {
+          updatedProfiles.push("Técnico");
+        }
+      }
+
       if (hasSecurityRole) {
-        const { error } = await supabase
-          .from("admin_users")
-          .upsert(
-            [
-              {
-                username: user.matricula,
-                role: "seguranca",
-                password_hash: encodePassword(DEFAULT_PASSWORD),
-              },
-            ],
-            { onConflict: "username" },
-          );
+        const { error } = await persistAdminUserRole({
+          currentUsername: user.matricula,
+          nextUsername: user.matricula,
+          role: "seguranca",
+          passwordHash: encodePassword(DEFAULT_PASSWORD),
+        });
 
         if (error) {
           console.error("Erro ao resetar senha de segurança:", error);
@@ -737,6 +811,7 @@ const AdminUsers = () => {
 
       if (
         user.roles.includes("investigador") ||
+        user.roles.includes(ADMIN_PANEL_ROLE) ||
         user.roles.some((role) => SECURITY_ROLES.includes(role))
       ) {
         const { error } = await supabase.from("admin_users").delete().eq("username", user.matricula);
@@ -750,6 +825,7 @@ const AdminUsers = () => {
         });
 
         if (user.roles.includes("investigador")) removedProfiles.push("Investigador");
+        if (user.roles.includes(ADMIN_PANEL_ROLE)) removedProfiles.push("Técnico");
         if (user.roles.some((role) => SECURITY_ROLES.includes(role))) {
           removedProfiles.push("Perfis administrativos");
         }
@@ -905,6 +981,7 @@ const AdminUsers = () => {
                   "operador",
                   "lider",
                   "investigador",
+                  "tecnico_admin",
                   "supervisor",
                   "tec_seguranca",
                   "inspetor",
@@ -1053,4 +1130,5 @@ const AdminUsers = () => {
 };
 
 export default AdminUsers;
+
 

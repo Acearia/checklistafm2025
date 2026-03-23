@@ -1,6 +1,6 @@
-import { supabase } from "@/integrations/supabase/client";
+﻿import { supabase } from "@/integrations/supabase/client";
 
-export type AdminRole = "admin" | "seguranca" | "diretoria";
+export type AdminRole = "admin" | "seguranca" | "diretoria" | "tecnico";
 type InvestigatorRole = "investigador" | "investigator";
 export type SystemRole = AdminRole | InvestigatorRole;
 
@@ -27,10 +27,12 @@ const encodePassword = (value: string): string => {
 
 const normalizeUsername = (value: string) => value.trim().toLowerCase();
 const isAdminRole = (role: string): role is AdminRole =>
-  role === "admin" || role === "seguranca" || role === "diretoria";
+  role === "admin" || role === "seguranca" || role === "diretoria" || role === "tecnico";
 const isSystemRole = (role: string): role is SystemRole =>
   role === "admin" ||
   role === "seguranca" ||
+  role === "diretoria" ||
+  role === "tecnico" ||
   role === "investigador" ||
   role === "investigator";
 
@@ -467,3 +469,4 @@ export const deleteInvestigatorAccount = async (username: string): Promise<boole
   saveLocalAccounts(local);
   return true;
 };
+

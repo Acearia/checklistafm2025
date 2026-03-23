@@ -19,7 +19,7 @@ export type Database = {
           created_at: string
           id: string
           password_hash: string
-          role: "admin" | "seguranca" | "investigador"
+          role: "admin" | "seguranca" | "diretoria" | "tecnico" | "investigador"
           updated_at: string
           username: string
         }
@@ -27,7 +27,7 @@ export type Database = {
           created_at?: string
           id?: string
           password_hash: string
-          role?: "admin" | "seguranca" | "investigador"
+          role?: "admin" | "seguranca" | "diretoria" | "tecnico" | "investigador"
           updated_at?: string
           username: string
         }
@@ -35,7 +35,7 @@ export type Database = {
           created_at?: string
           id?: string
           password_hash?: string
-          role?: "admin" | "seguranca" | "investigador"
+          role?: "admin" | "seguranca" | "diretoria" | "tecnico" | "investigador"
           updated_at?: string
           username?: string
         }
