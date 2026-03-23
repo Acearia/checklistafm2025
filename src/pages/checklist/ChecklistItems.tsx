@@ -17,13 +17,20 @@ import { getChecklistState, saveChecklistState } from "@/lib/checklistStore";
 import { useChecklistData } from "@/hooks/useChecklistData";
 import { checklistItems as defaultChecklistItems } from "@/lib/data";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
+import { isEquipmentTypeMatch } from "@/lib/equipmentType";
+import type { GroupQuestion } from "@/lib/types-compat";
 
 const ChecklistItems = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [currentState, setCurrentState] = useState(getChecklistState());
-  const { checklistItems: supabaseChecklistItems } = useChecklistData();
+  const {
+    checklistItems: supabaseChecklistItems,
+    groups,
+    groupQuestions,
+    equipmentGroups,
+  } = useChecklistData();
 
   const steps = ["Operador", "Equipamento", "Checklist", "Mídia", "Enviar"];
 
@@ -40,12 +47,39 @@ const ChecklistItems = () => {
     const sourceItems =
       supabaseChecklistItems.length > 0 ? supabaseChecklistItems : defaultChecklistItems;
 
-    const filteredSourceItems = filterChecklistItemsByEquipmentType(
-      sourceItems,
-      state.equipment
-        ? `${state.equipment.type} ${state.equipment.name} ${state.equipment.kp}`
-        : null
-    );
+    const equipmentGroupIds = state.equipment
+      ? Array.from(
+          new Set([
+            ...equipmentGroups
+              .filter((item: any) => item.equipment_id === state.equipment?.id)
+              .map((item: any) => item.group_id),
+            ...groups
+              .filter((group: any) => isEquipmentTypeMatch(state.equipment, group?.equipment_type))
+              .map((group: any) => group.id),
+          ])
+        )
+      : [];
+
+    const groupItems = (groupQuestions as GroupQuestion[])
+      .filter((question) => equipmentGroupIds.includes(question.group_id))
+      .sort((a, b) => (a.order_number || 0) - (b.order_number || 0))
+      .map((question) => ({
+        id: question.id,
+        question: question.question,
+        answer: null,
+        alertOnYes: Boolean(question.alert_on_yes),
+        alertOnNo: Boolean(question.alert_on_no),
+      }));
+
+    const filteredSourceItems =
+      groupItems.length > 0
+        ? groupItems
+        : filterChecklistItemsByEquipmentType(
+            sourceItems,
+            state.equipment
+              ? `${state.equipment.type} ${state.equipment.name} ${state.equipment.kp}`
+              : null
+          );
 
     const templateItems = filteredSourceItems.map((item) => ({
       id: item.id,
@@ -74,7 +108,7 @@ const ChecklistItems = () => {
     } else {
       setChecklist(templateItems);
     }
-  }, [navigate, supabaseChecklistItems]);
+  }, [navigate, supabaseChecklistItems, groups, groupQuestions, equipmentGroups]);
 
   const handleChecklistChange = (id: string, answer: "Sim" | "Não" | "P" | "N/A" | "Selecione") => {
     setChecklist(prevChecklist => 
