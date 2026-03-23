@@ -632,6 +632,7 @@ const InvestigacaoAcidente2 = () => {
           : `${Date.now()}`;
 
       let finalInspectionNumber = fallbackNumber;
+      let savedRemotely = false;
 
       try {
         const savedRule = await goldenRuleService.upsertFromLegacy({
@@ -650,6 +651,7 @@ const InvestigacaoAcidente2 = () => {
         });
 
         finalInspectionNumber = Number((savedRule as any)?.numero_inspecao) || finalInspectionNumber;
+        savedRemotely = true;
       } catch (error) {
         if (!isMissingGoldenRulesTableError(error)) {
           throw error;
@@ -677,9 +679,34 @@ const InvestigacaoAcidente2 = () => {
         anexos: serializedAnexos,
       };
 
-      const updatedRecords = [payload, ...existingRecords.filter((item: any) => item?.id !== payloadId)];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
-      window.dispatchEvent(new Event(STORAGE_EVENT));
+      if (!savedRemotely) {
+        const updatedRecords = [payload, ...existingRecords.filter((item: any) => item?.id !== payloadId)];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
+        window.dispatchEvent(new Event(STORAGE_EVENT));
+      } else {
+        try {
+          const lightweightRecords = existingRecords
+            .filter((item: any) => item?.id !== payloadId)
+            .map((item: any) => ({
+              id: item?.id,
+              numero_inspecao: item?.numero_inspecao,
+              created_at: item?.created_at,
+              titulo: item?.titulo,
+              setor: item?.setor,
+              gestor: item?.gestor,
+              tecnico_seg: item?.tecnico_seg,
+              acompanhante: item?.acompanhante,
+            }));
+
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweightRecords.slice(0, 20)));
+          window.dispatchEvent(new Event(STORAGE_EVENT));
+        } catch (storageError) {
+          console.warn(
+            "[InvestigacaoAcidente2] Regra salva no banco, mas o cache local nao foi atualizado.",
+            storageError,
+          );
+        }
+      }
 
       toast({
         title: "Regra de Ouro registrada",
@@ -697,7 +724,7 @@ const InvestigacaoAcidente2 = () => {
       setPreviewNumber(finalInspectionNumber + 1);
       setSubmittedInspectionNumber(finalInspectionNumber);
       setSubmissionSuccess(true);
-      setTimeout(() => {
+      window.setTimeout(() => {
         setSubmissionSuccess(false);
         setSubmittedInspectionNumber(null);
         navigate("/");
