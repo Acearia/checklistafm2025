@@ -156,10 +156,11 @@ const saveSecurityRoleTags = (tags: Record<string, UnifiedRole[]>) => {
 
 const AdminUsers = () => {
   const { toast } = useToast();
-  const { operators, leaders, sectors, loading, refresh } = useSupabaseData([
+  const { operators, leaders, sectors, sectorLeaderAssignments, loading, refresh } = useSupabaseData([
     "operators",
     "leaders",
     "sectors",
+    "sectorLeaderAssignments",
   ]);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -490,23 +491,38 @@ const AdminUsers = () => {
             ? encodePassword(passwordTrim)
             : existingLeader?.password_hash || encodePassword(DEFAULT_PASSWORD);
 
-        if (existingLeader) {
-          await leaderService.update(existingLeader.id, {
-            name: nameTrim,
-            email: leaderEmail,
-            sector: setorNormalized,
-            operator_matricula: matriculaTrim,
-            password_hash: passwordHash,
-          });
-        } else {
-          await leaderService.create({
-            name: nameTrim,
-            email: leaderEmail,
-            sector: setorNormalized,
-            operator_matricula: matriculaTrim,
-            password_hash: passwordHash,
-          });
+        const savedLeader = existingLeader
+          ? await leaderService.update(existingLeader.id, {
+              name: nameTrim,
+              email: leaderEmail,
+              sector: setorNormalized,
+              operator_matricula: matriculaTrim,
+              password_hash: passwordHash,
+            })
+          : await leaderService.create({
+              name: nameTrim,
+              email: leaderEmail,
+              sector: setorNormalized,
+              operator_matricula: matriculaTrim,
+              password_hash: passwordHash,
+            });
+
+        await sectorLeaderAssignmentService.syncDefaultAssignmentsForLeader({
+          leaderId: savedLeader.id,
+          sectorNames: parseSectorList(setorNormalized),
+          sectors,
+          currentAssignments: sectorLeaderAssignments,
+        });
+      } else if (existingLeader) {
+        const relatedAssignments = sectorLeaderAssignments.filter(
+          (assignment) => assignment.leader_id === existingLeader.id,
+        );
+
+        for (const assignment of relatedAssignments) {
+          await sectorLeaderAssignmentService.delete(assignment.id);
         }
+
+        await leaderService.delete(existingLeader.id);
       }
 
       if (selectedAdminRole) {

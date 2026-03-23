@@ -49,6 +49,20 @@ export type InspectionInsert = TablesInsert<"inspections">;
 export type GoldenRuleInsert = TablesInsert<"golden_rules">;
 export type AccidentActionPlanInsert = TablesInsert<"accident_action_plans">;
 
+const normalizeSectorName = (value?: string | null) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const parseSectorNames = (value?: string | null) =>
+  (value || "")
+    .split(/[,;/]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 export interface GoldenRuleRecordPayload {
   id?: string;
   numero_inspecao?: number;
@@ -547,18 +561,54 @@ export const sectorLeaderAssignmentService = {
       .select("*");
 
     if (error) throw error;
-    return data || [];
+
+    let assignments = data || [];
+
+    // Recover legacy mappings from leaders.sector / sectors.leader_id whenever there are gaps.
+    const repaired = await this.repairLegacyAssignments();
+    if (repaired > 0) {
+      const { data: refreshedData, error: refreshedError } = await supabase
+        .from("sector_leader_assignments")
+        .select("*");
+
+      if (refreshedError) throw refreshedError;
+      assignments = refreshedData || [];
+    }
+
+    return assignments;
   },
 
   async create(assignment: SectorLeaderAssignmentInsert) {
     const { data, error } = await supabase
       .from("sector_leader_assignments")
-      .insert(assignment)
+      .upsert(assignment, { onConflict: "sector_id,leader_id,shift" })
       .select()
       .single();
 
     if (error) throw error;
+    await this.syncLegacyLeaderAndSectorFields({
+      leaderIds: [data.leader_id],
+      sectorIds: [data.sector_id],
+    });
     return data;
+  },
+
+  async upsertMany(assignments: SectorLeaderAssignmentInsert[]) {
+    if (assignments.length === 0) {
+      return [] as SectorLeaderAssignment[];
+    }
+
+    const { data, error } = await supabase
+      .from("sector_leader_assignments")
+      .upsert(assignments, { onConflict: "sector_id,leader_id,shift" })
+      .select();
+
+    if (error) throw error;
+    await this.syncLegacyLeaderAndSectorFields({
+      leaderIds: assignments.map((assignment) => assignment.leader_id),
+      sectorIds: assignments.map((assignment) => assignment.sector_id),
+    });
+    return data || [];
   },
 
   async update(id: string, updates: SectorLeaderAssignmentUpdate) {
@@ -574,13 +624,236 @@ export const sectorLeaderAssignmentService = {
   },
 
   async delete(id: string) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("sector_leader_assignments")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .select("leader_id, sector_id")
+      .single();
 
     if (error) throw error;
-  }
+
+    await this.syncLegacyLeaderAndSectorFields({
+      leaderIds: [data.leader_id],
+      sectorIds: [data.sector_id],
+    });
+  },
+
+  async syncDefaultAssignmentsForLeader({
+    leaderId,
+    sectorNames,
+    sectors,
+    currentAssignments,
+  }: {
+    leaderId: string;
+    sectorNames: string[];
+    sectors?: Sector[];
+    currentAssignments?: SectorLeaderAssignment[];
+  }) {
+    const sectorList = sectors || (await sectorService.getAll());
+    const assignmentList = currentAssignments || (await this.getAll());
+
+    const sectorMap = new Map<string, Sector>();
+    sectorList.forEach((sector) => {
+      sectorMap.set(normalizeSectorName(sector.name), sector);
+    });
+
+    const desiredSectorIds = Array.from(
+      new Set(
+        sectorNames
+          .map((sectorName) => sectorMap.get(normalizeSectorName(sectorName))?.id || null)
+          .filter((sectorId): sectorId is string => Boolean(sectorId)),
+      ),
+    );
+
+    const leaderAssignments = assignmentList.filter(
+      (assignment) => assignment.leader_id === leaderId,
+    );
+
+    const defaultAssignments = leaderAssignments.filter(
+      (assignment) => (assignment.shift || "default") === "default",
+    );
+
+    const defaultSectorIds = new Set(defaultAssignments.map((assignment) => assignment.sector_id));
+
+    const assignmentsToDelete = defaultAssignments.filter(
+      (assignment) => !desiredSectorIds.includes(assignment.sector_id),
+    );
+
+    for (const assignment of assignmentsToDelete) {
+      await this.delete(assignment.id);
+    }
+
+    const assignmentsToCreate = desiredSectorIds
+      .filter((sectorId) => !defaultSectorIds.has(sectorId))
+      .map((sectorId) => ({
+        sector_id: sectorId,
+        leader_id: leaderId,
+        shift: "default",
+      }));
+
+    if (assignmentsToCreate.length > 0) {
+      await this.upsertMany(assignmentsToCreate);
+    }
+
+    await this.syncLegacyLeaderAndSectorFields({
+      leaderIds: [leaderId],
+      sectorIds: Array.from(
+        new Set([
+          ...desiredSectorIds,
+          ...defaultAssignments.map((assignment) => assignment.sector_id),
+        ]),
+      ),
+      sectors: sectorList,
+      assignments: await this.getAllWithoutRepair(),
+    });
+  },
+
+  async getAllWithoutRepair() {
+    const { data, error } = await supabase
+      .from("sector_leader_assignments")
+      .select("*");
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async syncLegacyLeaderAndSectorFields({
+    leaderIds,
+    sectorIds,
+    leaders,
+    sectors,
+    assignments,
+  }: {
+    leaderIds?: string[];
+    sectorIds?: string[];
+    leaders?: Leader[];
+    sectors?: Sector[];
+    assignments?: SectorLeaderAssignment[];
+  }) {
+    const uniqueLeaderIds = Array.from(new Set((leaderIds || []).filter(Boolean)));
+    const uniqueSectorIds = Array.from(new Set((sectorIds || []).filter(Boolean)));
+
+    if (uniqueLeaderIds.length === 0 && uniqueSectorIds.length === 0) {
+      return;
+    }
+
+    const [leaderList, sectorList, assignmentList] = await Promise.all([
+      leaders ? Promise.resolve(leaders) : leaderService.getAll(),
+      sectors ? Promise.resolve(sectors) : sectorService.getAll(),
+      assignments ? Promise.resolve(assignments) : this.getAllWithoutRepair(),
+    ]);
+
+    const sectorsById = new Map(sectorList.map((sector) => [sector.id, sector]));
+
+    for (const leaderId of uniqueLeaderIds) {
+      const leader = leaderList.find((item) => item.id === leaderId);
+      if (!leader) continue;
+
+      const sectorNames = assignmentList
+        .filter(
+          (assignment) =>
+            assignment.leader_id === leaderId && (assignment.shift || "default") === "default",
+        )
+        .map((assignment) => sectorsById.get(assignment.sector_id)?.name || "")
+        .filter(Boolean);
+
+      const normalizedSectorValue = Array.from(new Set(sectorNames)).join(", ");
+      const currentSectorValue = String(leader.sector || "");
+
+      if (currentSectorValue !== normalizedSectorValue) {
+        await leaderService.update(leaderId, {
+          sector: normalizedSectorValue,
+        });
+      }
+    }
+
+    for (const sectorId of uniqueSectorIds) {
+      const defaultAssignment = assignmentList.find(
+        (assignment) =>
+          assignment.sector_id === sectorId && (assignment.shift || "default") === "default",
+      );
+
+      const sector = sectorsById.get(sectorId);
+      if (!sector) continue;
+
+      const nextLeaderId = defaultAssignment?.leader_id || null;
+      if ((sector.leader_id || null) !== nextLeaderId) {
+        await sectorService.update(sectorId, {
+          leader_id: nextLeaderId,
+        });
+      }
+    }
+  },
+
+  async repairLegacyAssignments() {
+    const [
+      { data: leaders, error: leadersError },
+      { data: sectors, error: sectorsError },
+      { data: assignments, error: assignmentsError },
+    ] = await Promise.all([
+      supabase.from("leaders").select("id, sector"),
+      supabase.from("sectors").select("id, name, leader_id"),
+      supabase.from("sector_leader_assignments").select("sector_id, leader_id, shift"),
+    ]);
+
+    if (leadersError) throw leadersError;
+    if (sectorsError) throw sectorsError;
+    if (assignmentsError) throw assignmentsError;
+
+    const sectorMap = new Map<string, { id: string; leader_id: string | null }>();
+    (sectors || []).forEach((sector) => {
+      sectorMap.set(normalizeSectorName(sector.name), {
+        id: sector.id,
+        leader_id: sector.leader_id,
+      });
+    });
+
+    const existingKeys = new Set(
+      (assignments || []).map(
+        (assignment) => `${assignment.sector_id}::${assignment.leader_id}::${assignment.shift || "default"}`,
+      ),
+    );
+
+    const recordsToUpsert: SectorLeaderAssignmentInsert[] = [];
+
+    (leaders || []).forEach((leader) => {
+      parseSectorNames(leader.sector).forEach((sectorName) => {
+        const matchedSector = sectorMap.get(normalizeSectorName(sectorName));
+        if (!matchedSector) return;
+
+        const key = `${matchedSector.id}::${leader.id}::default`;
+        if (existingKeys.has(key)) return;
+
+        existingKeys.add(key);
+        recordsToUpsert.push({
+          sector_id: matchedSector.id,
+          leader_id: leader.id,
+          shift: "default",
+        });
+      });
+    });
+
+    (sectors || []).forEach((sector) => {
+      if (!sector.leader_id) return;
+      const key = `${sector.id}::${sector.leader_id}::default`;
+      if (existingKeys.has(key)) return;
+
+      existingKeys.add(key);
+      recordsToUpsert.push({
+        sector_id: sector.id,
+        leader_id: sector.leader_id,
+        shift: "default",
+      });
+    });
+
+    if (recordsToUpsert.length === 0) {
+      return 0;
+    }
+
+    await this.upsertMany(recordsToUpsert);
+    return recordsToUpsert.length;
+  },
 };
 
 // Checklist groups
