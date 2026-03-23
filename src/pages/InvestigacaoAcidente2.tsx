@@ -222,6 +222,36 @@ const dedupeSorted = (values: string[]) =>
     a.localeCompare(b, "pt-BR"),
   );
 
+const normalizeSectorKey = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+const normalizeSectorName = (value: unknown) => {
+  const safeValue = normalizeText(value).trim();
+  if (!safeValue) return "";
+
+  const normalizedKey = normalizeSectorKey(safeValue);
+  const sectorMap: Record<string, string> = {
+    EXPEDIO: "EXPEDIÇÃO",
+    EXPEDICAO: "EXPEDIÇÃO",
+    REBARBAO: "REBARBAÇÃO",
+    REBARBACAO: "REBARBAÇÃO",
+    "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
+  };
+
+  if (sectorMap[normalizedKey]) return sectorMap[normalizedKey];
+  if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÇÃO";
+  if (normalizedKey.startsWith("REBARBA")) return "REBARBAÇÃO";
+  if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
+
+  return safeValue;
+};
+
 const normalizePersonKey = (value: string) =>
   value
     .normalize("NFD")
@@ -342,7 +372,7 @@ const InvestigacaoAcidente2 = () => {
 
   const setorOptions = useMemo<SearchableStringOption[]>(
     () =>
-      dedupeSorted(sectors.map((item: any) => normalizeText(item?.name))).map((option) => ({
+      dedupeSorted(sectors.map((item: any) => normalizeSectorName(item?.name))).map((option) => ({
         value: option,
         label: option,
       })),
@@ -638,7 +668,7 @@ const InvestigacaoAcidente2 = () => {
         const savedRule = await goldenRuleService.upsertFromLegacy({
           id: payloadId,
           titulo: titulo.trim(),
-          setor,
+          setor: normalizeSectorName(setor),
           gestor,
           tecnico_seg: tecnicoSeg,
           acompanhante,
@@ -668,7 +698,7 @@ const InvestigacaoAcidente2 = () => {
         numero_inspecao: finalInspectionNumber,
         created_at: new Date().toISOString(),
         titulo: titulo.trim(),
-        setor,
+        setor: normalizeSectorName(setor),
         gestor,
         tecnico_seg: tecnicoSeg,
         acompanhante,
@@ -692,7 +722,7 @@ const InvestigacaoAcidente2 = () => {
               numero_inspecao: item?.numero_inspecao,
               created_at: item?.created_at,
               titulo: item?.titulo,
-              setor: item?.setor,
+              setor: normalizeSectorName(item?.setor),
               gestor: item?.gestor,
               tecnico_seg: item?.tecnico_seg,
               acompanhante: item?.acompanhante,

@@ -107,36 +107,49 @@ const isMissingGoldenRulesTableError = (error: unknown) => {
 };
 
 const decodePotentialMojibake = (value: string) => {
-  // Mapa de caracteres UTF-8 que foram mal-interpretados como Latin-1
-  const mojibakeMap: Record<string, string> = {
-    "Ã§": "ç", // ç mal decodificado
-    "Ã£": "ã", // ã mal decodificado
-    "Ã©": "é", // é mal decodificado
-    "Ã": "Ã",   // Ã mai decodificado
-    "Ã¡": "á", // á mal decodificado
-    "Â": "",   // Â mal decodificado (remover)
-  };
+  if (!/[ÃÂ\uFFFD]/.test(value)) return value;
 
-  // Corrigir mojibake comum (Latin-1 interpretado como UTF-8)
-  let fixed = value;
-  Object.entries(mojibakeMap).forEach(([broken, correct]) => {
-    fixed = fixed.split(broken).join(correct);
-  });
-
-  // Corrigir EXPEDIÇÃO e REBARBAÇÃO especificamente
-  fixed = fixed
-    .replace(/expedi[çc\u00E7\u00C3\uFFFD]*[oa\u00E3]*o/gi, "EXPEDIÇÃO")
-    .replace(/rebarbac[ãa\u00E3\u00C3\uFFFD]*o/gi, "REBARBAÇÃO")
-    .replace(/rebarba[çc\u00E7]*o/gi, "REBARBAÇÃO");
-
-  // Remover caracteres de replacement Unicode
-  fixed = fixed.replace(/\uFFFD/g, "");
-
-  return fixed;
+  try {
+    const bytes = Uint8Array.from(Array.from(value, (char) => char.charCodeAt(0) & 0xff));
+    return new TextDecoder("utf-8").decode(bytes).replace(/\uFFFD+/g, "").replace(/Â/g, "");
+  } catch {
+    return value.replace(/\uFFFD+/g, "").replace(/Â/g, "");
+  }
 };
 
 const toSafeString = (value: unknown) =>
   value == null ? "" : decodePotentialMojibake(String(value));
+
+const normalizeSectorKey = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+const normalizeSectorName = (value: unknown) => {
+  const safeValue = toSafeString(value).trim();
+  if (!safeValue) return "";
+
+  const normalizedKey = normalizeSectorKey(safeValue);
+  const sectorMap: Record<string, string> = {
+    EXPEDIO: "EXPEDIÇÃO",
+    EXPEDICAO: "EXPEDIÇÃO",
+    REBARBAO: "REBARBAÇÃO",
+    REBARBACAO: "REBARBAÇÃO",
+    "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
+  };
+
+  if (sectorMap[normalizedKey]) return sectorMap[normalizedKey];
+
+  if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÇÃO";
+  if (normalizedKey.startsWith("REBARBA")) return "REBARBAÇÃO";
+  if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
+
+  return safeValue;
+};
 
 const formatDateTime = (value?: string) => {
   if (!value) return "N/A";
@@ -184,7 +197,6 @@ const normalizeAnswer = (value: unknown): QuestionResponse["resposta"] => {
     normalized === "n/a" ||
     normalized === "na" ||
     normalized === "não se aplica" ||
-    normalized === "nÃƒÂ£o se aplica" ||
     normalized === "nao se aplica"
   ) {
     return ANSWER_NA;
@@ -387,7 +399,7 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
           numero_inspecao: numeroInspecao,
           created_at: createdAt,
           titulo: toSafeString(item.titulo),
-          setor: toSafeString(item.setor),
+          setor: normalizeSectorName(item.setor),
           gestor: toSafeString(item.gestor),
           tecnico_seg: toSafeString(item.tecnico_seg),
           acompanhante: toSafeString(item.acompanhante),
@@ -475,7 +487,7 @@ const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
         numero_inspecao: numeroInspecao,
         created_at: createdAt,
         titulo: toSafeString(row.titulo),
-        setor: toSafeString(row.setor),
+        setor: normalizeSectorName(row.setor),
         gestor: toSafeString(row.gestor),
         tecnico_seg: toSafeString(row.tecnico_seg),
         acompanhante: toSafeString(row.acompanhante),
@@ -1545,5 +1557,3 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
-
-
