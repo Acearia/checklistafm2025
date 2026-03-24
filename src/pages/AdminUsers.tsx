@@ -1122,7 +1122,7 @@ const AdminUsers = () => {
             <div className="text-sm text-gray-600">Carregando usuários...</div>
           ) : filteredUsers.length === 0 ? (
             <div className="rounded border bg-gray-50 p-4 text-sm text-gray-600">
-              Nenhum usu?rio encontrado.
+              Nenhum usuário encontrado.
             </div>
           ) : (
             <>

@@ -14,6 +14,7 @@ const ADMIN_TABLE = "admin_users";
 const INVESTIGATOR_ROLES: InvestigatorRole[] = ["investigador", "investigator"];
 const PRIMARY_INVESTIGATOR_ROLE: InvestigatorRole = "investigador";
 const LOCAL_ACCOUNTS_STORAGE_KEY = "checklistafm-admin-users-local";
+const HIDDEN_ADMIN_USERNAMES = new Set(["teste", "teste@local"]);
 
 const encodePassword = (value: string): string => {
   if (typeof window !== "undefined" && typeof window.btoa === "function") {
@@ -347,7 +348,11 @@ export const listAdminAccounts = async (): Promise<
 
   if (!error && data) {
     return data
-      .filter((item) => isAdminRole(item.role))
+      .filter(
+        (item) =>
+          isAdminRole(item.role) &&
+          !HIDDEN_ADMIN_USERNAMES.has(normalizeUsername(item.username)),
+      )
       .map((item) => ({
         username: item.username,
         role: item.role,
@@ -359,10 +364,12 @@ export const listAdminAccounts = async (): Promise<
     return [];
   }
 
-  return listLocalAccounts((role) => isAdminRole(role)).map((item) => ({
-    username: item.username,
-    role: item.role as AdminRole,
-  }));
+  return listLocalAccounts((role) => isAdminRole(role))
+    .filter((item) => !HIDDEN_ADMIN_USERNAMES.has(normalizeUsername(item.username)))
+    .map((item) => ({
+      username: item.username,
+      role: item.role as AdminRole,
+    }));
 };
 
 export const listInvestigatorAccounts = async (): Promise<
