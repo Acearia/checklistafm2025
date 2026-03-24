@@ -1,4 +1,4 @@
-﻿-- Populate sectors table with all sectors from leaders.json
+-- Populate sectors table with all sectors from leaders.json
 -- This ensures we have the source of truth for all sectors used in the system
 
 -- Clear existing sectors if migration needs to be rerun
