@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -78,30 +79,13 @@ interface RegraOuroRecord {
 
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
-const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
 const ANSWER_NO: QuestionResponse["resposta"] = "Não";
 const ANSWER_NA: QuestionResponse["resposta"] = "N/A";
 
-const hasAdmAccess = () => {
-  if (typeof window === "undefined") return false;
 
-  try {
-    const adminAuth = sessionStorage.getItem("checklistafm-admin-auth");
-    if (adminAuth === "true") return true;
-
-    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-    if (!rawSession) return false;
-    const parsed = JSON.parse(rawSession);
-    const username = String(parsed?.username || "").trim().toLowerCase();
-    const role = String(parsed?.role || "").trim().toLowerCase();
-    return username === "adm" || role === "admin" || role === "seguranca";
-  } catch {
-    return false;
-  }
-};
 
 const isMissingGoldenRulesTableError = (error: unknown) => {
   const message = String((error as any)?.message || "").toLowerCase();
@@ -558,7 +542,7 @@ const AdminRegrasOuro = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
-  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(canDeleteAdminRecords);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [setorFilter, setSetorFilter] = useState(FILTER_ALL);
@@ -653,7 +637,7 @@ const AdminRegrasOuro = () => {
     if (typeof window === "undefined") return;
 
     const syncAdminSession = () => {
-      setIsAdmUser(hasAdmAccess());
+      setIsAdmUser(canDeleteAdminRecords());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -1696,3 +1680,8 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
+
+
+
+
+

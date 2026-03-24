@@ -46,24 +46,8 @@ import { Input } from "@/components/ui/input";
 import jsPDF from "jspdf";
 import { inspectionService } from "@/lib/supabase-service";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-
-const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 const INSPECTIONS_AUTO_REFRESH_MS = 15000;
-
-const hasAdmAccess = () => {
-  if (typeof window === "undefined") return false;
-
-  try {
-    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-    if (!rawSession) return false;
-    const parsed = JSON.parse(rawSession);
-    const username = String(parsed?.username || "").trim().toLowerCase();
-    const role = String(parsed?.role || "").trim().toLowerCase();
-    return username === "adm" || role === "admin";
-  } catch {
-    return false;
-  }
-};
 
 const AdminInspections = () => {
   const navigate = useNavigate();
@@ -98,7 +82,7 @@ const AdminInspections = () => {
   const [boardDateTo, setBoardDateTo] = useState(() =>
     format(new Date(), "yyyy-MM-dd"),
   );
-  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(canDeleteAdminRecords);
   const refreshRef = useRef(refresh);
 
   const equipmentById = useMemo(() => {
@@ -150,7 +134,7 @@ const AdminInspections = () => {
     if (typeof window === "undefined") return;
 
     const syncAdminSession = () => {
-      setIsAdmUser(hasAdmAccess());
+      setIsAdmUser(canDeleteAdminRecords());
     };
 
     window.addEventListener("storage", syncAdminSession);

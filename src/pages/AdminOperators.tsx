@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { operatorService } from "@/lib/supabase-service";
 import { convertSupabaseOperatorToLegacy } from "@/lib/types-compat";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import type { TablesUpdate } from "@/integrations/supabase/types";
 import type { Operator } from "@/lib/types-compat";
 import {
@@ -43,6 +44,7 @@ const AdminOperators = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const { toast } = useToast();
+  const canDeleteOperators = canDeleteAdminRecords();
   
   // Convert Supabase operators e combinar com informação de líderes
   useEffect(() => {
@@ -307,6 +309,15 @@ const AdminOperators = () => {
   };
 
   const handleRemoveOperator = async (matricula: string) => {
+    if (!canDeleteOperators) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode remover operadores.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const operatorToRemove = operators.find(op => op.id === matricula);
     if (!operatorToRemove) return;
     
@@ -457,14 +468,16 @@ const AdminOperators = () => {
                         >
                           Resetar senha
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-                          onClick={() => handleRemoveOperator(operator.id)}
-                        >
-                          Remover
-                        </Button>
+                        {canDeleteOperators && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                            onClick={() => handleRemoveOperator(operator.id)}
+                          >
+                            Remover
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

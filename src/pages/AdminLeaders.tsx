@@ -7,6 +7,7 @@ import { RefreshCw, Plus, Edit, Trash2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { leaderService } from "@/lib/supabase-service";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import AddLeaderDialog from "@/components/leaders/AddLeaderDialog";
 import EditLeaderDialog from "@/components/leaders/EditLeaderDialog";
 
@@ -39,6 +40,7 @@ const AdminLeaders = () => {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedLeader, setSelectedLeader] = useState<Leader | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const canDeleteLeaders = canDeleteAdminRecords();
 
   const handleAddLeader = async (leaderData: Omit<Leader, 'id'>) => {
     try {
@@ -104,6 +106,15 @@ const AdminLeaders = () => {
   };
 
   const handleDeleteLeader = async (leaderId: string) => {
+    if (!canDeleteLeaders) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir lideres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!confirm('Tem certeza que deseja excluir este líder?')) {
       return;
     }
@@ -241,16 +252,18 @@ const AdminLeaders = () => {
                   <Edit className="h-3 w-3" />
                   Editar
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteLeader(leader.id)}
-                  disabled={isDeleting === leader.id}
-                  className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  {isDeleting === leader.id ? "Excluindo..." : "Excluir"}
-                </Button>
+                {canDeleteLeaders && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteLeader(leader.id)}
+                    disabled={isDeleting === leader.id}
+                    className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    {isDeleting === leader.id ? "Excluindo..." : "Excluir"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

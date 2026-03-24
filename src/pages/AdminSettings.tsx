@@ -272,6 +272,15 @@ const AdminSettings = () => {
   };
 
   const handleRemoveLeader = (leaderId: string) => {
+    if (!isAdminUser) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode remover líderes.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const updatedLeaders = leaders.filter((leader) => leader.id !== leaderId);
     setLeaders(updatedLeaders);
     localStorage.setItem("checklistafm-leaders", JSON.stringify(updatedLeaders));
@@ -555,13 +564,15 @@ const AdminSettings = () => {
                             </DialogFooter>
                           </DialogContent>
                         </Dialog>
-                        <Button
-                          variant="outline"
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => handleRemoveLeader(leader.id)}
-                        >
-                          Remover
-                        </Button>
+                        {isAdminUser && (
+                          <Button
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleRemoveLeader(leader.id)}
+                          >
+                            Remover
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))

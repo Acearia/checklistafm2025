@@ -24,6 +24,7 @@ import {
   isEquipmentTypeMatch,
 } from "@/lib/equipmentType";
 import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 
 const MANUAL_GROUP_TYPE = "manual";
 
@@ -102,6 +103,7 @@ const AdminGroups = () => {
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
+  const canDeleteGroupRecords = canDeleteAdminRecords();
 
   const getEquipmentIdsForType = (equipmentType?: string | null) => {
     if (!equipmentType) return [];
@@ -384,6 +386,15 @@ const AdminGroups = () => {
   };
 
   const handleDeleteGroup = async () => {
+    if (!canDeleteGroupRecords) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir grupos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!selectedGroupId) return;
     if (!window.confirm("Excluir este grupo e suas perguntas?")) return;
     setIsCreatingNewGroup(false);
@@ -445,6 +456,15 @@ const AdminGroups = () => {
   };
 
   const handleDeleteQuestion = async (id: string) => {
+    if (!canDeleteGroupRecords) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir perguntas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!window.confirm("Excluir esta pergunta?")) return;
 
     try {
@@ -507,7 +527,7 @@ const AdminGroups = () => {
           <Button onClick={handleSaveGroup} disabled={isSaving}>
             {isSaving ? "Salvando..." : "Salvar Grupo"}
           </Button>
-          {selectedGroupId && (
+          {selectedGroupId && canDeleteGroupRecords && (
             <Button variant="destructive" onClick={handleDeleteGroup} disabled={isSaving}>
               Excluir Grupo
             </Button>
@@ -670,9 +690,11 @@ const AdminGroups = () => {
                       {question.alert_on_no && <Badge variant="secondary">Alerta no NÃO</Badge>}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleDeleteQuestion(question.id)}>
-                    Remover
-                  </Button>
+                  {canDeleteGroupRecords && (
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteQuestion(question.id)}>
+                      Remover
+                    </Button>
+                  )}
                 </div>
               ))}
             </div>

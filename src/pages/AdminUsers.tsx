@@ -1,4 +1,4 @@
-﻿import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, Save, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import {
   Table,
   TableBody,
@@ -301,6 +302,7 @@ const AdminUsers = () => {
     () => filteredUsers.slice(0, visibleRows),
     [filteredUsers, visibleRows],
   );
+  const canDeleteUsers = canDeleteAdminRecords();
 
   const hasMoreRows = displayedUsers.length < filteredUsers.length;
 
@@ -768,6 +770,15 @@ const AdminUsers = () => {
   };
 
   const handleDeleteUser = async (user: UnifiedUser) => {
+    if (!canDeleteUsers) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente o usuário adm pode excluir usuários.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
         `Excluir o usuário ${user.name} (${user.matricula})? Isso remove os perfis vinculados a essa matrícula.`,
@@ -1104,21 +1115,23 @@ const AdminUsers = () => {
                               ? "Resetando..."
                               : "Resetar senha"}
                           </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            disabled={deletingUserMatricula === user.matricula}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleDeleteUser(user);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {deletingUserMatricula === user.matricula
-                              ? "Excluindo..."
-                              : "Excluir"}
-                          </Button>
+                          {canDeleteUsers && (
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              disabled={deletingUserMatricula === user.matricula}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void handleDeleteUser(user);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingUserMatricula === user.matricula
+                                ? "Excluindo..."
+                                : "Excluir"}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1146,5 +1159,3 @@ const AdminUsers = () => {
 };
 
 export default AdminUsers;
-
-

@@ -34,6 +34,7 @@ import {
 import { loadMaintenanceOrders, upsertMaintenanceOrder, deleteMaintenanceOrdersByEquipment } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import { getEquipmentTypeLabel } from "@/lib/equipmentType";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 
 const AdminEquipment = () => {
   const { equipment: supabaseEquipments, sectors, refresh, loading } = useSupabaseData([
@@ -57,6 +58,7 @@ const AdminEquipment = () => {
   const itemsPerPage = 10;
   const { toast } = useToast();
   const [osFilter, setOsFilter] = useState<"all" | "with-open" | "without-open">("all");
+  const canDeleteEquipmentRecords = canDeleteAdminRecords();
   
   // Convert Supabase equipment to legacy format
   useEffect(() => {
@@ -175,6 +177,15 @@ const AdminEquipment = () => {
   };
 
   const handleRemoveEquipment = async (id: string) => {
+    if (!canDeleteEquipmentRecords) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode remover equipamentos.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await equipmentService.delete(id);
       
@@ -327,6 +338,15 @@ const AdminEquipment = () => {
     });
   };
   const handleDeleteMaintenanceOrders = () => {
+    if (!canDeleteEquipmentRecords) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir OS.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!maintenanceEquipment) return;
     const confirmationMessage = `Remover todas as ordens de serviço do equipamento "${maintenanceEquipment.name}"?`;
     const confirmed =
@@ -513,14 +533,16 @@ const AdminEquipment = () => {
                           >
                             Editar
                           </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
-                            onClick={() => handleRemoveEquipment(equipment.id)}
-                          >
-                            Remover
-                          </Button>
+                          {canDeleteEquipmentRecords && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+                              onClick={() => handleRemoveEquipment(equipment.id)}
+                            >
+                              Remover
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -643,14 +665,16 @@ const AdminEquipment = () => {
               <Button className="flex-1 sm:flex-none" variant="outline" onClick={() => setMaintenanceDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button
-                className="flex-1 sm:flex-none"
-                variant="destructive"
-                onClick={handleDeleteMaintenanceOrders}
-                disabled={!maintenanceEquipment || !hasOrdersForSelectedEquipment}
-              >
-                Excluir OS
-              </Button>
+              {canDeleteEquipmentRecords && (
+                <Button
+                  className="flex-1 sm:flex-none"
+                  variant="destructive"
+                  onClick={handleDeleteMaintenanceOrders}
+                  disabled={!maintenanceEquipment || !hasOrdersForSelectedEquipment}
+                >
+                  Excluir OS
+                </Button>
+              )}
             </div>
             <Button onClick={handleSaveMaintenanceOrder} disabled={!maintenanceEquipment}>
               Salvar OS
@@ -663,4 +687,3 @@ const AdminEquipment = () => {
 };
 
 export default AdminEquipment;
-

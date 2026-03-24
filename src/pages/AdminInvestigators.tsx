@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 
 const AdminInvestigators = () => {
   const { toast } = useToast();
@@ -26,6 +27,7 @@ const AdminInvestigators = () => {
   const [investigators, setInvestigators] = useState<Array<{ username: string }>>([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const canDeleteInvestigators = canDeleteAdminRecords();
 
   const loadInvestigators = async () => {
     setLoading(true);
@@ -86,6 +88,15 @@ const AdminInvestigators = () => {
   };
 
   const handleDelete = async (targetUsername: string) => {
+    if (!canDeleteInvestigators) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir investigadores.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const confirmDelete =
       typeof window === "undefined"
         ? true
@@ -187,15 +198,17 @@ const AdminInvestigators = () => {
                   <TableRow key={investigator.username}>
                     <TableCell>{investigator.username}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDelete(investigator.username)}
-                        disabled={deleting === investigator.username}
-                      >
-                        {deleting === investigator.username ? "Removendo..." : "Excluir"}
-                      </Button>
+                      {canDeleteInvestigators && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(investigator.username)}
+                          disabled={deleting === investigator.username}
+                        >
+                          {deleting === investigator.username ? "Removendo..." : "Excluir"}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

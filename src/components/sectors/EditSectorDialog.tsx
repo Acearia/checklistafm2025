@@ -19,6 +19,7 @@ import {
   type Leader,
   type SectorLeaderAssignment,
 } from "@/lib/supabase-service";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 
 const SHIFT_OPTIONS = [
   { value: "default", label: "Padrão" },
@@ -51,6 +52,7 @@ const EditSectorDialog = ({
   const [loading, setLoading] = useState(false);
   const [assignmentLoading, setAssignmentLoading] = useState(false);
   const { toast } = useToast();
+  const canDeleteLeaderAssignments = canDeleteAdminRecords();
 
   useEffect(() => {
     if (sector) {
@@ -143,6 +145,15 @@ const EditSectorDialog = ({
   };
 
   const handleRemoveAssignment = async (assignmentId: string) => {
+    if (!canDeleteLeaderAssignments) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode remover líderes de setor.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setAssignmentLoading(true);
     try {
       await sectorLeaderAssignmentService.delete(assignmentId);
@@ -212,15 +223,17 @@ const EditSectorDialog = ({
                           {leader.email} • Turno: {assignment.shift || "Padrão"}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveAssignment(assignment.id)}
-                        disabled={assignmentLoading}
-                      >
-                        Remover
-                      </Button>
+                      {canDeleteLeaderAssignments && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveAssignment(assignment.id)}
+                          disabled={assignmentLoading}
+                        >
+                          Remover
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
