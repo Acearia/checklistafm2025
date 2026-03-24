@@ -29,6 +29,7 @@ type UnifiedRole =
   | "lider"
   | "investigador"
   | "diretoria_admin"
+  | "coordenador_admin"
   | "tecnico_admin"
   | "supervisor"
   | "tec_seguranca"
@@ -45,7 +46,7 @@ interface UnifiedUser {
 
 interface AdminAccount {
   username: string;
-  role: "admin" | "seguranca" | "diretoria" | "investigador" | "tecnico";
+  role: "admin" | "seguranca" | "diretoria" | "investigador" | "tecnico" | "coordenador";
   password_hash: string;
 }
 
@@ -195,7 +196,7 @@ const AdminUsers = () => {
       const { data, error } = await supabase
         .from("admin_users")
         .select("username, role, password_hash")
-        .in("role", ["admin", "seguranca", "diretoria", "investigador", "tecnico"]);
+        .in("role", ["admin", "seguranca", "diretoria", "investigador", "tecnico", "coordenador"]);
 
       if (error) {
         console.error("Erro ao carregar contas administrativas:", error);
@@ -270,6 +271,10 @@ const AdminUsers = () => {
 
       if (account.role === "diretoria") {
         if (!user.roles.includes("diretoria_admin")) user.roles.push("diretoria_admin");
+      }
+
+      if (account.role === "coordenador") {
+        if (!user.roles.includes("coordenador_admin")) user.roles.push("coordenador_admin");
       }
 
       if (account.role === "seguranca") {
@@ -397,12 +402,15 @@ const AdminUsers = () => {
     const hasOperator = roleList.includes("operador");
     const hasInvestigator = roleList.includes("investigador");
     const hasDirectoria = roleList.includes("diretoria_admin");
+    const hasCoordinator = roleList.includes("coordenador_admin");
     const hasSecurity = roleList.some((role) => SECURITY_ROLES.includes(role));
     const hasAdminPanelTechnician = roleList.includes(ADMIN_PANEL_ROLE);
     const selectedAdminRole: AdminAccount["role"] | null = hasInvestigator
       ? "investigador"
       : hasDirectoria
         ? "diretoria"
+        : hasCoordinator
+          ? "coordenador"
       : hasSecurity
         ? "seguranca"
         : hasAdminPanelTechnician
@@ -411,6 +419,7 @@ const AdminUsers = () => {
     const adminCredentialRolesSelected = [
       hasInvestigator,
       hasDirectoria,
+      hasCoordinator,
       hasSecurity,
       hasAdminPanelTechnician,
     ].filter(Boolean).length;
@@ -656,12 +665,14 @@ const AdminUsers = () => {
   const handleResetUserPassword = async (user: UnifiedUser) => {
     const hasSecurityRole = user.roles.some((role) => SECURITY_ROLES.includes(role));
     const hasDirectoriaRole = user.roles.includes("diretoria_admin");
+    const hasCoordinatorRole = user.roles.includes("coordenador_admin");
     const hasAdminPanelTechnician = user.roles.includes(ADMIN_PANEL_ROLE);
     const hasAnyResettableProfile =
       user.roles.includes("operador") ||
       user.roles.includes("lider") ||
       user.roles.includes("investigador") ||
       hasDirectoriaRole ||
+      hasCoordinatorRole ||
       hasAdminPanelTechnician ||
       hasSecurityRole;
 
@@ -743,6 +754,22 @@ const AdminUsers = () => {
           errors.push("Diretoria");
         } else {
           updatedProfiles.push("Diretoria");
+        }
+      }
+
+      if (hasCoordinatorRole) {
+        const { error } = await persistAdminUserRole({
+          currentUsername: user.matricula,
+          nextUsername: user.matricula,
+          role: "coordenador",
+          passwordHash: encodePassword(DEFAULT_PASSWORD),
+        });
+
+        if (error) {
+          console.error("Erro ao resetar senha de coordenador:", error);
+          errors.push("Coordenador");
+        } else {
+          updatedProfiles.push("Coordenador");
         }
       }
 
@@ -869,6 +896,7 @@ const AdminUsers = () => {
       if (
         user.roles.includes("investigador") ||
         user.roles.includes("diretoria_admin") ||
+        user.roles.includes("coordenador_admin") ||
         user.roles.includes(ADMIN_PANEL_ROLE) ||
         user.roles.some((role) => SECURITY_ROLES.includes(role))
       ) {
@@ -1041,6 +1069,7 @@ const AdminUsers = () => {
                   "lider",
                   "investigador",
                   "diretoria_admin",
+                  "coordenador_admin",
                   "tecnico_admin",
                   "supervisor",
                   "tec_seguranca",

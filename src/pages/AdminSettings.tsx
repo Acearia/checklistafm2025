@@ -10,7 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Save, KeyRound, Bell, Database, Shield, Server, AlertCircle, Briefcase, ExternalLink } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { canAccessAdminSettings } from "@/lib/adminSession";
 import {
   ensureDefaultAdminAccounts,
   listAdminAccounts,
@@ -78,6 +79,10 @@ const AdminSettings = () => {
   }, []);
 
   const isAdminUser = session?.role === "admin";
+
+  if (session && !canAccessAdminSettings(session)) {
+    return <Navigate to="/admin" replace />;
+  }
 
   const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();

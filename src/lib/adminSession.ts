@@ -39,6 +39,20 @@ export const isRootAdminUser = (session: AdminSessionRecord | null = getStoredAd
   return username === "adm" || role === "admin";
 };
 
+export const isCoordinatorAdminUser = (
+  session: AdminSessionRecord | null = getStoredAdminSession(),
+) => {
+  if (!session) return false;
+  return normalizeAdminSessionValue(session.role) === "coordenador";
+};
+
+export const canAccessAdminSettings = (
+  session: AdminSessionRecord | null = getStoredAdminSession(),
+) => {
+  if (!session) return false;
+  return !isCoordinatorAdminUser(session);
+};
+
 export const canDeleteAdminRecords = (
   session: AdminSessionRecord | null = getStoredAdminSession(),
 ) => isRootAdminUser(session);

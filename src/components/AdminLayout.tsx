@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { canAccessAdminSettings } from "@/lib/adminSession";
 import logoUrl from "@/assets/afm-logo.png";
 import ThemeToggle from "@/components/ThemeToggle";
 import AppFooter from "@/components/AppFooter";
@@ -80,6 +81,8 @@ const AdminLayout = () => {
     return <Navigate to="/admin/login" replace />;
   }
 
+  const showSettingsLink = canAccessAdminSettings(session);
+
   return (
     <div className="admin-layout min-h-screen bg-gray-100/70 text-gray-900 flex flex-col backdrop-blur dark:bg-slate-950 dark:text-slate-100">
       {/* Top navbar */}
@@ -138,9 +141,10 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
-             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relatórios" />
-              
-              <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configurações" />
+             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relat?rios" />
+              {showSettingsLink && (
+                <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configura??es" />
+              )}
             </div>
           </nav>
         </aside>
@@ -180,6 +184,4 @@ const SidebarLink = ({
 };
 
 export default AdminLayout;
-
-
 
