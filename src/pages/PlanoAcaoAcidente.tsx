@@ -56,6 +56,18 @@ interface InvestigacaoResumo {
   attachments: AttachmentMeta[];
 }
 
+interface PlanoAcaoContext {
+  fonte: "regra-ouro";
+  registro_id: string;
+  numero_referencia: number;
+  data_referencia: string;
+  titulo: string;
+  setor: string;
+  tecnico: string;
+  descricao_ocorrencia: string;
+  origem: string;
+}
+
 interface ComentarioPlano {
   id: string;
   texto: string;
@@ -93,6 +105,7 @@ interface PlanoAcaoRecord {
 type PlanoAcaoForm = Omit<PlanoAcaoRecord, "id" | "created_at" | "updated_at" | "numero_plano" | "comentarios">;
 
 const INVESTIGACAO_STORAGE_KEY = "checklistafm-investigacoes-acidente";
+const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const PLANO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_COUNTER_KEY = "checklistafm-plano-acao-counter";
 const PLANO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
@@ -304,6 +317,40 @@ const formatDate = (value: string) => {
   return parsed.toLocaleDateString("pt-BR");
 };
 
+const parsePlanoAcaoContext = (): PlanoAcaoContext | null => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = sessionStorage.getItem(PLANO_ACAO_CONTEXT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.fonte !== "regra-ouro") return null;
+
+    return {
+      fonte: "regra-ouro",
+      registro_id: String(parsed.registro_id || ""),
+      numero_referencia: Number(parsed.numero_referencia) || 0,
+      data_referencia: String(parsed.data_referencia || ""),
+      titulo: String(parsed.titulo || ""),
+      setor: String(parsed.setor || ""),
+      tecnico: String(parsed.tecnico || ""),
+      descricao_ocorrencia: String(parsed.descricao_ocorrencia || ""),
+      origem: String(parsed.origem || "Regra de Ouro"),
+    };
+  } catch (error) {
+    console.error("Erro ao carregar contexto do plano de acao:", error);
+    return null;
+  }
+};
+
+const calculateEficaciaDueDate = (finishedAt?: string) => {
+  if (!finishedAt) return "";
+  const baseDate = new Date(`${finishedAt}T00:00:00`);
+  if (Number.isNaN(baseDate.getTime())) return "";
+  baseDate.setDate(baseDate.getDate() + 30);
+  return baseDate.toISOString().slice(0, 10);
+};
+
 const getNextNumeroPlano = (existing: PlanoAcaoRecord[]) => {
   const storageValue = Number(localStorage.getItem(PLANO_COUNTER_KEY) || 0);
   const maxFromRecords = existing.reduce((max, item) => Math.max(max, Number(item.numero_plano) || 0), 0);
@@ -398,10 +445,19 @@ const PlanoAcaoAcidente = () => {
     const raw = searchParams.get("plano");
     return raw ? raw.trim() : "";
   }, [searchParams]);
+  const fonteParam = useMemo(() => {
+    const raw = searchParams.get("fonte");
+    return raw ? raw.trim().toLowerCase() : "";
+  }, [searchParams]);
+  const registroParam = useMemo(() => {
+    const raw = searchParams.get("registro");
+    return raw ? raw.trim() : "";
+  }, [searchParams]);
   const origemParam = useMemo(() => {
     const raw = searchParams.get("origem");
     return raw ? raw.trim().toLowerCase() : "";
   }, [searchParams]);
+  const planoContext = useMemo(() => parsePlanoAcaoContext(), []);
   const cameFromAdmin = origemParam === "admin";
   const isAdminAuthenticated =
     typeof window !== "undefined" &&
@@ -420,6 +476,36 @@ const PlanoAcaoAcidente = () => {
   if (!canAccessPlanoAcao) {
     return null;
   }
+
+  useEffect(() => {
+    if (fonteParam !== "regra-ouro" || !planoContext) return;
+    if (registroParam && planoContext.registro_id && planoContext.registro_id !== registroParam) return;
+    if (editingId) return;
+    if (
+      Number(form.numero_ocorrencia) === planoContext.numero_referencia &&
+      form.origem === planoContext.origem &&
+      form.descricao_ocorrencia === planoContext.descricao_ocorrencia
+    ) {
+      return;
+    }
+
+    setForm((previous) => ({
+      ...previous,
+      numero_ocorrencia: planoContext.numero_referencia,
+      data_ocorrencia: planoContext.data_referencia,
+      descricao_ocorrencia: planoContext.descricao_ocorrencia,
+      origem: planoContext.origem || "Regra de Ouro",
+      prioridade_ocorrencia: previous.prioridade_ocorrencia || "Baixa",
+    }));
+  }, [
+    editingId,
+    fonteParam,
+    form.descricao_ocorrencia,
+    form.numero_ocorrencia,
+    form.origem,
+    planoContext,
+    registroParam,
+  ]);
 
   useEffect(() => {
     if (!ocorrenciaParam || investigacoes.length === 0) return;
@@ -518,17 +604,51 @@ const PlanoAcaoAcidente = () => {
     }));
   };
 
+  const buildNewPlanUrl = () => {
+    const nextParams = new URLSearchParams();
+    nextParams.set("origem", "admin");
+
+    if (fonteParam === "regra-ouro") {
+      if (registroParam) nextParams.set("registro", registroParam);
+      if (ocorrenciaParam) nextParams.set("ocorrencia", String(ocorrenciaParam));
+      nextParams.set("fonte", "regra-ouro");
+    } else if (ocorrenciaParam) {
+      nextParams.set("ocorrencia", String(ocorrenciaParam));
+    }
+
+    return `/plano-acao-acidente?${nextParams.toString()}`;
+  };
+
   const clearForm = () => {
     setEditingId(null);
     setEditingNumeroPlano(null);
-    setForm(INITIAL_FORM);
+    setForm({
+      ...INITIAL_FORM,
+      numero_ocorrencia:
+        fonteParam === "regra-ouro"
+          ? planoContext?.numero_referencia || 0
+          : ocorrenciaParam || 0,
+      data_ocorrencia:
+        fonteParam === "regra-ouro"
+          ? planoContext?.data_referencia || ""
+          : "",
+      descricao_ocorrencia:
+        fonteParam === "regra-ouro"
+          ? planoContext?.descricao_ocorrencia || ""
+          : "",
+      origem:
+        fonteParam === "regra-ouro"
+          ? planoContext?.origem || "Regra de Ouro"
+          : INITIAL_FORM.origem,
+    });
     setComentarios([]);
     setNovoComentario("");
     setAutorComentario("");
+    navigate(buildNewPlanUrl(), { replace: true });
   };
 
   const validate = () => {
-    if (!form.numero_ocorrencia) return "Selecione a ocorrencia.";
+    if (!form.origem.trim()) return "Informe a origem da acao.";
     if (!form.descricao_resumida_acao.trim()) return "Informe a descricao resumida da acao.";
     if (!form.descricao_acao.trim()) return "Informe a descricao da acao.";
     if (!form.responsavel_execucao.trim()) return "Informe o responsavel da execucao.";
@@ -569,6 +689,29 @@ const PlanoAcaoAcidente = () => {
       const existing = parsePlanos();
       const now = new Date().toISOString();
       const fallbackPrioridade = prioridadeFromMatriz(form.severidade, form.probabilidade);
+      const eficaciaDueDate = calculateEficaciaDueDate(form.acao_finalizada);
+      const eficaciaPendingComment =
+        form.status === "Concluida" &&
+        eficaciaDueDate &&
+        !form.data_eficacia &&
+        !form.observacao_eficacia.trim()
+          ? `Pendencia gerada para o TST realizar a avaliacao de eficacia em ${formatDate(eficaciaDueDate)}.`
+          : "";
+      const nextComentarios = [...comentarios];
+      if (
+        eficaciaPendingComment &&
+        !nextComentarios.some((item) => item.texto === eficaciaPendingComment)
+      ) {
+        nextComentarios.unshift({
+          id:
+            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random()}`,
+          texto: eficaciaPendingComment,
+          autor: "Sistema",
+          created_at: now,
+        });
+      }
       const currentForEdit = editingId
         ? existing.find((item) => item.id === editingId) || null
         : null;
@@ -584,7 +727,7 @@ const PlanoAcaoAcidente = () => {
             ...form,
             prioridade: form.prioridade || fallbackPrioridade,
             updated_at: now,
-            comentarios,
+            comentarios: nextComentarios,
           }
         : {
             id:
@@ -596,7 +739,7 @@ const PlanoAcaoAcidente = () => {
             numero_plano: getNextNumeroPlano(existing),
             ...form,
             prioridade: form.prioridade || fallbackPrioridade,
-            comentarios,
+            comentarios: nextComentarios,
           };
 
       try {
@@ -683,9 +826,9 @@ const PlanoAcaoAcidente = () => {
                 <ClipboardCheck className="h-5 w-5" />
               </div>
               <div>
-                <CardTitle className="text-2xl">Plano de Acao de Acidente</CardTitle>
+                <CardTitle className="text-2xl">Plano de Acao</CardTitle>
                 <CardDescription>
-                  Registre a acao para evitar recorrencia da ocorrencia.
+                  Registre a acao e acompanhe a origem, execucao e eficacia.
                 </CardDescription>
               </div>
             </div>
@@ -703,24 +846,47 @@ const PlanoAcaoAcidente = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
+          {fonteParam === "regra-ouro" && planoContext && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">Plano iniciado a partir de Regra de Ouro</p>
+              <p>
+                Registro #{formatNumero(planoContext.numero_referencia)} - {planoContext.titulo || "Sem titulo"}
+              </p>
+              <p>
+                Setor: {planoContext.setor || "N/A"} | Tecnico: {planoContext.tecnico || "N/A"}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label>Ocorrencia</Label>
-              <Select
-                value={form.numero_ocorrencia ? String(form.numero_ocorrencia) : undefined}
-                onValueChange={(value) => applyInvestigacaoToForm(Number(value))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a ocorrencia" />
-                </SelectTrigger>
-                <SelectContent>
-                  {investigacoes.map((item) => (
-                    <SelectItem key={item.id} value={String(item.numero_ocorrencia)}>
-                      {`#${formatNumero(item.numero_ocorrencia)} - ${item.nome_acidentado || item.titulo || "Ocorrencia"}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>{fonteParam === "regra-ouro" ? "Registro" : "Ocorrencia"}</Label>
+              {fonteParam === "regra-ouro" ? (
+                <Input
+                  value={
+                    form.numero_ocorrencia
+                      ? `#${formatNumero(form.numero_ocorrencia)}`
+                      : "Nao vinculado"
+                  }
+                  readOnly
+                />
+              ) : (
+                <Select
+                  value={form.numero_ocorrencia ? String(form.numero_ocorrencia) : undefined}
+                  onValueChange={(value) => applyInvestigacaoToForm(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a ocorrencia" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {investigacoes.map((item) => (
+                      <SelectItem key={item.id} value={String(item.numero_ocorrencia)}>
+                        {`#${formatNumero(item.numero_ocorrencia)} - ${item.nome_acidentado || item.titulo || "Ocorrencia"}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Plano Nro</Label>
@@ -744,7 +910,7 @@ const PlanoAcaoAcidente = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Origem</Label>
+              <Label>Origem *</Label>
               <Input value={form.origem} onChange={(e) => updateField("origem", e.target.value)} />
             </div>
           </div>
@@ -900,6 +1066,12 @@ const PlanoAcaoAcidente = () => {
             <div className="space-y-2">
               <Label>Acao finalizada</Label>
               <Input type="date" value={form.acao_finalizada} onChange={(e) => updateField("acao_finalizada", e.target.value)} />
+              {calculateEficaciaDueDate(form.acao_finalizada) && (
+                <p className="text-xs text-amber-700">
+                  Avaliacao de eficacia do TST prevista para{" "}
+                  {formatDate(calculateEficaciaDueDate(form.acao_finalizada))}.
+                </p>
+              )}
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Download, Eye, FileText, RefreshCw, Trash2 } from "lucide-react";
+import { Download, Eye, FileText, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachment
 import { goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { useNavigate } from "react-router-dom";
 
 interface AttachmentMeta {
   name: string;
@@ -78,6 +79,7 @@ interface RegraOuroRecord {
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
+const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
 const ANSWER_NO: QuestionResponse["resposta"] = "Não";
@@ -223,6 +225,29 @@ const responseHasNonConformityEvidence = (response: QuestionResponse) =>
 
 const countNonConformityResponses = (responses: QuestionResponse[]) =>
   responses.filter(responseHasNonConformityEvidence).length;
+
+const buildNonConformitySummary = (record: RegraOuroRecord) => {
+  const responses = record.respostas.filter(responseHasNonConformityEvidence);
+  if (responses.length === 0) {
+    return `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)} sem nao conformidades detalhadas.`;
+  }
+
+  return responses
+    .map((response) => `- ${response.numero || response.codigo}: ${response.pergunta}`)
+    .join("\n");
+};
+
+const buildPlanoAcaoContext = (record: RegraOuroRecord) => ({
+  fonte: "regra-ouro" as const,
+  registro_id: record.id,
+  numero_referencia: Number(record.numero_inspecao) || 0,
+  data_referencia: record.created_at || "",
+  titulo: record.titulo || `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)}`,
+  setor: record.setor || "",
+  tecnico: record.tecnico_seg || "",
+  descricao_ocorrencia: buildNonConformitySummary(record),
+  origem: "Regra de Ouro",
+});
 
 const getRecordCompletenessScore = (record: RegraOuroRecord | null | undefined) => {
   if (!record) return 0;
@@ -505,6 +530,7 @@ const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
 
 const AdminRegrasOuro = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { sectors } = useSupabaseData(["sectors"]);
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
@@ -802,6 +828,35 @@ const AdminRegrasOuro = () => {
       title: "Exportação concluída",
       description: "Arquivo CSV gerado com sucesso.",
     });
+  };
+
+  const handleStartPlanoAcao = (record: RegraOuroRecord) => {
+    const hasNonConformity = record.respostas.some(responseHasNonConformityEvidence);
+    if (!hasNonConformity) {
+      toast({
+        title: "Sem nao conformidade",
+        description: "Esta Regra de Ouro nao possui nao conformidades para abrir plano de acao.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(
+        PLANO_ACAO_CONTEXT_KEY,
+        JSON.stringify(buildPlanoAcaoContext(record)),
+      );
+      navigate(
+        `/plano-acao-acidente?origem=admin&fonte=regra-ouro&registro=${encodeURIComponent(record.id)}&ocorrencia=${record.numero_inspecao}`,
+      );
+    } catch (error) {
+      console.error("Erro ao abrir plano de acao da regra de ouro:", error);
+      toast({
+        title: "Erro ao abrir plano",
+        description: "Nao foi possivel preparar o plano de acao deste registro.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenImagePreview = (url: string, title: string) => {
@@ -1225,6 +1280,17 @@ const AdminRegrasOuro = () => {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {temNaoConformidade && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStartPlanoAcao(item)}
+                              >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Plano de acao
+                              </Button>
+                            )}
                             <Button variant="ghost" size="sm" onClick={() => void handleExportRecordPdf(item)}>
                               <FileText className="mr-2 h-4 w-4" />
                               PDF
@@ -1500,6 +1566,16 @@ const AdminRegrasOuro = () => {
           )}
 
           <DialogFooter>
+            {selected && selected.respostas.some(responseHasNonConformityEvidence) && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleStartPlanoAcao(selected)}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Plano de acao
+              </Button>
+            )}
             {selected && (
               <Button
                 type="button"

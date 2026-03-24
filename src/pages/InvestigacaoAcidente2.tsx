@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CheckCircle, ClipboardList, Upload } from "lucide-react";
 import SignatureCanvas from "@/components/SignatureCanvas";
@@ -72,6 +72,18 @@ interface InvestigacaoChecklistRecord {
   anexos: AttachmentMeta[];
 }
 
+interface PlanoAcaoContext {
+  fonte: "regra-ouro";
+  registro_id: string;
+  numero_referencia: number;
+  data_referencia: string;
+  titulo: string;
+  setor: string;
+  tecnico: string;
+  descricao_ocorrencia: string;
+  origem: string;
+}
+
 interface QuestionState {
   answer: QuestionAnswer;
   evidences: Array<{
@@ -84,6 +96,7 @@ interface QuestionState {
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const COUNTER_KEY = "checklistafm-regras-de-ouro-counter";
+const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const REGRAS_DE_OURO_TECNICOS = [
   "CELSO PEREIRA",
   "ODAIR NASCIMENTO",
@@ -284,6 +297,32 @@ const getDefaultAnswer = (questionId: string): QuestionAnswer =>
 const isResponseOutOfPattern = (questionId: string, answer: QuestionAnswer) =>
   answer !== "N/A" && answer !== getDefaultAnswer(questionId);
 
+const buildNonConformitySummary = (responses: QuestionResponse[]) => {
+  const nonConformingResponses = responses.filter((response) =>
+    isResponseOutOfPattern(response.codigo, response.resposta),
+  );
+
+  if (nonConformingResponses.length === 0) {
+    return "Regra de Ouro sem n\u00e3o conformidades detalhadas.";
+  }
+
+  return nonConformingResponses
+    .map((response) => `- ${response.numero || response.codigo}: ${response.pergunta}`)
+    .join("\n");
+};
+
+const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoContext => ({
+  fonte: "regra-ouro",
+  registro_id: record.id,
+  numero_referencia: Number(record.numero_inspecao) || 0,
+  data_referencia: record.created_at || "",
+  titulo: record.titulo || `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)}`,
+  setor: record.setor || "",
+  tecnico: record.tecnico_seg || "",
+  descricao_ocorrencia: buildNonConformitySummary(record.respostas),
+  origem: "Regra de Ouro",
+});
+
 const getAnswerTone = (answer: QuestionAnswer) => {
   if (answer === "Sim") return "text-green-600";
   if (answer === "Não") return "text-red-600";
@@ -349,6 +388,9 @@ const InvestigacaoAcidente2 = () => {
   const [previewNumber, setPreviewNumber] = useState(() => getCounterValue() + 1);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submittedInspectionNumber, setSubmittedInspectionNumber] = useState<number | null>(null);
+  const [successRedirectMessage, setSuccessRedirectMessage] = useState(
+    "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.",
+  );
 
   useEffect(() => {
     let active = true;
@@ -738,9 +780,28 @@ const InvestigacaoAcidente2 = () => {
         }
       }
 
+      const savedRecord: InvestigacaoChecklistRecord = payload;
+      const hasNonConformity = savedRecord.respostas.some((response) =>
+        isResponseOutOfPattern(response.codigo, response.resposta),
+      );
+      let nextPath = "/";
+      let nextSuccessMessage = "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.";
+
+      if (hasNonConformity) {
+        sessionStorage.setItem(
+          PLANO_ACAO_CONTEXT_KEY,
+          JSON.stringify(buildPlanoAcaoContext(savedRecord)),
+        );
+        nextPath = `/plano-acao-acidente?origem=admin&fonte=regra-ouro&registro=${encodeURIComponent(savedRecord.id)}&ocorrencia=${finalInspectionNumber}`;
+        nextSuccessMessage =
+          "Foram identificadas n\u00e3o conformidades. Voc\u00ea ser\u00e1 redirecionado para o plano de a\u00e7\u00e3o em instantes.";
+      }
+
       toast({
         title: "Regra de Ouro registrada",
-        description: `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo com sucesso.`,
+        description: hasNonConformity
+          ? `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo. O plano de a\u00e7\u00e3o ser\u00e1 aberto em seguida.`
+          : `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo com sucesso.`,
       });
 
       setTitulo("");
@@ -753,11 +814,12 @@ const InvestigacaoAcidente2 = () => {
       setAttachments([]);
       setPreviewNumber(finalInspectionNumber + 1);
       setSubmittedInspectionNumber(finalInspectionNumber);
+      setSuccessRedirectMessage(nextSuccessMessage);
       setSubmissionSuccess(true);
       window.setTimeout(() => {
         setSubmissionSuccess(false);
         setSubmittedInspectionNumber(null);
-        navigate("/");
+        navigate(nextPath);
       }, 2000);
     } catch (error) {
       console.error("Erro ao salvar regra de ouro:", error);
@@ -783,7 +845,7 @@ const InvestigacaoAcidente2 = () => {
               {submittedInspectionNumber !== null
                 ? `O registro ${formatInspectionNumber(submittedInspectionNumber)} foi salvo com sucesso.`
                 : "Registro salvo com sucesso."}{" "}
-              Voce sera redirecionado para a tela inicial em instantes.
+              {successRedirectMessage}
             </p>
           </div>
         </div>

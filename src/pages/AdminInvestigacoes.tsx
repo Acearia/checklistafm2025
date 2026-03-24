@@ -104,6 +104,18 @@ interface PdfAssinadoArquivo {
   data_url: string;
 }
 
+interface PlanoAcaoResumo {
+  id: string;
+  numero_plano: number;
+  numero_ocorrencia: number;
+  origem: string;
+  descricao_resumida_acao: string;
+  responsavel_execucao: string;
+  status: string;
+  termino_planejado: string;
+  acao_finalizada: string;
+}
+
 const STORAGE_KEY = "checklistafm-investigacoes-acidente";
 const CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-admin";
 const CAUSAS_STORAGE_EVENT = "checklistafm-investigacao-causas-admin-updated";
@@ -146,31 +158,17 @@ const EMPTY_ANALISE_CAUSAS: AnaliseCausasData = {
 };
 
 const decodePotentialMojibake = (value: string) => {
-  // Mapa de caracteres UTF-8 que foram mal-interpretados como Latin-1
-  const mojibakeMap: Record<string, string> = {
-    "Ã§": "ç", // ç mal decodificado
-    "Ã£": "ã", // ã mal decodificado
-    "Ã©": "é", // é mal decodificado
-    "Ã": "Ã",   // Ã mal decodificado
-    "Ã¡": "á", // á mal decodificado
-    "Â": "",   // Â mal decodificado (remover)
-  };
+  if (!/[\u00c3\u00c2\uFFFD]/.test(value)) {
+    return value;
+  }
 
-  // Corrigir mojibake comum (Latin-1 interpretado como UTF-8)
-  let fixed = value;
-  Object.entries(mojibakeMap).forEach(([broken, correct]) => {
-    fixed = fixed.split(broken).join(correct);
-  });
-
-  // Corrigir EXPEDIÇÃO especificamente (com til)
-  fixed = fixed
-    .replace(/expedi[çc\u00E7\u00C3\uFFFD]*[oa\u00E3]*o/gi, "EXPEDIÇÃO")
-    .replace(/N\uFFFDO/gi, "NÃO");
-
-  // Remover caracteres de replacement Unicode
-  fixed = fixed.replace(/\uFFFD/g, "");
-
-  return fixed;
+  try {
+    const bytes = Uint8Array.from(Array.from(value, (char) => char.charCodeAt(0) & 0xff));
+    const decoded = new TextDecoder("utf-8").decode(bytes);
+    return decoded.replace(/\uFFFD/g, "").replace(/\u00C2/g, "");
+  } catch {
+    return value.replace(/\uFFFD/g, "").replace(/\u00C2/g, "");
+  }
 };
 
 const toSafeString = (value: unknown) =>
@@ -187,6 +185,14 @@ const uniqueSortedValues = (values: string[]) =>
   Array.from(new Set(values.filter((value) => value.trim().length > 0))).sort((a, b) =>
     a.localeCompare(b, "pt-BR"),
   );
+
+const formatNaturezaOcorrenciaLabel = (value?: string) => {
+  if (!value) return "N/A";
+  if (value === "Aguardando retorno medico") return "Aguardando retorno m\u00e9dico";
+  if (value === "Nao informada") return "N\u00e3o informada";
+  return value;
+};
+
 
 const getInvestigacaoDateValue = (item: InvestigacaoRecord) => item.data_ocorrencia || item.created_at;
 
@@ -357,6 +363,44 @@ const parsePlanoCountByOcorrencia = (): Record<string, number> => {
   }
 };
 
+const parsePlanosByOcorrencia = (): Record<string, PlanoAcaoResumo[]> => {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(PLANO_ACAO_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return {};
+
+    return parsed.reduce((accumulator: Record<string, PlanoAcaoResumo[]>, item: any) => {
+      const numeroOcorrencia = Number(item?.numero_ocorrencia) || 0;
+      if (numeroOcorrencia <= 0) return accumulator;
+
+      const key = String(numeroOcorrencia);
+      if (!accumulator[key]) {
+        accumulator[key] = [];
+      }
+
+      accumulator[key].push({
+        id: String(item?.id || `${numeroOcorrencia}-${accumulator[key].length}`),
+        numero_plano: Number(item?.numero_plano) || 0,
+        numero_ocorrencia: numeroOcorrencia,
+        origem: toSafeString(item?.origem) || "Acidente",
+        descricao_resumida_acao: toSafeString(item?.descricao_resumida_acao),
+        responsavel_execucao: toSafeString(item?.responsavel_execucao),
+        status: toSafeString(item?.status) || "Aberta",
+        termino_planejado: toSafeString(item?.termino_planejado),
+        acao_finalizada: toSafeString(item?.acao_finalizada),
+      });
+
+      return accumulator;
+    }, {});
+  } catch (error) {
+    console.error("Erro ao carregar planos de acao completos:", error);
+    return {};
+  }
+};
+
 const fetchPlanoCountByOcorrencia = async (): Promise<Record<string, number>> => {
   try {
     const rows = await accidentActionPlanService.safeGetAllWithFallback();
@@ -400,6 +444,41 @@ const formatDateTimeFull = (value?: string) => {
   return format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
 };
 
+const fetchPlanosByOcorrencia = async (): Promise<Record<string, PlanoAcaoResumo[]>> => {
+  try {
+    const rows = await accidentActionPlanService.safeGetAllWithFallback();
+    return rows.reduce((accumulator: Record<string, PlanoAcaoResumo[]>, item: any) => {
+      const numeroOcorrencia = Number(item?.numero_ocorrencia) || 0;
+      if (numeroOcorrencia <= 0) return accumulator;
+
+      const key = String(numeroOcorrencia);
+      if (!accumulator[key]) {
+        accumulator[key] = [];
+      }
+
+      accumulator[key].push({
+        id: String(item?.id || `${numeroOcorrencia}-${accumulator[key].length}`),
+        numero_plano: Number(item?.numero_plano) || 0,
+        numero_ocorrencia: numeroOcorrencia,
+        origem: toSafeString(item?.origem) || "Acidente",
+        descricao_resumida_acao: toSafeString(item?.descricao_resumida_acao),
+        responsavel_execucao: toSafeString(item?.responsavel_execucao),
+        status: toSafeString(item?.status) || "Aberta",
+        termino_planejado: toSafeString(item?.termino_planejado),
+        acao_finalizada: toSafeString(item?.acao_finalizada),
+      });
+
+      return accumulator;
+    }, {});
+  } catch (error) {
+    if (isMissingActionPlansTableError(error)) {
+      return parsePlanosByOcorrencia();
+    }
+    console.error("Erro ao carregar planos de acao completos:", error);
+    return parsePlanosByOcorrencia();
+  }
+};
+
 const AdminInvestigacoes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -413,6 +492,7 @@ const AdminInvestigacoes = () => {
     Record<string, PdfAssinadoArquivo[]>
   >({});
   const [planoCountByOcorrencia, setPlanoCountByOcorrencia] = useState<Record<string, number>>({});
+  const [planosByOcorrencia, setPlanosByOcorrencia] = useState<Record<string, PlanoAcaoResumo[]>>({});
   const [selected, setSelected] = useState<InvestigacaoRecord | null>(null);
   const [expandedImage, setExpandedImage] = useState<{ url: string; title: string } | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -443,7 +523,12 @@ const AdminInvestigacoes = () => {
     setInvestigacoes(parseInvestigacoes());
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
-    setPlanoCountByOcorrencia(await fetchPlanoCountByOcorrencia());
+    const [countMap, planosMap] = await Promise.all([
+      fetchPlanoCountByOcorrencia(),
+      fetchPlanosByOcorrencia(),
+    ]);
+    setPlanoCountByOcorrencia(countMap);
+    setPlanosByOcorrencia(planosMap);
   };
 
   useEffect(() => {
@@ -674,6 +759,8 @@ const AdminInvestigacoes = () => {
       const maxTextWidth = pageWidth - margin * 2;
       const lineHeight = 4.6;
       const causas = resolveAnaliseCausas(record);
+      const planosRelacionados =
+        planosByOcorrencia[String(record.numero_ocorrencia)] || [];
       let y = 16;
 
       const safe = (value?: string) => (value && value.trim().length > 0 ? value.trim() : "N/A");
@@ -721,7 +808,7 @@ const AdminInvestigacoes = () => {
       addLabelValue("Titulo", record.titulo);
       addLabelValue("Data/Hora", `${formatDate(record.data_ocorrencia)} ${safe(record.hora)}`);
       addLabelValue("Turno", record.turno);
-      addLabelValue("Classificacao", record.natureza_ocorrencia);
+      addLabelValue("Classificacao", formatNaturezaOcorrenciaLabel(record.natureza_ocorrencia));
       addLabelValue("Tipo de acidente", record.tipo_acidente);
       addLabelValue("Setor", record.setor);
 
@@ -744,6 +831,25 @@ const AdminInvestigacoes = () => {
       addLabelValue("Causa do acidente", record.causa_acidente);
       addLabelValue("Descricao detalhada", record.descricao_detalhada);
       addLabelValue("Observacoes", record.observacoes);
+
+      addSectionTitle("Acoes da ocorrencia");
+      if (planosRelacionados.length === 0) {
+        addLabelValue("Planos vinculados", "Nenhum plano de acao cadastrado para esta ocorrencia.");
+      } else {
+        planosRelacionados.forEach((plano) => {
+          addLabelValue(
+            `Plano ${String(plano.numero_plano).padStart(3, "0")}`,
+            [
+              `Origem: ${safe(plano.origem)}`,
+              `Resumo: ${safe(plano.descricao_resumida_acao)}`,
+              `Responsavel: ${safe(plano.responsavel_execucao)}`,
+              `Status: ${safe(plano.status)}`,
+              `Termino planejado: ${safe(formatDate(plano.termino_planejado))}`,
+              `Acao finalizada: ${safe(formatDate(plano.acao_finalizada))}`,
+            ].join("\n"),
+          );
+        });
+      }
 
       addSectionTitle("Analises complementares");
       addLabelValue("Problema", causas.problema);
@@ -1316,7 +1422,7 @@ const AdminInvestigacoes = () => {
                       <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
                       <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
                       <TableCell>{item.setor || "N/A"}</TableCell>
-                      <TableCell>{item.natureza_ocorrencia || "N/A"}</TableCell>
+                      <TableCell>{formatNaturezaOcorrenciaLabel(item.natureza_ocorrencia)}</TableCell>
                       <TableCell>{item.tipo_acidente || "N/A"}</TableCell>
                       <TableCell>
                         <Badge
@@ -1386,7 +1492,7 @@ const AdminInvestigacoes = () => {
                   {formatDateTime(selected.data_ocorrencia || selected.created_at, selected.hora)}{" "}
                   | Acidentado: {selected.nome_acidentado || "N/A"} | Setor:{" "}
                   {selected.setor || "N/A"} | Classificacao:{" "}
-                  {selected.natureza_ocorrencia || "N/A"}
+                  {formatNaturezaOcorrenciaLabel(selected.natureza_ocorrencia)}
                 </div>
               )}
             </DialogDescription>
@@ -1407,7 +1513,7 @@ const AdminInvestigacoes = () => {
 
                 <div className="border rounded p-3">
                   <h3 className="font-medium text-sm mb-1">Classificacao</h3>
-                  <p className="text-sm"><strong>Classificacao:</strong> {selected.natureza_ocorrencia || "N/A"}</p>
+                  <p className="text-sm"><strong>Classificacao:</strong> {formatNaturezaOcorrenciaLabel(selected.natureza_ocorrencia)}</p>
                   <p className="text-sm"><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
                   <p className="text-sm"><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
                   <p className="text-sm"><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>
@@ -1775,4 +1881,3 @@ const AdminInvestigacoes = () => {
 };
 
 export default AdminInvestigacoes;
-

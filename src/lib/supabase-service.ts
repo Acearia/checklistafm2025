@@ -1341,7 +1341,12 @@ export const goldenRuleService = {
       if (insertAttachmentsError) throw insertAttachmentsError;
     }
 
-    return this.getById(savedRule.id);
+    try {
+      return await this.getById(savedRule.id);
+    } catch (error) {
+      console.warn("[goldenRuleService] Regra salva, mas falhou ao recarregar o registro completo:", error);
+      return savedRule;
+    }
   },
 
   async delete(id: string) {
@@ -1466,7 +1471,24 @@ export const accidentActionPlanService = {
       if (insertCommentsError) throw insertCommentsError;
     }
 
-    return this.getById(savedPlan.id);
+    try {
+      return await this.getById(savedPlan.id);
+    } catch (error) {
+      console.warn(
+        "[accidentActionPlanService] Plano salvo, mas falhou ao recarregar o registro completo:",
+        error,
+      );
+      return {
+        ...savedPlan,
+        comments: payload.comentarios.map((item) => ({
+          id: item.id,
+          plan_id: savedPlan.id,
+          texto: item.texto,
+          autor: item.autor || "Sistema",
+          created_at: item.created_at,
+        })),
+      };
+    }
   },
 
   async deleteByOccurrence(numeroOcorrencia: number) {

@@ -32,11 +32,15 @@ interface PlanoAcaoRecord {
   numero_plano: number;
   numero_ocorrencia: number;
   data_ocorrencia: string;
+  origem: string;
   descricao_resumida_acao: string;
   prioridade: PrioridadeAcao;
   status: StatusAcao;
   responsavel_execucao: string;
   termino_planejado: string;
+  acao_finalizada: string;
+  data_eficacia: string;
+  observacao_eficacia: string;
 }
 
 interface InvestigacaoResumo {
@@ -65,6 +69,25 @@ const formatDate = (value?: string) => {
   return parsed.toLocaleDateString("pt-BR");
 };
 
+const calculateEficaciaDueDate = (finishedAt?: string) => {
+  if (!finishedAt) return "";
+  const baseDate = new Date(`${finishedAt}T00:00:00`);
+  if (Number.isNaN(baseDate.getTime())) return "";
+  baseDate.setDate(baseDate.getDate() + 30);
+  return baseDate.toISOString().slice(0, 10);
+};
+
+const isEficaciaPendente = (item: PlanoAcaoRecord) => {
+  if (item.status !== "Concluida") return false;
+  if (!item.acao_finalizada) return false;
+  if (item.data_eficacia || item.observacao_eficacia.trim()) return false;
+  const dueDate = calculateEficaciaDueDate(item.acao_finalizada);
+  if (!dueDate) return false;
+  const today = new Date();
+  const compareDate = new Date(`${dueDate}T23:59:59`);
+  return !Number.isNaN(compareDate.getTime()) && today >= compareDate;
+};
+
 const parsePlanos = (): PlanoAcaoRecord[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -83,11 +106,15 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
           numero_plano: Number(item.numero_plano) || 0,
           numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
           data_ocorrencia: String(item.data_ocorrencia || ""),
+          origem: String(item.origem || "Acidente"),
           descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
           prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
           status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
           responsavel_execucao: String(item.responsavel_execucao || ""),
           termino_planejado: String(item.termino_planejado || ""),
+          acao_finalizada: String(item.acao_finalizada || ""),
+          data_eficacia: String(item.data_eficacia || ""),
+          observacao_eficacia: String(item.observacao_eficacia || ""),
         };
       })
       .filter((item): item is PlanoAcaoRecord => Boolean(item))
@@ -111,11 +138,15 @@ const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
     numero_plano: Number(item.numero_plano) || 0,
     numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
     data_ocorrencia: String(item.data_ocorrencia || ""),
+    origem: String(item.origem || "Acidente"),
     descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
     prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
     status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
     responsavel_execucao: String(item.responsavel_execucao || ""),
     termino_planejado: String(item.termino_planejado || ""),
+    acao_finalizada: String(item.acao_finalizada || ""),
+    data_eficacia: String(item.data_eficacia || ""),
+    observacao_eficacia: String(item.observacao_eficacia || ""),
   };
 };
 
@@ -162,6 +193,10 @@ const AdminPlanosAcao = () => {
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
     return value.trim();
+  }, [searchParams]);
+  const origemFromQuery = useMemo(() => {
+    const value = searchParams.get("origemFiltro") || "";
+    return value.trim().toLowerCase();
   }, [searchParams]);
 
   useEffect(() => {
@@ -261,6 +296,9 @@ const AdminPlanosAcao = () => {
 
       const matchesStatus = statusFilter === "all" || item.status === statusFilter;
       const matchesPrioridade = prioridadeFilter === "all" || item.prioridade === prioridadeFilter;
+      const matchesOrigem =
+        origemFromQuery.length === 0 ||
+        item.origem.trim().toLowerCase() === origemFromQuery;
 
       const itemDateValue = item.data_ocorrencia || linked?.data_ocorrencia || item.created_at;
       const itemDate = itemDateValue ? new Date(itemDateValue) : null;
@@ -272,7 +310,14 @@ const AdminPlanosAcao = () => {
         (!from || (itemDate && itemDate >= from)) &&
         (!to || (itemDate && itemDate <= to));
 
-      return matchesSearch && matchesOcorrencia && matchesStatus && matchesPrioridade && matchesDate;
+      return (
+        matchesSearch &&
+        matchesOcorrencia &&
+        matchesStatus &&
+        matchesPrioridade &&
+        matchesOrigem &&
+        matchesDate
+      );
     });
   }, [
     records,
@@ -281,6 +326,7 @@ const AdminPlanosAcao = () => {
     ocorrenciaFilter,
     statusFilter,
     prioridadeFilter,
+    origemFromQuery,
     dateFrom,
     dateTo,
   ]);
@@ -290,7 +336,8 @@ const AdminPlanosAcao = () => {
     const abertas = records.filter((item) => item.status === "Aberta").length;
     const andamento = records.filter((item) => item.status === "Em andamento").length;
     const concluidas = records.filter((item) => item.status === "Concluida").length;
-    return { total, abertas, andamento, concluidas };
+    const eficaciaPendente = records.filter(isEficaciaPendente).length;
+    return { total, abertas, andamento, concluidas, eficaciaPendente };
   }, [records]);
 
   return (
@@ -298,6 +345,9 @@ const AdminPlanosAcao = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Planos de Acao</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => navigate("/plano-acao-acidente?origem=admin")}>
+            Novo plano
+          </Button>
           <Button variant="outline" onClick={() => navigate("/admin/investigacoes")}>
             Investigacoes
           </Button>
@@ -308,7 +358,7 @@ const AdminPlanosAcao = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total</CardDescription>
@@ -331,6 +381,12 @@ const AdminPlanosAcao = () => {
           <CardHeader className="pb-2">
             <CardDescription>Concluidas</CardDescription>
             <CardTitle>{summary.concluidas}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Avaliacao de eficacia pendente</CardDescription>
+            <CardTitle>{summary.eficaciaPendente}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -437,6 +493,7 @@ const AdminPlanosAcao = () => {
                   <TableRow>
                     <TableHead>Plano</TableHead>
                     <TableHead>Ocorrencia</TableHead>
+                    <TableHead>Origem</TableHead>
                     <TableHead>Acidentado</TableHead>
                     <TableHead>Setor</TableHead>
                     <TableHead>Resumo da acao</TableHead>
@@ -454,13 +511,19 @@ const AdminPlanosAcao = () => {
                       <TableRow key={item.id}>
                         <TableCell>{formatNumero(item.numero_plano)}</TableCell>
                         <TableCell>{formatNumero(item.numero_ocorrencia)}</TableCell>
+                        <TableCell>{item.origem || "N/A"}</TableCell>
                         <TableCell>{linked?.nome_acidentado || "N/A"}</TableCell>
                         <TableCell>{linked?.setor || "N/A"}</TableCell>
                         <TableCell className="max-w-[280px] truncate">{item.descricao_resumida_acao || "N/A"}</TableCell>
                         <TableCell>
-                          <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
-                            {item.status}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
+                              {item.status}
+                            </Badge>
+                            {isEficaciaPendente(item) && (
+                              <Badge variant="destructive">Avaliacao de eficacia pendente</Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge variant={item.prioridade === "Critica" ? "destructive" : "secondary"}>
