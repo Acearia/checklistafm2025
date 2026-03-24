@@ -100,173 +100,173 @@ const CUSTOM_CAUSAS_STORAGE_KEY = "checklistafm-investigacao-causas-custom";
 
 const DEFAULT_AGENTES_CAUSADORES = `
 ATO INSEGURO
-AÃ‡Ã•ES
-USAR EQUIPAMENTO DE MANEIRA IMPRÃ“PRIA
+AÇÕES
+USAR EQUIPAMENTO DE MANEIRA IMPRÓPRIA
 Usar Material ou Equipamento Fora de Sua Finalidade
-Sobrecarregar (AndaiMe, VeÃ­culo)
-Usar Equipamento de Maneira ImprÃ³pria
-NIC, Usar Equipamento de Maneira ImprÃ³pria
+Sobrecarregar (AndaiMe, Veículo)
+Usar Equipamento de Maneira Imprópria
+NIC, Usar Equipamento de Maneira Imprópria
 USAR EQUIPAMENTO INSEGURO
-TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÃ‡A
-Desligar ou Remover Dispositivo de SeguranÃ§a
-Bloquear, Tampar, Amarrar, Dispositivo de SeguranÃ§a
-Desregular Dispositivo de SeguranÃ§a
-Substituir Dispositivo de SeguranÃ§a por Outro
-NIC, Tornar Inoperante ou Ineficiente Dispositivo SeguranÃ§a
-USAR MÃƒO OU PARTE DO CORPO IMPROPRIAMENTE
+TORNAR INOPERANTE OU INEFICIENTE DISPOSITIVO DE SEGURANÇA
+Desligar ou Remover Dispositivo de Segurança
+Bloquear, Tampar, Amarrar, Dispositivo de Segurança
+Desregular Dispositivo de Segurança
+Substituir Dispositivo de Segurança por Outro
+NIC, Tornar Inoperante ou Ineficiente Dispositivo Segurança
+USAR MÃO OU PARTE DO CORPO IMPROPRIAMENTE
 Manusear Objeto de Maneira Insegura
 Manusear Objeto de Maneira Errada
-Usar MÃ£o em Vez de Ferramenta
-NIC, Usar MÃ£o ou Outra Parte do Corpo Impropriamente
-ASSUMIR POSIÃ‡ÃƒO OU POSTURA INSEGURA
+Usar Mão em Vez de Ferramenta
+NIC, Usar Mão ou Outra Parte do Corpo Impropriamente
+ASSUMIR POSIÇÃO OU POSTURA INSEGURA
 Entrar em Tanque, Silo ou Outro Compartimento Confinado
 Expor-se Desnecessariamente ao Alcance de Objeto ou
-Expor-se Desnecessariamente, Ã  Carga Suspensa ou Oscilante
-Movimentar Carga de Maneira ImprÃ³pria
-Transportar em PosiÃ§Ã£o Insegura
-NIC, Assumir PosiÃ§Ã£o ou Postura Insegura
+Expor-se Desnecessariamente, à Carga Suspensa ou Oscilante
+Movimentar Carga de Maneira Imprópria
+Transportar em Posição Insegura
+NIC, Assumir Posição ou Postura Insegura
 TRABALHAR OU OPERAR EM VELOCIDADE INSEGURA
 Correr
 Operar com Velocidade Insegura
 Abastecer Depressa Demais
-Saltar de Ponto Elevado de VeÃ­culo, de Plataforma
-Jogar Objeto em Vez de CarregÃ¡-lo ou PassÃ¡-lo
+Saltar de Ponto Elevado de Veículo, de Plataforma
+Jogar Objeto em Vez de Carregá-lo ou Passá-lo
 NIC, Trabalhar ou Operar em Velocidade Insegura
 LIMPAR, LUBRIFICAR, REGULAR OU CONSERTAR EQUIPAMENTO EM
 Limpar, Lubrificar ou Regular Equipamento em Movimento
-Trabalhar em Equipamento ElÃ©trico Energizado
-Calefatar ou Vedar Equipamento Sob PressÃ£o
+Trabalhar em Equipamento Elétrico Energizado
+Calefatar ou Vedar Equipamento Sob Pressão
 Soldar, Consertar Tanque, Recipiente ou Equipamento Sem
 NIC, Limpar, Lubrificar, Regular ou Consertar Equipamento
 COLOCAR, MISTURAR DE MANEIRA INSEGURA
 Colocar Material, Ferramenta, Sucata, de Maneira Insegura
-Colocar de Maneira Insegura VeÃ­culo ou Equipamento
-Misturar ou Injetar SubstÃ¢ncia de Modo a Criar Risco de
+Colocar de Maneira Insegura Veículo ou Equipamento
+Misturar ou Injetar Substância de Modo a Criar Risco de
 NIC, Colocar, Misturar, de Maneira Insegura
-FAZER BRINCADEIRA OU EXIBIÃ‡ÃƒO
+FAZER BRINCADEIRA OU EXIBIÇÃO
 AGREDIR PESSOAS
 DIRIGIR INCORRETAMENTE
 Dirigir em Velocidade Inadequada (Alta ou Baixa)
-NÃ£o Manter DistÃ¢ncia
+Não Manter Distância
 Ultrapassar Ilegalmente
-Entrar ou Sair de VeÃ­culo do Lado do TrÃ¢nsito
-Desrespeitar a SinalizaÃ§Ã£o de TrÃ¢nsito
+Entrar ou Sair de Veículo do Lado do Trânsito
+Desrespeitar a Sinalização de Trânsito
 Desrespeitar Regras Preferenciais
-NÃ£o Sinalizar Para Parar, Dobrar ou Dar Marcha RÃ©
+Não Sinalizar Para Parar, Dobrar ou Dar Marcha Ré
 Dobrar Irregularmente
 NIC, Dirigir Incorretamente
-OMISSÃ•ES
+OMISSÕES
 DEIXAR DE USAR VESTIMENTA SEGURA
-DEIXAR DE USAR EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL DISPONÃVEL
-Ã“culos
+DEIXAR DE USAR EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL DISPONÍVEL
+Óculos
 Luvas
-MÃ¡scara
+Máscara
 Capacete
-CalÃ§ado
+Calçado
 Avental
-Cinto de SeguranÃ§a
+Cinto de Segurança
 Protetor Auditivo
-NIC, Deixar de Usar o Equipamento de ProteÃ§Ã£o Individual
+NIC, Deixar de Usar o Equipamento de Proteção Individual
 DEIXAR DE PRENDER, DESLIGAR OU DE SINALIZAR
-Deixar de Desligar Equipamento que NÃ£o Esteja Sendo Usado
-Deixar de Trancar, Bloquear ou Prender VeÃ­culo,
-Deixar de Colocar Cartaz, Aviso, Etiqueta de AdvertÃªncia
+Deixar de Desligar Equipamento que Não Esteja Sendo Usado
+Deixar de Trancar, Bloquear ou Prender Veículo,
+Deixar de Colocar Cartaz, Aviso, Etiqueta de Advertência
 Deixar de Sinalizar ao Soltar ou Movimentar Carga
 Deixar de Sinalizar ao Dar Partida ou Parar
 NIC, Deixar de Prender, de Desligar ou de Sinalizar
-DEIXAR DE VERIFICAR A AUSÃŠNCIA DE TENSÃƒO EM EQUIP. ELÃ‰TRICO
+DEIXAR DE VERIFICAR A AUSÊNCIA DE TENSÃO EM EQUIP. ELÉTRICO
 DEIXAR DE ATERRAR
-DESCUIDAR-SE NA OBSERVAÃ‡ÃƒO DO AMBIENTE
+DESCUIDAR-SE NA OBSERVAÇÃO DO AMBIENTE
 NIC, ATO INSEGURO
 ATO INSEGURO INEXISTENTE
-CONDIÃ‡ÃƒO INSEGURA
+CONDIÇÃO INSEGURA
 RISCO RELATIVO AO AMBIENTE
-PROBLEMAS COM ESPAÃ‡O E CIRCULAÃ‡ÃƒO
-InsuficiÃªncia de EspaÃ§o Para o Trabalho
-InsuficiÃªncia de EspaÃ§o p/ MovimentaÃ§Ã£o de Objetos e Pessoas
-Passagem e SaÃ­da Inadequada por Motivos Outros que nÃ£o a
-Controle Inadequado de TrÃ¢nsito
-NIC, Problemas de EspaÃ§o e CirculaÃ§Ã£o
-EXISTÃŠNCIA DE RUÃDO
-EXISTÃŠNCIA DE VIBRAÃ‡ÃƒO
-ILUMINAÃ‡ÃƒO INADEQUADA
+PROBLEMAS COM ESPAÇO E CIRCULAÇÃO
+Insuficiência de Espaço Para o Trabalho
+Insuficiência de Espaço p/ Movimentação de Objetos e Pessoas
+Passagem e Saída Inadequada por Motivos Outros que não a
+Controle Inadequado de Trânsito
+NIC, Problemas de Espaço e Circulação
+EXISTÊNCIA DE RUÍDO
+EXISTÊNCIA DE VIBRAÇÃO
+ILUMINAÇÃO INADEQUADA
 ORDEM E LIMPEZA INADEQUADA
 NIC, Risco Relativo ao Ambiente
 DEFEITO DE AGENTE
 MAL PROJETADO
-MAL CONSTITUÃDO, CONSTRUÃDO OU MONTADO
-CONSTITUÃDO POR MATERIAL INADEQUADO
-ÃSPERO
+MAL CONSTITUÍDO, CONSTRUÍDO OU MONTADO
+CONSTITUÍDO POR MATERIAL INADEQUADO
+ÁSPERO
 ESCORREGADIO
-NÃƒO AFIADO
+NÃO AFIADO
 PONTIAGUDO, CORTANTE
-GASTO, RACHADO, ESGARÃ‡ADO, QUEBRADO
+GASTO, RACHADO, ESGARÇADO, QUEBRADO
 NIC, Defeito do Agente
-COLOCAÃ‡ÃƒO PERIGOSA
-POSIÃ‡ÃƒO INADEQUADA
+COLOCAÇÃO PERIGOSA
+POSIÇÃO INADEQUADA
 EMPILHAMENTO INADEQUADO
-MÃ FIXAÃ‡ÃƒO CONTRA MOVIMENTO INDESEJÃVEL
-NIC, ColocaÃ§Ã£o Perigosa
-PROTEÃ‡ÃƒO COLETIVA INADEQUADA OU INEXISTENTE
-SEM PROTEÃ‡ÃƒO (EXCETUADOS OS RISCOS ELÃ‰TRICOS E DE RADIAÃ‡ÃƒO)
-COM PROTEÃ‡ÃƒO INADEQUADA
+MÁ FIXAÇÃO CONTRA MOVIMENTO INDESEJÁVEL
+NIC, Colocação Perigosa
+PROTEÇÃO COLETIVA INADEQUADA OU INEXISTENTE
+SEM PROTEÇÃO (EXCETUADOS OS RISCOS ELÉTRICOS E DE RADIAÇÃO)
+COM PROTEÇÃO INADEQUADA
 FALTA DE ESCORAMENTO OU ESCORAMENTO INADEQUADO EM
-NÃƒO ELETRICAMENTE ATERRADO
-NÃƒO ELÃ‰TRICAMENTE ISOLADO
-CONEXÃƒO ELÃ‰TRICA, CHAVES ELÃ‰TRICAS DESCOBERTAS
-EQUIPAMENTO ELÃ‰TRICO SEM IDENTIFICAÃ‡ÃƒO OU
-SEM BLINDAGEM PARA RADIAÃ‡ÃƒO
-COM BLINDAGEM INADEQUADA PARA RADIAÃ‡ÃƒO
-MATERIAL RADIOATIVO SEM IDENTIFICAÃ‡ÃƒO OU
-NIC, ProteÃ§Ã£o Coletiva Inadequada ou Inexistente
-MÃ‰TODO OU PROCEDIMENTO ARRISCADO
+NÃO ELETRICAMENTE ATERRADO
+NÃO ELÉTRICAMENTE ISOLADO
+CONEXÃO ELÉTRICA, CHAVES ELÉTRICAS DESCOBERTAS
+EQUIPAMENTO ELÉTRICO SEM IDENTIFICAÇÃO OU
+SEM BLINDAGEM PARA RADIAÇÃO
+COM BLINDAGEM INADEQUADA PARA RADIAÇÃO
+MATERIAL RADIOATIVO SEM IDENTIFICAÇÃO OU
+NIC, Proteção Coletiva Inadequada ou Inexistente
+MÉTODO OU PROCEDIMENTO ARRISCADO
 USO DE MATERIAL OU EQUIPAMENTO POTENCIALMENTE PERIGOSO
-EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÃ“PRIO
-EMPREGO DE MÃ‰TODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
-ESCOLHA IMPRÃ“PRIA DE PESSOAL
+EMPREGO DE FERRAMENTA OU EQUIPAMENTO INADEQUADO OU IMPRÓPRIO
+EMPREGO DE MÉTODO OU PROCEDIMENTO POTENCIALMENTE PERIGOSO
+ESCOLHA IMPRÓPRIA DE PESSOAL
 AJUDA INADEQUADA EM CASO DE LEVANTAMENTO DE OBJETO PESADO
-NIC, MÃ©todo ou Procedimento Arriscado
-RISCO RELATIVO AO VESTIÃRIO OU EQUIP. PROTEÃ‡ÃƒO INDIVIDUAL
-FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÃ‡ÃƒO INDIVIDUAL
-VESTUÃRIO IMPRÃ“PRIO OU INADEQUADO
-NIC, Risco Relativo ao VestiÃ¡rio ou EPI
+NIC, Método ou Procedimento Arriscado
+RISCO RELATIVO AO VESTIÁRIO OU EQUIP. PROTEÇÃO INDIVIDUAL
+FALTA DO ADEQUADO EQUIPAMENTO DE PROTEÇÃO INDIVIDUAL
+VESTUÁRIO IMPRÓPRIO OU INADEQUADO
+NIC, Risco Relativo ao Vestiário ou EPI
 RISCO INERENTE A AMBIENTE DE TRABALHO EXTERNO
-RISCO INERENTE A DEPENDÃŠNCIAS INSEGURAS DE TERCEIROS
+RISCO INERENTE A DEPENDÊNCIAS INSEGURAS DE TERCEIROS
 RISCO INERENTE A MATERIAL OU EQUIP. INSEGURO DE TERCEIROS
 OUTROS RISCOS RELACIONADOS COM A PROPRIEDADE OU
 RISCO DE NATUREZA
 NIC, Risco Inerente a Ambiente de Trabalho Externo
-RISCO RELACIONADO COM AMBIENTE PÃšBLICO
-RISCO RELACIONADO COM O TRANSPORTE PÃšBLICO
-RISCO RELACIONADO COM O TRÃ‚NSITO
-NIC, Risco Relacionado com Ambiente PÃºblico
-NIC, CondiÃ§Ã£o Insegura
-CONDIÃ‡ÃƒO INSEGURA INEXISTENTE
-FATOR PESSOAL DE INSEGURANÃ‡A
-FALTA DE CONHECIMENTO OU EXPERIÃŠNCIA
+RISCO RELACIONADO COM AMBIENTE PÚBLICO
+RISCO RELACIONADO COM O TRANSPORTE PÚBLICO
+RISCO RELACIONADO COM O TRNSITO
+NIC, Risco Relacionado com Ambiente Público
+NIC, Condição Insegura
+CONDIÇÃO INSEGURA INEXISTENTE
+FATOR PESSOAL DE INSEGURANÇA
+FALTA DE CONHECIMENTO OU EXPERIÊNCIA
 FALTA DE CONHECIMENTO
-FALTA DE EXPERIÃŠNCIA OU ESPECIALIZAÃ‡ÃƒO
-DESAJUSTAMENTO FÃSICO
+FALTA DE EXPERIÊNCIA OU ESPECIALIZAÇÃO
+DESAJUSTAMENTO FÍSICO
 Deformidade
-HÃ©rnia Preexistente
+Hérnia Preexistente
 Debilidade Muscular
-Debilidade EsquelÃ©tica
-Debilidade OrgÃ¢nica
-DeficiÃªncia Visual
-DeficiÃªncia Auditiva
-DeficiÃªncia Olfativa
-DoenÃ§a Degenerativa
-Insensibilidade CutÃ¢nea
+Debilidade Esquelética
+Debilidade Orgânica
+Deficiência Visual
+Deficiência Auditiva
+Deficiência Olfativa
+Doença Degenerativa
+Insensibilidade Cutânea
 Fadiga
-NIC, Desajustamento FÃ­sico
+NIC, Desajustamento Físico
 DESAJUSTAMENTO EMOCIONAL OU MENTAL
 Alcoolismo e Toxicomania
 Agressividade
 Excitabilidade, Impulsividade
-AlienaÃ§Ã£o Mental (Loucura)
-DistÃºrbio Emocional
-DistÃºrbio Cerebral, AusÃªncia
-DeficiÃªncia Intelectual
+Alienação Mental (Loucura)
+Distúrbio Emocional
+Distúrbio Cerebral, Ausência
+Deficiência Intelectual
 NIC, Desajustamento Emocional ou Mental
 NIC, Fator Pessoal
 FATOR PESSOAL INEXISTENTE
@@ -339,32 +339,62 @@ Localizacao da lesao, NIC
 LOCALIZACAO DA LESAO INEXISTENTE
 `.trim().split("\n").map((item) => item.trim()).filter(Boolean);
 
+const CP1252_EXTENDED_BYTES: Record<string, number> = {
+  "\u20ac": 0x80,
+  "\u201a": 0x82,
+  "\u0192": 0x83,
+  "\u201e": 0x84,
+  "\u2026": 0x85,
+  "\u2020": 0x86,
+  "\u2021": 0x87,
+  "\u02c6": 0x88,
+  "\u2030": 0x89,
+  "\u0160": 0x8a,
+  "\u2039": 0x8b,
+  "\u0152": 0x8c,
+  "\u017d": 0x8e,
+  "\u2018": 0x91,
+  "\u2019": 0x92,
+  "\u201c": 0x93,
+  "\u201d": 0x94,
+  "\u2022": 0x95,
+  "\u2013": 0x96,
+  "\u2014": 0x97,
+  "\u02dc": 0x98,
+  "\u2122": 0x99,
+  "\u0161": 0x9a,
+  "\u203a": 0x9b,
+  "\u0153": 0x9c,
+  "\u017e": 0x9e,
+  "\u0178": 0x9f,
+};
+
 const decodePotentialMojibake = (value: string) => {
-  // Mapa de caracteres UTF-8 que foram mal-interpretados como Latin-1
-  const mojibakeMap: Record<string, string> = {
-    "ÃƒÂ§": "Ã§", // Ã§ mal decodificado
-    "ÃƒÂ£": "Ã£", // Ã£ mal decodificado
-    "ÃƒÂ©": "Ã©", // Ã© mal decodificado
-    "Ãƒ": "Ãƒ",   // Ãƒ mal decodificado
-    "ÃƒÂ¡": "Ã¡", // Ã¡ mal decodificado
-    "Ã‚": "",   // Ã‚ mal decodificado (remover)
-  };
+  if (
+    !/[\u00c3\u00c2\u00ff\u20ac\u201a-\u201e\u2020-\u2022\u02c6\u2030\u0160\u2039\u0152\u017d\u2018-\u201d\u02dc\u2122\u0161\u203a\u0153\u017e\u0178]/.test(
+      value,
+    )
+  ) {
+    return value;
+  }
 
-  // Corrigir mojibake comum (Latin-1 interpretado como UTF-8)
-  let fixed = value;
-  Object.entries(mojibakeMap).forEach(([broken, correct]) => {
-    fixed = fixed.split(broken).join(correct);
-  });
+  try {
+    const bytes = Uint8Array.from(
+      Array.from(value, (char) => {
+        const code = char.codePointAt(0) ?? 0;
+        if (code <= 0xff) {
+          return code;
+        }
 
-  // Corrigir EXPEDIÃ‡ÃƒO especificamente
-  fixed = fixed
-    .replace(/expedi[Ã§c\u00E7\u00C3\uFFFD]*[oa\u00E3]*o/gi, "EXPEDIÃ‡ÃƒO")
-    .replace(/N\uFFFDO/gi, "NÃƒO");
+        return CP1252_EXTENDED_BYTES[char] ?? code;
+      }),
+    );
 
-  // Remover caracteres de replacement Unicode
-  fixed = fixed.replace(/\uFFFD/g, "");
-
-  return fixed;
+    const decoded = new TextDecoder("utf-8").decode(bytes);
+    return decoded.replace(/\uFFFD/g, "").replace(/\u00C2/g, "");
+  } catch {
+    return value.replace(/\uFFFD/g, "").replace(/\u00C2/g, "");
+  }
 };
 
 const normalizeCause = (value: string) =>
@@ -631,7 +661,7 @@ const InvestigacaoAcidente = () => {
           colaborador.setor,
         ]
           .filter(Boolean)
-          .join(" â€¢ "),
+          .join(" • "),
       })),
     [colaboradoresDisponiveis],
   );
@@ -1019,7 +1049,7 @@ const InvestigacaoAcidente = () => {
     if (!agenteNormalizado) {
       toast({
         title: "Novo agente vazio",
-        description: "Informe uma descriÃ§Ã£o vÃ¡lida para adicionar.",
+        description: "Informe uma descrição válida para adicionar.",
         variant: "destructive",
       });
       return;
@@ -1032,8 +1062,8 @@ const InvestigacaoAcidente = () => {
     if (agenteExistente) {
       updateField("agente_causador", agenteExistente);
       toast({
-        title: "Agente jÃ¡ existente",
-        description: "O agente informado jÃ¡ estava na lista e foi selecionado.",
+        title: "Agente já existente",
+        description: "O agente informado já estava na lista e foi selecionado.",
       });
       handleAgenteDialogChange(false);
       return;
@@ -1051,7 +1081,7 @@ const InvestigacaoAcidente = () => {
 
     toast({
       title: "Novo agente adicionado",
-      description: "O agente foi adicionado com sucesso e selecionado no formulÃ¡rio.",
+      description: "O agente foi adicionado com sucesso e selecionado no formulário.",
     });
     handleAgenteDialogChange(false);
   };
@@ -1068,7 +1098,7 @@ const InvestigacaoAcidente = () => {
     if (!causaNormalizada) {
       toast({
         title: "Nova causa vazia",
-        description: "Informe uma descriÃ§Ã£o vÃ¡lida para adicionar.",
+        description: "Informe uma descrição válida para adicionar.",
         variant: "destructive",
       });
       return;
@@ -1081,8 +1111,8 @@ const InvestigacaoAcidente = () => {
     if (causaExistente) {
       updateField("causa_acidente", causaExistente);
       toast({
-        title: "Causa jÃ¡ existente",
-        description: "A causa informada jÃ¡ estava na lista e foi selecionada.",
+        title: "Causa já existente",
+        description: "A causa informada já estava na lista e foi selecionada.",
       });
       handleCausaDialogChange(false);
       return;
@@ -1100,7 +1130,7 @@ const InvestigacaoAcidente = () => {
 
     toast({
       title: "Nova causa adicionada",
-      description: "A causa foi adicionada com sucesso e selecionada no formulÃ¡rio.",
+      description: "A causa foi adicionada com sucesso e selecionada no formulário.",
     });
     handleCausaDialogChange(false);
   };
@@ -1282,7 +1312,7 @@ const InvestigacaoAcidente = () => {
                 id="titulo"
                 value={form.titulo}
                 onChange={(e) => updateField("titulo", e.target.value)}
-                placeholder="Ex: Queda durante movimentacao de material"
+                placeholder="Ex: Superfície escorregadia"
               />
             </div>
             <div className="space-y-2">
@@ -1632,8 +1662,7 @@ const InvestigacaoAcidente = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
-                NÃ£o encontrou o agente? Use o botÃ£o acima para adicionar um novo.
+              <p className="text-xs text-gray-500">                Não encontrou o agente? Use o botão acima para adicionar um novo.
               </p>
             </div>
 
@@ -1666,8 +1695,7 @@ const InvestigacaoAcidente = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
-                NÃ£o encontrou a causa? Use o botÃ£o acima para adicionar uma nova.
+              <p className="text-xs text-gray-500">                Não encontrou a causa? Use o botão acima para adicionar uma nova.
               </p>
             </div>
           </CardContent>
@@ -1966,17 +1994,17 @@ const InvestigacaoAcidente = () => {
             <DialogHeader>
               <DialogTitle>Adicionar novo agente causador</DialogTitle>
               <DialogDescription>
-                Cadastre um agente que ainda nÃ£o exista na lista para usar neste formulÃ¡rio.
+                Cadastre um agente que ainda não exista na lista para usar neste formulário.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-2">
-              <Label htmlFor="novo-agente">DescriÃ§Ã£o do agente</Label>
+              <Label htmlFor="novo-agente">Descrição do agente</Label>
               <Input
                 id="novo-agente"
                 value={novoAgente}
                 onChange={(e) => setNovoAgente(e.target.value)}
-                placeholder="Ex: SuperfÃ­cie escorregadia"
+                placeholder="Ex: Superfície escorregadia"
               />
             </div>
 
@@ -1998,12 +2026,12 @@ const InvestigacaoAcidente = () => {
             <DialogHeader>
               <DialogTitle>Adicionar nova causa do acidente</DialogTitle>
               <DialogDescription>
-                Cadastre uma causa que ainda nÃ£o exista na lista para usar neste formulÃ¡rio.
+                Cadastre uma causa que ainda não exista na lista para usar neste formulário.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-2">
-              <Label htmlFor="nova-causa">DescriÃ§Ã£o da causa</Label>
+              <Label htmlFor="nova-causa">Descrição da causa</Label>
               <Input
                 id="nova-causa"
                 value={novaCausa}
@@ -2047,7 +2075,7 @@ const InvestigacaoAcidente = () => {
                 Abrir WhatsApp
               </Button>
               <Button type="button" variant="secondary" onClick={() => handleWhatsappDialogChange(false)}>
-                Finalizar e ir para inÃ­cio
+                Finalizar e ir para início
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -2058,6 +2086,4 @@ const InvestigacaoAcidente = () => {
 };
 
 export default InvestigacaoAcidente;
-
-
 
