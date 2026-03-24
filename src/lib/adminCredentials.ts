@@ -52,12 +52,20 @@ const canUseLocalFallback = () => {
 
 export const isLocalCredentialFallbackEnabled = () => canUseLocalFallback();
 
-const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
+const DEFAULT_REMOTE_ACCOUNTS: AdminAccountRecord[] = [
   {
     username: normalizeUsername("administrador"),
     password_hash: encodePassword("admin123"),
     role: "admin",
   },
+  {
+    username: normalizeUsername("seguranca"),
+    password_hash: encodePassword("seguranca123"),
+    role: "seguranca",
+  },
+];
+
+const LOCAL_ONLY_FALLBACK_ACCOUNTS: AdminAccountRecord[] = [
   {
     username: normalizeUsername("teste"),
     password_hash: encodePassword("teste123"),
@@ -67,11 +75,6 @@ const DEFAULT_ACCOUNTS: AdminAccountRecord[] = [
     username: normalizeUsername("teste@local"),
     password_hash: encodePassword("teste123"),
     role: "admin",
-  },
-  {
-    username: normalizeUsername("seguranca"),
-    password_hash: encodePassword("seguranca123"),
-    role: "seguranca",
   },
 ];
 
@@ -110,7 +113,7 @@ const dedupeAccounts = (accounts: AdminAccountRecord[]) => {
 };
 
 const loadLocalAccounts = (): AdminAccountRecord[] => {
-  if (typeof window === "undefined") return [...DEFAULT_ACCOUNTS];
+  if (typeof window === "undefined") return [...DEFAULT_REMOTE_ACCOUNTS];
 
   let parsed: AdminAccountRecord[] = [];
   try {
@@ -127,7 +130,11 @@ const loadLocalAccounts = (): AdminAccountRecord[] => {
     console.error("Erro ao carregar credenciais locais:", error);
   }
 
-  const merged = dedupeAccounts([...DEFAULT_ACCOUNTS, ...parsed]);
+  const merged = dedupeAccounts([
+    ...DEFAULT_REMOTE_ACCOUNTS,
+    ...(canUseLocalFallback() ? LOCAL_ONLY_FALLBACK_ACCOUNTS : []),
+    ...parsed,
+  ]);
 
   try {
     localStorage.setItem(LOCAL_ACCOUNTS_STORAGE_KEY, JSON.stringify(merged));
@@ -184,7 +191,7 @@ export const ensureDefaultAdminAccounts = async (): Promise<void> => {
   }
 
   const existing = new Set((data || []).map((item) => item.username.toLowerCase()));
-  const missing = DEFAULT_ACCOUNTS.filter(
+  const missing = DEFAULT_REMOTE_ACCOUNTS.filter(
     (account) => !existing.has(account.username.toLowerCase()),
   );
 
@@ -313,7 +320,7 @@ export const updateAdminPassword = async (
 export const resetAdminAccounts = async (): Promise<void> => {
   const { error } = await supabase
     .from(ADMIN_TABLE)
-    .upsert(DEFAULT_ACCOUNTS.map(toRow), { onConflict: "username" });
+    .upsert(DEFAULT_REMOTE_ACCOUNTS.map(toRow), { onConflict: "username" });
 
   if (error) {
     console.error("Erro ao redefinir contas administrativas:", error);
@@ -321,7 +328,11 @@ export const resetAdminAccounts = async (): Promise<void> => {
 
   if (canUseLocalFallback()) {
     const existing = loadLocalAccounts().filter((account) => !isAdminRole(account.role));
-    saveLocalAccounts([...existing, ...DEFAULT_ACCOUNTS]);
+    saveLocalAccounts([
+      ...existing,
+      ...DEFAULT_REMOTE_ACCOUNTS,
+      ...LOCAL_ONLY_FALLBACK_ACCOUNTS,
+    ]);
   }
 };
 

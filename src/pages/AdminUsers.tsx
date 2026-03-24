@@ -28,6 +28,7 @@ type UnifiedRole =
   | "operador"
   | "lider"
   | "investigador"
+  | "diretoria_admin"
   | "tecnico_admin"
   | "supervisor"
   | "tec_seguranca"
@@ -79,6 +80,7 @@ const ROLE_LABEL: Record<UnifiedRole, string> = {
   operador: "Operador",
   lider: "Líder",
   investigador: "Investigador",
+  diretoria_admin: "Diretoria",
   tecnico_admin: "Técnico",
   supervisor: "Supervisor",
   tec_seguranca: "Téc. Segurança",
@@ -266,6 +268,10 @@ const AdminUsers = () => {
         if (!user.roles.includes("investigador")) user.roles.push("investigador");
       }
 
+      if (account.role === "diretoria") {
+        if (!user.roles.includes("diretoria_admin")) user.roles.push("diretoria_admin");
+      }
+
       if (account.role === "seguranca") {
         const taggedRoles = securityRoleTags[account.username] || ["supervisor"];
         taggedRoles.forEach((role) => {
@@ -390,10 +396,13 @@ const AdminUsers = () => {
 
     const hasOperator = roleList.includes("operador");
     const hasInvestigator = roleList.includes("investigador");
+    const hasDirectoria = roleList.includes("diretoria_admin");
     const hasSecurity = roleList.some((role) => SECURITY_ROLES.includes(role));
     const hasAdminPanelTechnician = roleList.includes(ADMIN_PANEL_ROLE);
     const selectedAdminRole: AdminAccount["role"] | null = hasInvestigator
       ? "investigador"
+      : hasDirectoria
+        ? "diretoria"
       : hasSecurity
         ? "seguranca"
         : hasAdminPanelTechnician
@@ -401,6 +410,7 @@ const AdminUsers = () => {
           : null;
     const adminCredentialRolesSelected = [
       hasInvestigator,
+      hasDirectoria,
       hasSecurity,
       hasAdminPanelTechnician,
     ].filter(Boolean).length;
@@ -429,7 +439,7 @@ const AdminUsers = () => {
       toast({
         title: "Conflito de perfil",
         description:
-          "No banco atual, a matrícula aceita somente 1 perfil administrativo. Use Investigador, Segurança ou Técnico.",
+          "No banco atual, a matrícula aceita somente 1 perfil administrativo. Use Investigador, Diretoria, Segurança ou Técnico.",
         variant: "destructive",
       });
       return;
@@ -578,6 +588,8 @@ const AdminUsers = () => {
             title: `Erro ao salvar ${
               selectedAdminRole === "investigador"
                 ? "investigador"
+                : selectedAdminRole === "diretoria"
+                  ? "diretoria"
                 : selectedAdminRole === "tecnico"
                   ? "técnico"
                   : "segurança"
@@ -643,11 +655,13 @@ const AdminUsers = () => {
 
   const handleResetUserPassword = async (user: UnifiedUser) => {
     const hasSecurityRole = user.roles.some((role) => SECURITY_ROLES.includes(role));
+    const hasDirectoriaRole = user.roles.includes("diretoria_admin");
     const hasAdminPanelTechnician = user.roles.includes(ADMIN_PANEL_ROLE);
     const hasAnyResettableProfile =
       user.roles.includes("operador") ||
       user.roles.includes("lider") ||
       user.roles.includes("investigador") ||
+      hasDirectoriaRole ||
       hasAdminPanelTechnician ||
       hasSecurityRole;
 
@@ -713,6 +727,22 @@ const AdminUsers = () => {
         } else {
           console.error("Erro ao resetar senha de investigador:", error);
           errors.push("Investigador");
+        }
+      }
+
+      if (hasDirectoriaRole) {
+        const { error } = await persistAdminUserRole({
+          currentUsername: user.matricula,
+          nextUsername: user.matricula,
+          role: "diretoria",
+          passwordHash: encodePassword(DEFAULT_PASSWORD),
+        });
+
+        if (error) {
+          console.error("Erro ao resetar senha de diretoria:", error);
+          errors.push("Diretoria");
+        } else {
+          updatedProfiles.push("Diretoria");
         }
       }
 
@@ -838,6 +868,7 @@ const AdminUsers = () => {
 
       if (
         user.roles.includes("investigador") ||
+        user.roles.includes("diretoria_admin") ||
         user.roles.includes(ADMIN_PANEL_ROLE) ||
         user.roles.some((role) => SECURITY_ROLES.includes(role))
       ) {
@@ -852,6 +883,7 @@ const AdminUsers = () => {
         });
 
         if (user.roles.includes("investigador")) removedProfiles.push("Investigador");
+        if (user.roles.includes("diretoria_admin")) removedProfiles.push("Diretoria");
         if (user.roles.includes(ADMIN_PANEL_ROLE)) removedProfiles.push("Técnico");
         if (user.roles.some((role) => SECURITY_ROLES.includes(role))) {
           removedProfiles.push("Perfis administrativos");
@@ -1008,6 +1040,7 @@ const AdminUsers = () => {
                   "operador",
                   "lider",
                   "investigador",
+                  "diretoria_admin",
                   "tecnico_admin",
                   "supervisor",
                   "tec_seguranca",
