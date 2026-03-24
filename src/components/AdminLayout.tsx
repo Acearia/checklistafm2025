@@ -1,4 +1,4 @@
-
+﻿
 import React, { useEffect, useState } from "react";
 import { useNavigate, Outlet, Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -141,9 +141,9 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
-             <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relat?rios" />
+              <SidebarLink to="/admin/reports" icon={<BarChart3 size={20} />} label="Relatórios" />
               {showSettingsLink && (
-                <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configura??es" />
+                <SidebarLink to="/admin/settings" icon={<Settings size={20} />} label="Configurações" />
               )}
             </div>
           </nav>
@@ -184,4 +184,5 @@ const SidebarLink = ({
 };
 
 export default AdminLayout;
+
 

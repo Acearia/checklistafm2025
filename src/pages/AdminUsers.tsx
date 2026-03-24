@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
+﻿import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { KeyRound, RefreshCw, Save, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -79,13 +79,13 @@ const mergeSectorValues = (currentValue: string, incomingValue: string) => {
 
 const ROLE_LABEL: Record<UnifiedRole, string> = {
   operador: "Operador",
-  lider: "Lider",
+  lider: "Líder",
   investigador: "Investigador",
   diretoria_admin: "Diretoria",
   coordenador_admin: "Coordenador",
-  tecnico_admin: "Tecnico",
+  tecnico_admin: "Técnico",
   supervisor: "Supervisor",
-  tec_seguranca: "Tec. Seguranca",
+  tec_seguranca: "Téc. Segurança",
   inspetor: "Inspetor",
 };
 
@@ -384,8 +384,8 @@ const AdminUsers = () => {
 
     if (!matriculaTrim || !nameTrim) {
       toast({
-        title: "Campos obrigatÃƒÂ³rios",
-        description: "Informe matrÃƒÂ­cula e nome do usuÃƒÂ¡rio.",
+        title: "Campos obrigatórios",
+        description: "Informe matrícula e nome do usuário.",
         variant: "destructive",
       });
       return;
@@ -393,8 +393,8 @@ const AdminUsers = () => {
 
     if (roleList.length === 0) {
       toast({
-        title: "Perfil obrigatÃƒÂ³rio",
-        description: "Selecione ao menos um perfil para o usuÃƒÂ¡rio.",
+        title: "Perfil obrigatório",
+        description: "Selecione ao menos um perfil para o usuário.",
         variant: "destructive",
       });
       return;
@@ -428,8 +428,8 @@ const AdminUsers = () => {
     if (passwordTrim) {
       if (hasOperator && !/^\d{4,}$/.test(passwordTrim)) {
         toast({
-          title: "Senha invÃƒÂ¡lida para operador",
-          description: "Para operador, a senha deve conter no mÃƒÂ­nimo 4 dÃƒÂ­gitos numÃƒÂ©ricos.",
+          title: "Senha inválida para operador",
+          description: "Para operador, a senha deve conter no mínimo 4 dígitos numéricos.",
           variant: "destructive",
         });
         return;
@@ -437,8 +437,8 @@ const AdminUsers = () => {
 
       if (!hasOperator && passwordTrim.length < 4) {
         toast({
-          title: "Senha invÃƒÂ¡lida",
-          description: "Para este perfil, a senha deve ter no mÃƒÂ­nimo 4 caracteres.",
+          title: "Senha inválida",
+          description: "Para este perfil, a senha deve ter no mínimo 4 caracteres.",
           variant: "destructive",
         });
         return;
@@ -457,8 +457,8 @@ const AdminUsers = () => {
 
     if (roleList.includes("lider") && !setorNormalized) {
       toast({
-        title: "Setor obrigatÃƒÂ³rio",
-        description: "Para perfil de lÃƒÂ­der, informe o setor.",
+        title: "Setor obrigatório",
+        description: "Para perfil de líder, informe o setor.",
         variant: "destructive",
       });
       return;
@@ -555,7 +555,7 @@ const AdminUsers = () => {
         if (!canKeepCurrentPassword) {
           if (!passwordTrim) {
             toast({
-              title: "Senha obrigatÃƒÂ³ria",
+              title: "Senha obrigatória",
               description: "Informe senha para o perfil administrativo selecionado.",
               variant: "destructive",
             });
@@ -565,8 +565,8 @@ const AdminUsers = () => {
 
           if (passwordTrim.length < 4) {
             toast({
-              title: "Senha invÃƒÂ¡lida",
-              description: "A senha do perfil administrativo deve ter no mÃƒÂ­nimo 4 caracteres.",
+              title: "Senha inválida",
+              description: "A senha do perfil administrativo deve ter no mínimo 4 caracteres.",
               variant: "destructive",
             });
             setSaving(false);
@@ -578,8 +578,8 @@ const AdminUsers = () => {
 
         if (!adminPasswordHash) {
           toast({
-            title: "Senha obrigatÃƒÂ³ria",
-            description: "Informe uma senha vÃƒÂ¡lida para o perfil administrativo.",
+            title: "Senha obrigatória",
+            description: "Informe uma senha válida para o perfil administrativo.",
             variant: "destructive",
           });
           setSaving(false);
@@ -601,10 +601,10 @@ const AdminUsers = () => {
                 : selectedAdminRole === "diretoria"
                   ? "diretoria"
                 : selectedAdminRole === "tecnico"
-                  ? "tÃƒÂ©cnico"
-                  : "seguranÃƒÂ§a"
+                  ? "técnico"
+                  : "segurança"
             }`,
-            description: "NÃƒÂ£o foi possÃƒÂ­vel atualizar as credenciais administrativas.",
+            description: "Não foi possível atualizar as credenciais administrativas.",
             variant: "destructive",
           });
           setSaving(false);
@@ -619,7 +619,7 @@ const AdminUsers = () => {
         if (error) {
           toast({
             title: "Erro ao remover perfil administrativo",
-            description: "NÃƒÂ£o foi possÃƒÂ­vel remover a credencial administrativa antiga.",
+            description: "Não foi possível remover a credencial administrativa antiga.",
             variant: "destructive",
           });
           setSaving(false);
@@ -645,17 +645,17 @@ const AdminUsers = () => {
       });
 
       toast({
-        title: "UsuÃƒÂ¡rio salvo",
+        title: "Usuário salvo",
         description: "Perfis atualizados com sucesso.",
       });
 
       await Promise.all([refresh(), loadAdminAccounts()]);
       clearForm();
     } catch (error) {
-      console.error("Erro ao salvar usuÃƒÂ¡rio:", error);
+      console.error("Erro ao salvar usuário:", error);
       toast({
         title: "Erro ao salvar",
-        description: "NÃƒÂ£o foi possÃƒÂ­vel concluir o cadastro do usuÃƒÂ¡rio.",
+        description: "Não foi possível concluir o cadastro do usuário.",
         variant: "destructive",
       });
     } finally {
@@ -679,8 +679,8 @@ const AdminUsers = () => {
 
     if (!hasAnyResettableProfile) {
       toast({
-        title: "Perfil sem autenticaÃƒÂ§ÃƒÂ£o",
-        description: "Esse usuÃƒÂ¡rio nÃƒÂ£o possui perfil com senha para resetar.",
+        title: "Perfil sem autenticação",
+        description: "Esse usuário não possui perfil com senha para resetar.",
         variant: "destructive",
       });
       return;
@@ -688,7 +688,7 @@ const AdminUsers = () => {
 
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `Resetar a senha do usuÃƒÂ¡rio ${user.name} (${user.matricula}) para ${DEFAULT_PASSWORD}?`,
+        `Resetar a senha do usuário ${user.name} (${user.matricula}) para ${DEFAULT_PASSWORD}?`,
       );
       if (!confirmed) return;
     }
@@ -713,16 +713,16 @@ const AdminUsers = () => {
       if (user.roles.includes("lider")) {
         const existingLeader = findLeaderByMatricula(user.matricula);
         if (!existingLeader) {
-          errors.push("LÃƒÂ­der");
+          errors.push("Líder");
         } else {
           try {
             await leaderService.update(existingLeader.id, {
               password_hash: encodePassword(DEFAULT_PASSWORD),
             });
-            updatedProfiles.push("LÃƒÂ­der");
+            updatedProfiles.push("Líder");
           } catch (error) {
-            console.error("Erro ao resetar senha de lÃƒÂ­der:", error);
-            errors.push("LÃƒÂ­der");
+            console.error("Erro ao resetar senha de líder:", error);
+            errors.push("Líder");
           }
         }
       }
@@ -783,10 +783,10 @@ const AdminUsers = () => {
         });
 
         if (error) {
-          console.error("Erro ao resetar senha de tÃƒÂ©cnico:", error);
-          errors.push("TÃƒÂ©cnico");
+          console.error("Erro ao resetar senha de técnico:", error);
+          errors.push("Técnico");
         } else {
-          updatedProfiles.push("TÃƒÂ©cnico");
+          updatedProfiles.push("Técnico");
         }
       }
 
@@ -799,24 +799,24 @@ const AdminUsers = () => {
         });
 
         if (error) {
-          console.error("Erro ao resetar senha de seguranÃƒÂ§a:", error);
-          errors.push("SeguranÃƒÂ§a");
+          console.error("Erro ao resetar senha de segurança:", error);
+          errors.push("Segurança");
         } else {
-          updatedProfiles.push("SeguranÃƒÂ§a");
+          updatedProfiles.push("Segurança");
         }
       }
 
       if (updatedProfiles.length > 0) {
         toast({
           title: "Senha resetada",
-          description: `Perfis atualizados: ${updatedProfiles.join(", ")}. Senha padrÃƒÂ£o: ${DEFAULT_PASSWORD}.`,
+          description: `Perfis atualizados: ${updatedProfiles.join(", ")}. Senha padrão: ${DEFAULT_PASSWORD}.`,
         });
       }
 
       if (errors.length > 0) {
         toast({
           title: "Reset parcial",
-          description: `NÃƒÂ£o foi possÃƒÂ­vel resetar: ${errors.join(", ")}.`,
+          description: `Não foi possível resetar: ${errors.join(", ")}.`,
           variant: "destructive",
         });
       }
@@ -831,7 +831,7 @@ const AdminUsers = () => {
     if (!canDeleteUsers) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuÃƒÂ¡rio adm pode excluir usuÃƒÂ¡rios.",
+        description: "Somente o usuário adm pode excluir usuários.",
         variant: "destructive",
       });
       return;
@@ -839,7 +839,7 @@ const AdminUsers = () => {
 
     if (typeof window !== "undefined") {
       const confirmed = window.confirm(
-        `Excluir o usuÃƒÂ¡rio ${user.name} (${user.matricula})? Isso remove os perfis vinculados a essa matrÃƒÂ­cula.`,
+        `Excluir o usuário ${user.name} (${user.matricula})? Isso remove os perfis vinculados a essa matrícula.`,
       );
       if (!confirmed) return;
     }
@@ -866,9 +866,9 @@ const AdminUsers = () => {
 
         if ((count || 0) > 0) {
           toast({
-            title: "ExclusÃƒÂ£o bloqueada",
+            title: "Exclusão bloqueada",
             description:
-              "NÃƒÂ£o ÃƒÂ© possÃƒÂ­vel excluir operador com inspeÃƒÂ§ÃƒÂµes jÃƒÂ¡ registradas. Remova apenas os demais perfis, se necessÃƒÂ¡rio.",
+              "Não é possível excluir operador com inspeções já registradas. Remova apenas os demais perfis, se necessário.",
             variant: "destructive",
           });
           return;
@@ -886,7 +886,7 @@ const AdminUsers = () => {
         }
 
         await leaderService.delete(leaderRecord.id);
-        removedProfiles.push("LÃƒÂ­der");
+        removedProfiles.push("Líder");
       }
 
       if (user.roles.includes("operador")) {
@@ -913,7 +913,7 @@ const AdminUsers = () => {
 
         if (user.roles.includes("investigador")) removedProfiles.push("Investigador");
         if (user.roles.includes("diretoria_admin")) removedProfiles.push("Diretoria");
-        if (user.roles.includes(ADMIN_PANEL_ROLE)) removedProfiles.push("TÃƒÂ©cnico");
+        if (user.roles.includes(ADMIN_PANEL_ROLE)) removedProfiles.push("Técnico");
         if (user.roles.some((role) => SECURITY_ROLES.includes(role))) {
           removedProfiles.push("Perfis administrativos");
         }
@@ -922,14 +922,14 @@ const AdminUsers = () => {
       if (removedProfiles.length === 0) {
         toast({
           title: "Nada para excluir",
-          description: "Nenhum perfil removÃƒÂ­vel foi encontrado para este usuÃƒÂ¡rio.",
+          description: "Nenhum perfil removível foi encontrado para este usuário.",
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "UsuÃƒÂ¡rio excluÃƒÂ­do",
+        title: "Usuário excluído",
         description: `Perfis removidos: ${removedProfiles.join(", ")}.`,
       });
 
@@ -939,10 +939,10 @@ const AdminUsers = () => {
 
       await Promise.all([refresh(), loadAdminAccounts()]);
     } catch (error) {
-      console.error("Erro ao excluir usuÃƒÂ¡rio:", error);
+      console.error("Erro ao excluir usuário:", error);
       toast({
         title: "Erro ao excluir",
-        description: "NÃƒÂ£o foi possÃƒÂ­vel concluir a exclusÃƒÂ£o do usuÃƒÂ¡rio.",
+        description: "Não foi possível concluir a exclusão do usuário.",
         variant: "destructive",
       });
     } finally {
@@ -954,9 +954,9 @@ const AdminUsers = () => {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">UsuÃƒÂ¡rios</h1>
+          <h1 className="text-2xl font-bold">Usuários</h1>
           <p className="text-sm text-gray-600">
-            Cadastro unificado de operador, lÃƒÂ­der e perfis administrativos.
+            Cadastro unificado de operador, líder e perfis administrativos.
           </p>
         </div>
         <Button variant="outline" onClick={() => Promise.all([refresh(), loadAdminAccounts()])}>
@@ -967,15 +967,15 @@ const AdminUsers = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Novo usuÃƒÂ¡rio</CardTitle>
+          <CardTitle>Novo usuário</CardTitle>
           <CardDescription>
-            Selecione os perfis que este usuÃƒÂ¡rio vai ter. Um usuÃƒÂ¡rio pode acumular funÃƒÂ§ÃƒÂµes.
+            Selecione os perfis que este usuário vai ter. Um usuário pode acumular funções.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label>MatrÃƒÂ­cula *</Label>
+              <Label>Matrícula *</Label>
               <Input
                 value={matricula}
                 onChange={(event) => setMatricula(event.target.value)}
@@ -1028,7 +1028,7 @@ const AdminUsers = () => {
               )}
             </div>
             <p className="text-xs text-gray-500">
-              Um mesmo usuÃƒÂ¡rio pode ter mais de um setor.
+              Um mesmo usuário pode ter mais de um setor.
             </p>
           </div>
 
@@ -1042,7 +1042,7 @@ const AdminUsers = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Email (lÃƒÂ­der)</Label>
+              <Label>Email (líder)</Label>
               <Input
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -1057,7 +1057,7 @@ const AdminUsers = () => {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Operador: mÃƒÂ­nimo 4 dÃƒÂ­gitos | Demais: mÃƒÂ­nimo 4 caracteres"
+              placeholder="Operador: mínimo 4 dígitos | Demais: mínimo 4 caracteres"
             />
           </div>
 
@@ -1087,18 +1087,18 @@ const AdminUsers = () => {
               ))}
             </div>
             <p className="text-xs text-gray-500">
-              ObservaÃƒÂ§ÃƒÂ£o: no banco atual, perfis administrativos aceitam apenas uma credencial por matrÃƒÂ­cula.
+              Observação: no banco atual, perfis administrativos aceitam apenas uma credencial por matrícula.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2">
             <Button onClick={saveUser} disabled={saving}>
               <Save className="mr-2 h-4 w-4" />
-              {saving ? "Salvando..." : "Salvar usuÃƒÂ¡rio"}
+              {saving ? "Salvando..." : "Salvar usuário"}
             </Button>
             <Button variant="outline" onClick={clearForm}>
               <UserPlus className="mr-2 h-4 w-4" />
-              Limpar formulÃƒÂ¡rio
+              Limpar formulário
             </Button>
           </div>
         </CardContent>
@@ -1106,39 +1106,39 @@ const AdminUsers = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>UsuÃƒÂ¡rios cadastrados</CardTitle>
+          <CardTitle>Usuários cadastrados</CardTitle>
           <CardDescription>
-            Clique em uma linha para carregar o usuÃƒÂ¡rio no formulÃƒÂ¡rio.
+            Clique em uma linha para carregar o usuário no formulário.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <Input
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Buscar por nome, matrÃƒÂ­cula ou setor"
+            placeholder="Buscar por nome, matrícula ou setor"
           />
 
           {loading || loadingAccounts ? (
-            <div className="text-sm text-gray-600">Carregando usuÃƒÂ¡rios...</div>
+            <div className="text-sm text-gray-600">Carregando usuários...</div>
           ) : filteredUsers.length === 0 ? (
             <div className="rounded border bg-gray-50 p-4 text-sm text-gray-600">
-              Nenhum usuÃƒÂ¡rio encontrado.
+              Nenhum usu?rio encontrado.
             </div>
           ) : (
             <>
               <p className="text-xs text-gray-500">
-                Exibindo {displayedUsers.length} de {filteredUsers.length} usuÃƒÂ¡rios.
+                Exibindo {displayedUsers.length} de {filteredUsers.length} usuários.
               </p>
               <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>MatrÃƒÂ­cula</TableHead>
+                    <TableHead>Matrícula</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Setor</TableHead>
                     <TableHead>Cargo</TableHead>
                     <TableHead>Perfis</TableHead>
-                    <TableHead className="text-right">AÃƒÂ§ÃƒÂµes</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
