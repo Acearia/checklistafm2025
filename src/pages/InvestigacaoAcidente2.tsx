@@ -244,6 +244,15 @@ const normalizeSectorKey = (value: string) =>
     .trim()
     .toUpperCase();
 
+const LEGACY_SECTOR_ALIASES: Record<string, string> = {
+  EXPEDIO: "EXPEDICAO",
+  REBARBAO: "REBARBACAO",
+  FUSO: "FUSAO",
+  MANUTENO: "MANUTENCAO",
+  PRODUO: "PRODUCAO",
+  MODELAO: "MODELACAO",
+};
+
 const normalizeSectorName = (value: unknown) => {
   const safeValue = normalizeText(value).trim();
   if (!safeValue) return "";
@@ -254,12 +263,24 @@ const normalizeSectorName = (value: unknown) => {
     EXPEDICAO: "EXPEDIÇÃO",
     REBARBAO: "REBARBAÇÃO",
     REBARBACAO: "REBARBAÇÃO",
+    FUSO: "FUSÃO",
+    FUSAO: "FUSÃO",
+    MANUTENO: "MANUTENÇÃO",
+    MANUTENCAO: "MANUTENÇÃO",
+    PRODUO: "PRODUÇÃO",
+    PRODUCAO: "PRODUÇÃO",
+    MODELAO: "MODELAÇÃO",
+    MODELACAO: "MODELAÇÃO",
     "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
   };
 
   if (sectorMap[normalizedKey]) return sectorMap[normalizedKey];
   if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÇÃO";
   if (normalizedKey.startsWith("REBARBA")) return "REBARBAÇÃO";
+  if (normalizedKey.startsWith("FUS")) return "FUSÃO";
+  if (normalizedKey.startsWith("MANUTEN")) return "MANUTENÇÃO";
+  if (normalizedKey.startsWith("PRODU")) return "PRODUÇÃO";
+  if (normalizedKey.startsWith("MODEL")) return "MODELAÇÃO";
   if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
 
   return safeValue;
@@ -412,13 +433,39 @@ const InvestigacaoAcidente2 = () => {
     };
   }, []);
 
+  const canonicalSectorMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    sectors.forEach((item: any) => {
+      const name = normalizeText(item?.name).trim();
+      if (!name) return;
+      map.set(normalizeSectorKey(name), name);
+    });
+
+    return map;
+  }, [sectors]);
+
+  const resolveCanonicalSectorName = (value: unknown) => {
+    const normalizedValue = normalizeSectorName(value);
+    if (!normalizedValue) return "";
+
+    const normalizedKey = normalizeSectorKey(normalizedValue);
+    const aliasedKey = LEGACY_SECTOR_ALIASES[normalizedKey];
+
+    return (
+      canonicalSectorMap.get(normalizedKey) ||
+      (aliasedKey ? canonicalSectorMap.get(aliasedKey) : undefined) ||
+      normalizedValue
+    );
+  };
+
   const setorOptions = useMemo<SearchableStringOption[]>(
     () =>
-      dedupeSorted(sectors.map((item: any) => normalizeSectorName(item?.name))).map((option) => ({
+      dedupeSorted(sectors.map((item: any) => resolveCanonicalSectorName(item?.name))).map((option) => ({
         value: option,
         label: option,
       })),
-    [sectors],
+    [sectors, canonicalSectorMap],
   );
 
   const liderOptions = useMemo<SearchableStringOption[]>(
@@ -710,7 +757,7 @@ const InvestigacaoAcidente2 = () => {
         const savedRule = await goldenRuleService.upsertFromLegacy({
           id: payloadId,
           titulo: titulo.trim(),
-          setor: normalizeSectorName(setor),
+          setor: resolveCanonicalSectorName(setor),
           gestor,
           tecnico_seg: tecnicoSeg,
           acompanhante,
@@ -740,7 +787,7 @@ const InvestigacaoAcidente2 = () => {
         numero_inspecao: finalInspectionNumber,
         created_at: new Date().toISOString(),
         titulo: titulo.trim(),
-        setor: normalizeSectorName(setor),
+        setor: resolveCanonicalSectorName(setor),
         gestor,
         tecnico_seg: tecnicoSeg,
         acompanhante,
@@ -764,7 +811,7 @@ const InvestigacaoAcidente2 = () => {
               numero_inspecao: item?.numero_inspecao,
               created_at: item?.created_at,
               titulo: item?.titulo,
-              setor: normalizeSectorName(item?.setor),
+              setor: resolveCanonicalSectorName(item?.setor),
               gestor: item?.gestor,
               tecnico_seg: item?.tecnico_seg,
               acompanhante: item?.acompanhante,

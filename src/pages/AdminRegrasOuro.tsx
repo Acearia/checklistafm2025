@@ -131,6 +131,15 @@ const normalizeSectorKey = (value: string) =>
     .trim()
     .toUpperCase();
 
+const LEGACY_SECTOR_ALIASES: Record<string, string> = {
+  EXPEDIO: "EXPEDICAO",
+  REBARBAO: "REBARBACAO",
+  FUSO: "FUSAO",
+  MANUTENO: "MANUTENCAO",
+  PRODUO: "PRODUCAO",
+  MODELAO: "MODELACAO",
+};
+
 const normalizeSectorName = (value: unknown) => {
   const safeValue = toSafeString(value).trim();
   if (!safeValue) return "";
@@ -141,6 +150,14 @@ const normalizeSectorName = (value: unknown) => {
     EXPEDICAO: "EXPEDIÇÃO",
     REBARBAO: "REBARBAÇÃO",
     REBARBACAO: "REBARBAÇÃO",
+    FUSO: "FUSÃO",
+    FUSAO: "FUSÃO",
+    MANUTENO: "MANUTENÇÃO",
+    MANUTENCAO: "MANUTENÇÃO",
+    PRODUO: "PRODUÇÃO",
+    PRODUCAO: "PRODUÇÃO",
+    MODELAO: "MODELAÇÃO",
+    MODELACAO: "MODELAÇÃO",
     "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
   };
 
@@ -148,6 +165,10 @@ const normalizeSectorName = (value: unknown) => {
 
   if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÇÃO";
   if (normalizedKey.startsWith("REBARBA")) return "REBARBAÇÃO";
+  if (normalizedKey.startsWith("FUS")) return "FUSÃO";
+  if (normalizedKey.startsWith("MANUTEN")) return "MANUTENÇÃO";
+  if (normalizedKey.startsWith("PRODU")) return "PRODUÇÃO";
+  if (normalizedKey.startsWith("MODEL")) return "MODELAÇÃO";
   if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
 
   return safeValue;
@@ -641,18 +662,59 @@ const AdminRegrasOuro = () => {
     };
   }, []);
 
+  const canonicalSectorMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    sectors.forEach((item: any) => {
+      const name = toSafeString(item?.name).trim();
+      if (!name) return;
+      map.set(normalizeSectorKey(name), name);
+    });
+
+    return map;
+  }, [sectors]);
+
+  const resolveCanonicalSectorName = React.useCallback(
+    (value: unknown) => {
+      const normalizedValue = normalizeSectorName(value);
+      if (!normalizedValue) return "";
+
+      const normalizedKey = normalizeSectorKey(normalizedValue);
+      const aliasedKey = LEGACY_SECTOR_ALIASES[normalizedKey];
+
+      return (
+        canonicalSectorMap.get(normalizedKey) ||
+        (aliasedKey ? canonicalSectorMap.get(aliasedKey) : undefined) ||
+        normalizedValue
+      );
+    },
+    [canonicalSectorMap],
+  );
+
+  const recordsWithCanonicalSector = useMemo(
+    () =>
+      records.map((item) => {
+        const setor = resolveCanonicalSectorName(item.setor);
+        return setor === item.setor ? item : { ...item, setor };
+      }),
+    [records, resolveCanonicalSectorName],
+  );
+
   const uniqueSetores = useMemo(
-    () => sectors.map((s: any) => s.name).sort(),
-    [sectors],
+    () =>
+      uniqueSortedValues(sectors.map((s: any) => resolveCanonicalSectorName(s.name))).sort((a, b) =>
+        a.localeCompare(b, "pt-BR"),
+      ),
+    [sectors, resolveCanonicalSectorName],
   );
 
   const uniqueTecnicos = useMemo(
-    () => uniqueSortedValues(records.map((item) => item.tecnico_seg)),
-    [records],
+    () => uniqueSortedValues(recordsWithCanonicalSector.map((item) => item.tecnico_seg)),
+    [recordsWithCanonicalSector],
   );
 
   const filteredRecords = useMemo(() => {
-    return records.filter((item) => {
+    return recordsWithCanonicalSector.filter((item) => {
       const matchesSetor = setorFilter === FILTER_ALL || item.setor === setorFilter;
       const matchesTecnico = tecnicoFilter === FILTER_ALL || item.tecnico_seg === tecnicoFilter;
 
@@ -675,25 +737,26 @@ const AdminRegrasOuro = () => {
 
       return matchesSetor && matchesTecnico && matchesSearch && matchesDate;
     });
-  }, [records, setorFilter, tecnicoFilter, searchTerm, dateFrom, dateTo]);
+  }, [recordsWithCanonicalSector, setorFilter, tecnicoFilter, searchTerm, dateFrom, dateTo]);
 
   const summary = useMemo(() => {
-    const total = records.length;
-    const inspecoesComNaoConformidade = records.filter((item) =>
+    const total = recordsWithCanonicalSector.length;
+    const inspecoesComNaoConformidade = recordsWithCanonicalSector.filter((item) =>
       item.respostas.some(responseHasNonConformityEvidence),
     ).length;
 
     return { total, inspecoesComNaoConformidade };
-  }, [records]);
+  }, [recordsWithCanonicalSector]);
 
   const loadFullRecord = async (recordId: string) => {
     const remoteRow = await goldenRuleService.getById(recordId);
-    const localFallback = records.find((item) => item.id === recordId) || null;
+    const localFallback = recordsWithCanonicalSector.find((item) => item.id === recordId) || null;
     if (!remoteRow) return localFallback;
 
     const [mapped] = mapSupabaseRegrasOuro([remoteRow]);
     if (!mapped) return localFallback;
-    return mergeGoldenRuleRecords(mapped, localFallback);
+    const merged = mergeGoldenRuleRecords(mapped, localFallback);
+    return { ...merged, setor: resolveCanonicalSectorName(merged.setor) };
   };
 
   const handleViewDetails = async (record: RegraOuroRecord) => {
