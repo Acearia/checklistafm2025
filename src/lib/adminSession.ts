@@ -55,4 +55,4 @@ export const canAccessAdminSettings = (
 
 export const canDeleteAdminRecords = (
   session: AdminSessionRecord | null = getStoredAdminSession(),
-) => isRootAdminUser(session);
+) => isRootAdminUser(session) || isCoordinatorAdminUser(session);
