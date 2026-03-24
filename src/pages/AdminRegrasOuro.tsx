@@ -84,6 +84,30 @@ const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
 const ANSWER_NO: QuestionResponse["resposta"] = "Não";
 const ANSWER_NA: QuestionResponse["resposta"] = "N/A";
+const DEFAULT_NO_RESPONSE_KEYS = new Set([
+  "1n5",
+  "1n6",
+  "1n8",
+  "1n9",
+  "1n10",
+  "1n11",
+  "1n12",
+  "1n13",
+  "1n21",
+  "05",
+  "06",
+  "08",
+  "09",
+  "10",
+  "11",
+  "12",
+  "13",
+  "21",
+  "5",
+  "6",
+  "8",
+  "9",
+]);
 
 
 
@@ -220,13 +244,35 @@ const hasCompleteSignatures = (
   record: Pick<RegraOuroRecord, "ass_tst" | "ass_gestor" | "ass_acomp">,
 ) => Boolean(record.ass_tst.trim() && record.ass_gestor.trim() && record.ass_acomp.trim());
 
+const normalizeGoldenRuleResponseKey = (response: Pick<QuestionResponse, "codigo" | "numero">) => {
+  const codigo = toSafeString(response.codigo).trim().toLowerCase();
+  if (codigo) return codigo;
+
+  const numero = toSafeString(response.numero).trim();
+  if (!numero) return "";
+
+  const numericValue = Number.parseInt(numero, 10);
+  if (Number.isNaN(numericValue)) return numero.toLowerCase();
+
+  return String(numericValue);
+};
+
+const getExpectedGoldenRuleAnswer = (response: Pick<QuestionResponse, "codigo" | "numero">) =>
+  DEFAULT_NO_RESPONSE_KEYS.has(normalizeGoldenRuleResponseKey(response)) ? ANSWER_NO : ANSWER_YES;
+
+const responseRequiresNonConformityEvidence = (
+  response: Pick<QuestionResponse, "codigo" | "numero" | "resposta">,
+) => {
+  const answer = normalizeAnswer(response.resposta);
+  if (answer === ANSWER_NA) return false;
+  return answer !== getExpectedGoldenRuleAnswer(response);
+};
+
 const countResponseEvidences = (responses: QuestionResponse[]) =>
   responses.reduce((acc, response) => acc + getResponseEvidences(response).length, 0);
 
 const responseHasNonConformityEvidence = (response: QuestionResponse) =>
-  getResponseEvidences(response).some(
-    (evidence) => evidence.comentario.trim().length > 0 || Boolean(evidence.foto),
-  );
+  responseRequiresNonConformityEvidence(response);
 
 const countNonConformityResponses = (responses: QuestionResponse[]) =>
   responses.filter(responseHasNonConformityEvidence).length;
