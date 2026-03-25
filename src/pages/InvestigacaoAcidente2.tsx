@@ -422,6 +422,7 @@ const InvestigacaoAcidente2 = () => {
   const [signatureDialog, setSignatureDialog] = useState<SignatureKey | null>(null);
   const [manualPersonTarget, setManualPersonTarget] = useState<"gestor" | "acompanhante" | null>(null);
   const [manualPersonName, setManualPersonName] = useState("");
+  const [manualPersonMatricula, setManualPersonMatricula] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [previewNumber, setPreviewNumber] = useState(() => getCounterValue() + 1);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
@@ -573,6 +574,7 @@ const InvestigacaoAcidente2 = () => {
 
   const handleSaveManualPerson = async () => {
     const normalizedName = normalizeText(manualPersonName).trim();
+    const normalizedMatricula = normalizeText(manualPersonMatricula).trim();
 
     if (!manualPersonTarget) return;
 
@@ -585,10 +587,21 @@ const InvestigacaoAcidente2 = () => {
       return;
     }
 
+    if (!normalizedMatricula) {
+      toast({
+        title: "Matrícula obrigatória",
+        description: "Informe a matrícula antes de adicionar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (manualPersonTarget === "gestor") {
-        const existingLeader = leaders.some(
-          (item: any) => normalizePersonKey(normalizeText(item?.name)) === normalizePersonKey(normalizedName),
+        const existingLeader = leaders.find(
+          (item: any) =>
+            normalizePersonKey(normalizeText(item?.name)) === normalizePersonKey(normalizedName) ||
+            normalizeText(item?.operator_matricula).trim() === normalizedMatricula,
         );
 
         if (!existingLeader) {
@@ -598,28 +611,30 @@ const InvestigacaoAcidente2 = () => {
           await leaderService.create({
             name: normalizedName,
             sector: setor || "N/A",
-            email: `manual.gestor.${buildManualIdentifier(normalizedName)}.${manualSeed}@afm.local`,
+            email: `manual.gestor.${buildManualIdentifier(`${normalizedName}-${normalizedMatricula}`)}.${manualSeed}@afm.local`,
             password_hash: passwordHash,
-            operator_matricula: null,
+            operator_matricula: normalizedMatricula,
           });
         }
 
         await refresh();
-        setGestor(normalizedName);
+        setGestor(existingLeader ? normalizeText(existingLeader?.name).trim() || normalizedName : normalizedName);
       } else {
         const personKey = normalizePersonKey(normalizedName);
-        const existsAsOperator = operators.some(
-          (item: any) => normalizePersonKey(normalizeText(item?.name)) === personKey,
+        const existingOperator = operators.find(
+          (item: any) =>
+            normalizePersonKey(normalizeText(item?.name)) === personKey ||
+            normalizeText(item?.matricula).trim() === normalizedMatricula,
         );
-        const existsAsLeader = leaders.some(
-          (item: any) => normalizePersonKey(normalizeText(item?.name)) === personKey,
+        const existingLeader = leaders.find(
+          (item: any) =>
+            normalizePersonKey(normalizeText(item?.name)) === personKey ||
+            normalizeText(item?.operator_matricula).trim() === normalizedMatricula,
         );
 
-        if (!existsAsOperator && !existsAsLeader) {
-          const manualSeed = buildManualSeed();
-
+        if (!existingOperator && !existingLeader) {
           await operatorService.create({
-            matricula: `MANUAL-${manualSeed}`.slice(0, 50),
+            matricula: normalizedMatricula,
             name: normalizedName,
             cargo: "Acompanhante",
             setor: setor || null,
@@ -628,7 +643,13 @@ const InvestigacaoAcidente2 = () => {
         }
 
         await refresh();
-        setAcompanhante(normalizedName);
+        setAcompanhante(
+          existingOperator
+            ? normalizeText(existingOperator?.name).trim() || normalizedName
+            : existingLeader
+              ? normalizeText(existingLeader?.name).trim() || normalizedName
+              : normalizedName,
+        );
       }
 
       toast({
@@ -640,12 +661,13 @@ const InvestigacaoAcidente2 = () => {
       });
 
       setManualPersonName("");
+      setManualPersonMatricula("");
       setManualPersonTarget(null);
     } catch (error) {
       console.error("[InvestigacaoAcidente2] Erro ao salvar pessoa manual:", error);
       toast({
         title: "Erro ao salvar cadastro",
-        description: "Nao foi possivel gravar esse nome no banco.",
+        description: "Não foi possível gravar esse cadastro no banco.",
         variant: "destructive",
       });
     }
@@ -1074,6 +1096,7 @@ const InvestigacaoAcidente2 = () => {
                     size="sm"
                     onClick={() => {
                       setManualPersonName(gestor);
+                      setManualPersonMatricula("");
                       setManualPersonTarget("gestor");
                     }}
                   >
@@ -1114,6 +1137,7 @@ const InvestigacaoAcidente2 = () => {
                     size="sm"
                     onClick={() => {
                       setManualPersonName(acompanhante);
+                      setManualPersonMatricula("");
                       setManualPersonTarget("acompanhante");
                     }}
                   >
@@ -1358,6 +1382,7 @@ const InvestigacaoAcidente2 = () => {
           if (!open) {
             setManualPersonTarget(null);
             setManualPersonName("");
+            setManualPersonMatricula("");
           }
         }}
       >
@@ -1385,6 +1410,16 @@ const InvestigacaoAcidente2 = () => {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="manual-person-matricula">Matrícula</Label>
+            <Input
+              id="manual-person-matricula"
+              value={manualPersonMatricula}
+              onChange={(event) => setManualPersonMatricula(event.target.value)}
+              placeholder="Digite a matrícula"
+            />
+          </div>
+
           <DialogFooter>
             <Button
               type="button"
@@ -1392,6 +1427,7 @@ const InvestigacaoAcidente2 = () => {
               onClick={() => {
                 setManualPersonTarget(null);
                 setManualPersonName("");
+                setManualPersonMatricula("");
               }}
             >
               Cancelar
