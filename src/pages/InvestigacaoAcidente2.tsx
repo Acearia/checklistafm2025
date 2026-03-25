@@ -22,7 +22,8 @@ import SearchableStringSelect, {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
-import { goldenRuleService } from "@/lib/supabase-service";
+import { buildStoredPassword } from "@/lib/password-utils";
+import { goldenRuleService, leaderService, operatorService } from "@/lib/supabase-service";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -294,6 +295,16 @@ const normalizePersonKey = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const buildManualIdentifier = (value: string) =>
+  normalizePersonKey(value)
+    .toLocaleLowerCase("pt-BR")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "usuario";
+
+const buildManualSeed = () =>
+  globalThis.crypto?.randomUUID?.() ||
+  `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
 const getCounterValue = () => {
   if (typeof window === "undefined") return 0;
   const parsed = Number.parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
@@ -390,7 +401,11 @@ const isMissingGoldenRulesTableError = (error: unknown) => {
 const InvestigacaoAcidente2 = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sectors, leaders, operators } = useSupabaseData(["sectors", "leaders", "operators"]);
+  const { sectors, leaders, operators, refresh } = useSupabaseData([
+    "sectors",
+    "leaders",
+    "operators",
+  ]);
 
   const [titulo, setTitulo] = useState("");
   const [setor, setSetor] = useState("");
@@ -405,6 +420,8 @@ const InvestigacaoAcidente2 = () => {
   }>(createInitialSignatures);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [signatureDialog, setSignatureDialog] = useState<SignatureKey | null>(null);
+  const [manualPersonTarget, setManualPersonTarget] = useState<"gestor" | "acompanhante" | null>(null);
+  const [manualPersonName, setManualPersonName] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [previewNumber, setPreviewNumber] = useState(() => getCounterValue() + 1);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
@@ -537,6 +554,102 @@ const InvestigacaoAcidente2 = () => {
 
     return Array.from(uniqueByName.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   }, [leaders, operators]);
+
+  const gestorOptions = useMemo<SearchableStringOption[]>(() => {
+    if (!gestor || liderOptions.some((item) => item.value === gestor)) {
+      return liderOptions;
+    }
+
+    return [{ value: gestor, label: gestor }, ...liderOptions];
+  }, [gestor, liderOptions]);
+
+  const acompanhanteSelectOptions = useMemo<SearchableStringOption[]>(() => {
+    if (!acompanhante || acompanhanteOptions.some((item) => item.value === acompanhante)) {
+      return acompanhanteOptions;
+    }
+
+    return [{ value: acompanhante, label: acompanhante }, ...acompanhanteOptions];
+  }, [acompanhante, acompanhanteOptions]);
+
+  const handleSaveManualPerson = async () => {
+    const normalizedName = normalizeText(manualPersonName).trim();
+
+    if (!manualPersonTarget) return;
+
+    if (!normalizedName) {
+      toast({
+        title: "Nome obrigatório",
+        description: "Informe o nome antes de adicionar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (manualPersonTarget === "gestor") {
+        const existingLeader = leaders.some(
+          (item: any) => normalizePersonKey(normalizeText(item?.name)) === normalizePersonKey(normalizedName),
+        );
+
+        if (!existingLeader) {
+          const manualSeed = buildManualSeed();
+          const passwordHash = await buildStoredPassword(manualSeed);
+
+          await leaderService.create({
+            name: normalizedName,
+            sector: setor || "N/A",
+            email: `manual.gestor.${buildManualIdentifier(normalizedName)}.${manualSeed}@afm.local`,
+            password_hash: passwordHash,
+            operator_matricula: null,
+          });
+        }
+
+        await refresh();
+        setGestor(normalizedName);
+      } else {
+        const personKey = normalizePersonKey(normalizedName);
+        const existsAsOperator = operators.some(
+          (item: any) => normalizePersonKey(normalizeText(item?.name)) === personKey,
+        );
+        const existsAsLeader = leaders.some(
+          (item: any) => normalizePersonKey(normalizeText(item?.name)) === personKey,
+        );
+
+        if (!existsAsOperator && !existsAsLeader) {
+          const manualSeed = buildManualSeed();
+
+          await operatorService.create({
+            matricula: `MANUAL-${manualSeed}`.slice(0, 50),
+            name: normalizedName,
+            cargo: "Acompanhante",
+            setor: setor || null,
+            senha: null,
+          });
+        }
+
+        await refresh();
+        setAcompanhante(normalizedName);
+      }
+
+      toast({
+        title: "Cadastro salvo",
+        description:
+          manualPersonTarget === "gestor"
+            ? "Gestor salvo no banco e selecionado."
+            : "Acompanhante salvo no banco e selecionado.",
+      });
+
+      setManualPersonName("");
+      setManualPersonTarget(null);
+    } catch (error) {
+      console.error("[InvestigacaoAcidente2] Erro ao salvar pessoa manual:", error);
+      toast({
+        title: "Erro ao salvar cadastro",
+        description: "Nao foi possivel gravar esse nome no banco.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const completionPercent = useMemo(() => {
     const total = QUESTION_ITEMS.length + 8;
@@ -952,17 +1065,30 @@ const InvestigacaoAcidente2 = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Gestor *</Label>
-              <SearchableStringSelect
-                value={gestor}
-                onValueChange={setGestor}
-                options={liderOptions}
-                placeholder="Selecionar o Gestor"
-                searchPlaceholder="Buscar gestor..."
-                emptyText="Nenhum gestor encontrado."
-              />
-            </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Gestor *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setManualPersonName(gestor);
+                      setManualPersonTarget("gestor");
+                    }}
+                  >
+                    Adicionar gestor
+                  </Button>
+                </div>
+                <SearchableStringSelect
+                  value={gestor}
+                  onValueChange={setGestor}
+                  options={gestorOptions}
+                  placeholder="Selecionar o Gestor"
+                  searchPlaceholder="Buscar gestor..."
+                  emptyText="Nenhum gestor encontrado."
+                />
+              </div>
 
             <div className="space-y-2">
               <Label>Técnico / Investigador *</Label>
@@ -979,16 +1105,29 @@ const InvestigacaoAcidente2 = () => {
               </p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Acomp. *</Label>
-              <SearchableStringSelect
-                value={acompanhante}
-                onValueChange={setAcompanhante}
-                options={acompanhanteOptions}
-                placeholder="Selecionar o acompanhante"
-                searchPlaceholder="Buscar operador/usuario..."
-                emptyText="Nenhum acompanhante encontrado."
-              />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Acomp. *</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setManualPersonName(acompanhante);
+                      setManualPersonTarget("acompanhante");
+                    }}
+                  >
+                    Adicionar acompanhante
+                  </Button>
+                </div>
+                <SearchableStringSelect
+                  value={acompanhante}
+                  onValueChange={setAcompanhante}
+                  options={acompanhanteSelectOptions}
+                  placeholder="Selecionar o acompanhante"
+                  searchPlaceholder="Buscar operador/usuario..."
+                  emptyText="Nenhum acompanhante encontrado."
+                />
             </div>
           </CardContent>
         </Card>
@@ -1208,6 +1347,57 @@ const InvestigacaoAcidente2 = () => {
           <DialogFooter>
             <Button type="button" onClick={() => setSignatureDialog(null)}>
               Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(manualPersonTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setManualPersonTarget(null);
+            setManualPersonName("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {manualPersonTarget === "gestor" ? "Adicionar gestor" : "Adicionar acompanhante"}
+            </DialogTitle>
+            <DialogDescription>
+              Use este campo quando a pessoa ainda não estiver cadastrada na lista.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="manual-person-name">Nome</Label>
+            <Input
+              id="manual-person-name"
+              value={manualPersonName}
+              onChange={(event) => setManualPersonName(event.target.value)}
+              placeholder={
+                manualPersonTarget === "gestor"
+                  ? "Digite o nome do gestor"
+                  : "Digite o nome do acompanhante"
+              }
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setManualPersonTarget(null);
+                setManualPersonName("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleSaveManualPerson}>
+              Salvar
             </Button>
           </DialogFooter>
         </DialogContent>
