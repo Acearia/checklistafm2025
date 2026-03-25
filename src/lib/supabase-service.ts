@@ -49,6 +49,8 @@ export type InspectionInsert = TablesInsert<"inspections">;
 export type GoldenRuleInsert = TablesInsert<"golden_rules">;
 export type AccidentActionPlanInsert = TablesInsert<"accident_action_plans">;
 
+const SUPABASE_PAGE_SIZE = 1000;
+
 const normalizeSectorName = (value?: string | null) =>
   (value || "")
     .normalize("NFD")
@@ -407,17 +409,36 @@ export const checklistService = {
 // Inspections
 export const inspectionService = {
   async getAll() {
-    const { data, error } = await supabase
-      .from("inspections")
-      .select(`
-        *,
-        operator:operators!inspections_operator_matricula_fkey(*),
-        equipment:equipment(*)
-      `)
-      .order("created_at", { ascending: false });
-    
-    if (error) throw error;
-    return data || [];
+    const inspections: Array<
+      Inspection & {
+        operator?: Operator | null;
+        equipment?: Equipment | null;
+      }
+    > = [];
+
+    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+      const to = from + SUPABASE_PAGE_SIZE - 1;
+
+      const { data, error } = await supabase
+        .from("inspections")
+        .select(`
+          *,
+          operator:operators!inspections_operator_matricula_fkey(*),
+          equipment:equipment(*)
+        `)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      inspections.push(...data);
+
+      if (data.length < SUPABASE_PAGE_SIZE) break;
+    }
+
+    return inspections;
   },
 
   async create(inspection: InspectionInsert, options?: { notifyEmail?: boolean }) {
