@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { accidentActionPlanService } from "@/lib/supabase-service";
+import { useToast } from "@/hooks/use-toast";
+import { canDeleteAdminRecords, getStoredAdminSession } from "@/lib/adminSession";
 
 type PrioridadeAcao = "Baixa" | "Media" | "Alta" | "Critica";
 type StatusAcao = "Aberta" | "Em andamento" | "Concluida" | "Cancelada";
@@ -181,6 +183,7 @@ const parseInvestigacoes = (): InvestigacaoResumo[] => {
 const AdminPlanosAcao = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [records, setRecords] = useState<PlanoAcaoRecord[]>([]);
   const [investigacoes, setInvestigacoes] = useState<InvestigacaoResumo[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -198,6 +201,7 @@ const AdminPlanosAcao = () => {
     const value = searchParams.get("origemFiltro") || "";
     return value.trim().toLowerCase();
   }, [searchParams]);
+  const canDelete = useMemo(() => canDeleteAdminRecords(getStoredAdminSession()), []);
 
   useEffect(() => {
     setOcorrenciaFilter(ocorrenciaFromQuery.replace(/\D/g, ""));
@@ -330,6 +334,49 @@ const AdminPlanosAcao = () => {
     dateFrom,
     dateTo,
   ]);
+
+  const handleDeletePlano = async (record: PlanoAcaoRecord) => {
+    if (!canDelete) {
+      toast({
+        title: "Acesso negado",
+        description: "Apenas administradores e coordenadores podem excluir planos de ação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const shouldDelete = window.confirm(
+      "Deseja realmente excluir este plano de ação? Esta ação não pode ser desfeita.",
+    );
+    if (!shouldDelete) return;
+
+    try {
+      try {
+        await accidentActionPlanService.delete(record.id);
+      } catch (error) {
+        if (!isMissingActionPlansTableError(error)) {
+          throw error;
+        }
+      }
+
+      const nextRecords = records.filter((item) => item.id !== record.id);
+      setRecords(nextRecords);
+      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(nextRecords));
+      window.dispatchEvent(new CustomEvent(PLANO_STORAGE_EVENT));
+
+      toast({
+        title: "Plano excluído",
+        description: `O plano ${formatOccurrenceNumber(record.numero_plano)} foi removido com sucesso.`,
+      });
+    } catch (error) {
+      console.error("[AdminPlanosAcao] Erro ao excluir plano:", error);
+      toast({
+        title: "Erro ao excluir plano",
+        description: "Não foi possível remover o plano de ação.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const summary = useMemo(() => {
     const total = records.length;
@@ -533,24 +580,37 @@ const AdminPlanosAcao = () => {
                         <TableCell>{item.responsavel_execucao || "N/A"}</TableCell>
                         <TableCell>{formatDate(item.termino_planejado)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              navigate(
-                                `/plano-acao-acidente?plano=${encodeURIComponent(item.id)}&ocorrencia=${item.numero_ocorrencia}&origem=admin`,
-                              )
-                            }
-                          >
-                            Editar plano
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/admin/investigacoes?ocorrencia=${item.numero_ocorrencia}`)}
-                          >
-                            Ver investigacao
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                navigate(
+                                  `/plano-acao-acidente?plano=${encodeURIComponent(item.id)}&ocorrencia=${item.numero_ocorrencia}&origem=admin`,
+                                )
+                              }
+                            >
+                              Editar plano
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/admin/investigacoes?ocorrencia=${item.numero_ocorrencia}`)}
+                            >
+                              Ver investigacao
+                            </Button>
+                            {canDelete ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => void handleDeletePlano(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </Button>
+                            ) : null}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

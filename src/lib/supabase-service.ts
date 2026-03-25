@@ -1499,6 +1499,20 @@ export const accidentActionPlanService = {
     if (error) throw error;
   },
 
+  async delete(id: string) {
+    const { error: deleteCommentsError } = await supabase
+      .from("accident_action_plan_comments")
+      .delete()
+      .eq("plan_id", id);
+    if (deleteCommentsError) throw deleteCommentsError;
+
+    const { error } = await supabase
+      .from("accident_action_plans")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+
   async safeGetAllWithFallback() {
     try {
       return await this.getAll();
