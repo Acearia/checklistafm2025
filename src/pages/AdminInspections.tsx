@@ -75,7 +75,8 @@ const AdminInspections = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [viewMode, setViewMode] = useState<"lista" | "painel">("painel");
+  const [viewMode, setViewMode] = useState<"lista" | "painel">("lista");
+  const [shouldPrepareBoard, setShouldPrepareBoard] = useState(false);
   const [boardDateFrom, setBoardDateFrom] = useState(() =>
     format(new Date(), "yyyy-MM-dd"),
   );
@@ -142,6 +143,38 @@ const AdminInspections = () => {
       window.removeEventListener("storage", syncAdminSession);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const prepareBoard = () => setShouldPrepareBoard(true);
+    const idleCallback = (window as Window & {
+      requestIdleCallback?: (callback: () => void) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    }).requestIdleCallback;
+    const cancelIdleCallback = (window as Window & {
+      cancelIdleCallback?: (handle: number) => void;
+    }).cancelIdleCallback;
+
+    if (viewMode === "painel") {
+      prepareBoard();
+      return;
+    }
+
+    if (idleCallback) {
+      const idleId = idleCallback(prepareBoard);
+      return () => {
+        if (cancelIdleCallback) {
+          cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(prepareBoard, 250);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [viewMode]);
 
 
   const handleViewDetails = (inspection: any) => {
@@ -397,6 +430,8 @@ const AdminInspections = () => {
   });
 
   const boardProcessedInspections = useMemo(() => {
+    if (!shouldPrepareBoard) return [];
+
     const fromDate = boardDateFrom ? new Date(`${boardDateFrom}T00:00:00`) : null;
     const toDate = boardDateTo ? new Date(`${boardDateTo}T23:59:59.999`) : null;
 
@@ -417,27 +452,35 @@ const AdminInspections = () => {
     });
   }, [processedInspections, boardDateFrom, boardDateTo]);
 
-  const boardBySector = useMemo(
-    () =>
-      buildInspectionBoard({
-        equipments: equipment || [],
-        inspections: boardProcessedInspections,
-        getInspectionEquipmentId: (inspection) =>
-          String(inspection?.equipment_id || inspection?.equipment?.id || ""),
-        getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
-        getInspectionDate: (inspection) =>
-          inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
-        getInspectionHasProblems: (inspection) =>
-          Number(inspection?.problemCount || 0) > 0,
-        getInspectionHasOpenOrder: (inspection) =>
-          Boolean(inspection?.hasOpenOrder),
-      }),
-    [equipment, boardProcessedInspections],
-  );
+  const boardBySector = useMemo(() => {
+    if (!shouldPrepareBoard) return [];
+
+    return buildInspectionBoard({
+      equipments: equipment || [],
+      inspections: boardProcessedInspections,
+      getInspectionEquipmentId: (inspection) =>
+        String(inspection?.equipment_id || inspection?.equipment?.id || ""),
+      getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
+      getInspectionDate: (inspection) =>
+        inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
+      getInspectionHasProblems: (inspection) =>
+        Number(inspection?.problemCount || 0) > 0,
+      getInspectionHasOpenOrder: (inspection) =>
+        Boolean(inspection?.hasOpenOrder),
+    });
+  }, [equipment, boardProcessedInspections, shouldPrepareBoard]);
 
   const boardStats = useMemo(
-    () => calculateInspectionBoardStats(boardBySector),
-    [boardBySector],
+    () =>
+      shouldPrepareBoard
+        ? calculateInspectionBoardStats(boardBySector)
+        : {
+            totalSectors: 0,
+            totalEquipments: 0,
+            totalToday: 0,
+            totalTodayWithProblems: 0,
+          },
+    [boardBySector, shouldPrepareBoard],
   );
 
   const sectorSummary = useMemo(() => {

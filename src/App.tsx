@@ -55,7 +55,8 @@ function App() {
         
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />} />
+          <Route index element={<Navigate to="/admin/inspections" replace />} />
+          <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="operators" element={<Navigate to="/admin/users" replace />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="equipment" element={<AdminEquipment />} />

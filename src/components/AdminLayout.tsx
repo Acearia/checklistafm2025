@@ -131,7 +131,7 @@ const AdminLayout = () => {
         >
           <nav className="p-4 flex flex-col h-full">
             <div className="space-y-1 flex-1">
-              <SidebarLink to="/admin" icon={<Home size={20} />} label="Dashboard" />
+              <SidebarLink to="/admin/dashboard" icon={<Home size={20} />} label="Dashboard" />
               <SidebarLink to="/admin/leaders/dashboard" icon={<User size={20} />} label="Dashboard Líderes" />
               <SidebarLink to="/admin/inspections" icon={<ClipboardList size={20} />} label="Inspeções" />
               <SidebarLink to="/admin/investigacoes" icon={<ShieldAlert size={20} />} label="Investigações" />
