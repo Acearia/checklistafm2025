@@ -201,11 +201,26 @@ const AdminPlanosAcao = () => {
     const value = searchParams.get("origemFiltro") || "";
     return value.trim().toLowerCase();
   }, [searchParams]);
-  const canDelete = useMemo(() => canDeleteAdminRecords(getStoredAdminSession()), []);
+  const [canDelete, setCanDelete] = useState<boolean>(() =>
+    canDeleteAdminRecords(getStoredAdminSession()),
+  );
 
   useEffect(() => {
     setOcorrenciaFilter(ocorrenciaFromQuery.replace(/\D/g, ""));
   }, [ocorrenciaFromQuery]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncDeletePermission = () => {
+      setCanDelete(canDeleteAdminRecords(getStoredAdminSession()));
+    };
+
+    window.addEventListener("storage", syncDeletePermission);
+    return () => {
+      window.removeEventListener("storage", syncDeletePermission);
+    };
+  }, []);
 
   const loadData = async () => {
     const localRecords = parsePlanos();

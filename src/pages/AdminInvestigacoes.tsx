@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { accidentActionPlanService } from "@/lib/supabase-service";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { useToast } from "@/hooks/use-toast";
 
 interface AttachmentMeta {
@@ -123,27 +124,11 @@ const PDF_ASSINADO_STORAGE_KEY = "checklistafm-investigacao-pdf-assinado-admin";
 const PDF_ASSINADO_STORAGE_EVENT = "checklistafm-investigacao-pdf-assinado-admin-updated";
 const PLANO_ACAO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_ACAO_STORAGE_EVENT = "checklistafm-plano-acao-updated";
-const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 const FILTER_ALL = "all";
 
 const isMissingActionPlansTableError = (error: unknown) => {
   const message = String((error as any)?.message || "").toLowerCase();
   return message.includes("does not exist") && message.includes("accident_action_plans");
-};
-
-const hasAdmAccess = () => {
-  if (typeof window === "undefined") return false;
-
-  try {
-    const rawSession = sessionStorage.getItem(ADMIN_SESSION_STORAGE_KEY);
-    if (!rawSession) return false;
-    const parsed = JSON.parse(rawSession);
-    const username = String(parsed?.username || "").trim().toLowerCase();
-    const role = String(parsed?.role || "").trim().toLowerCase();
-    return username === "adm" || role === "admin";
-  } catch {
-    return false;
-  }
 };
 
 const EMPTY_ANALISE_CAUSAS: AnaliseCausasData = {
@@ -483,7 +468,7 @@ const AdminInvestigacoes = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [isAdmUser, setIsAdmUser] = useState<boolean>(hasAdmAccess);
+  const [isAdmUser, setIsAdmUser] = useState<boolean>(() => canDeleteAdminRecords());
   const [investigacoes, setInvestigacoes] = useState<InvestigacaoRecord[]>([]);
   const [causasByOcorrencia, setCausasByOcorrencia] = useState<Record<string, AnaliseCausasData>>(
     {},
@@ -568,7 +553,7 @@ const AdminInvestigacoes = () => {
     if (typeof window === "undefined") return;
 
     const syncAdminSession = () => {
-      setIsAdmUser(hasAdmAccess());
+      setIsAdmUser(canDeleteAdminRecords());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -1062,7 +1047,7 @@ const AdminInvestigacoes = () => {
     if (!isAdmUser) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuario adm pode excluir investigacoes.",
+        description: "Somente administrador ou coordenador podem excluir investigacoes.",
         variant: "destructive",
       });
       return;

@@ -416,7 +416,15 @@ export const inspectionService = {
       }
     > = [];
 
-    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const { count, error: countError } = await supabase
+      .from("inspections")
+      .select("*", { count: "exact", head: true });
+
+    if (countError) throw countError;
+
+    const totalCount = count ?? 0;
+
+    for (let from = 0; from < totalCount; from += SUPABASE_PAGE_SIZE) {
       const to = from + SUPABASE_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -431,11 +439,9 @@ export const inspectionService = {
         .range(from, to);
 
       if (error) throw error;
-      if (!data || data.length === 0) break;
+      if (!data || data.length === 0) continue;
 
       inspections.push(...data);
-
-      if (data.length < SUPABASE_PAGE_SIZE) break;
     }
 
     return inspections;
