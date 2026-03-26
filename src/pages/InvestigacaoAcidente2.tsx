@@ -22,6 +22,7 @@ import SearchableStringSelect, {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import { FIXED_FORM_SECTORS, resolveFixedSectorName } from "@/lib/fixed-sectors";
 import { buildStoredPassword } from "@/lib/password-utils";
 import { goldenRuleService, leaderService, operatorService } from "@/lib/supabase-service";
 import { cn } from "@/lib/utils";
@@ -401,11 +402,7 @@ const isMissingGoldenRulesTableError = (error: unknown) => {
 const InvestigacaoAcidente2 = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sectors, leaders, operators, refresh } = useSupabaseData([
-    "sectors",
-    "leaders",
-    "operators",
-  ]);
+  const { leaders, operators, refresh } = useSupabaseData(["leaders", "operators"]);
 
   const [titulo, setTitulo] = useState("");
   const [setor, setSetor] = useState("");
@@ -451,39 +448,15 @@ const InvestigacaoAcidente2 = () => {
     };
   }, []);
 
-  const canonicalSectorMap = useMemo(() => {
-    const map = new Map<string, string>();
-
-    sectors.forEach((item: any) => {
-      const name = normalizeText(item?.name).trim();
-      if (!name) return;
-      map.set(normalizeSectorKey(name), name);
-    });
-
-    return map;
-  }, [sectors]);
-
-  const resolveCanonicalSectorName = (value: unknown) => {
-    const normalizedValue = normalizeSectorName(value);
-    if (!normalizedValue) return "";
-
-    const normalizedKey = normalizeSectorKey(normalizedValue);
-    const aliasedKey = LEGACY_SECTOR_ALIASES[normalizedKey];
-
-    return (
-      canonicalSectorMap.get(normalizedKey) ||
-      (aliasedKey ? canonicalSectorMap.get(aliasedKey) : undefined) ||
-      normalizedValue
-    );
-  };
+  const resolveCanonicalSectorName = (value: unknown) => resolveFixedSectorName(value);
 
   const setorOptions = useMemo<SearchableStringOption[]>(
     () =>
-      dedupeSorted(sectors.map((item: any) => resolveCanonicalSectorName(item?.name))).map((option) => ({
+      FIXED_FORM_SECTORS.map((option) => ({
         value: option,
         label: option,
       })),
-    [sectors, canonicalSectorMap],
+    [],
   );
 
   const liderOptions = useMemo<SearchableStringOption[]>(

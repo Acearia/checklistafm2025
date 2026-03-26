@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import SearchableStringSelect, {
   type SearchableStringOption,
 } from "@/components/ui/searchable-string-select";
+import { FIXED_FORM_SECTORS, resolveFixedSectorName } from "@/lib/fixed-sectors";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import {
@@ -575,12 +576,7 @@ const InvestigacaoAcidente = () => {
     () => dedupeCausas([...DEFAULT_CAUSAS_ACIDENTE, ...causasCustomizadas]),
     [causasCustomizadas],
   );
-  const setoresDisponiveis = useMemo(() => {
-    const names = (sectors || [])
-      .map((sector) => String((sector as { name?: string }).name ?? "").trim())
-      .filter((name) => Boolean(name));
-    return dedupeCausas(names);
-  }, [sectors]);
+  const setoresDisponiveis = useMemo(() => [...FIXED_FORM_SECTORS], []);
   const operadoresDisponiveis = useMemo(() => {
     const uniqueByName = new Map<
       string,
@@ -683,7 +679,7 @@ const InvestigacaoAcidente = () => {
       ...prev,
       nome_acidentado: value,
       cargo: prev.cargo || matchedOperator?.cargo || prev.cargo,
-      setor: prev.setor || matchedOperator?.setor || prev.setor,
+      setor: prev.setor || resolveFixedSectorName(matchedOperator?.setor) || prev.setor,
     }));
   };
 
@@ -701,7 +697,7 @@ const InvestigacaoAcidente = () => {
   const handleOpenColaboradorDialog = () => {
     setNovoColaboradorNome(form.nome_acidentado || "");
     setNovoColaboradorCargo(form.cargo || "");
-    setNovoColaboradorSetor(form.setor || "");
+    setNovoColaboradorSetor(resolveFixedSectorName(form.setor || ""));
     setNovoColaboradorSenha("");
     setColaboradorDialogOpen(true);
   };
@@ -710,7 +706,7 @@ const InvestigacaoAcidente = () => {
     const matricula = novoColaboradorMatricula.trim();
     const nome = novoColaboradorNome.trim();
     const cargo = novoColaboradorCargo.trim();
-    const setor = novoColaboradorSetor.trim();
+    const setor = resolveFixedSectorName(novoColaboradorSetor.trim());
     const senha = novoColaboradorSenha.trim();
 
     if (!/^\d{4}$/.test(matricula)) {
@@ -1187,6 +1183,7 @@ const InvestigacaoAcidente = () => {
 
       const payload: InvestigacaoAcidenteRecord = {
         ...form,
+        setor: resolveFixedSectorName(form.setor),
         numero_ocorrencia: ocorrenciaNumero,
         teve_afastamento: form.teve_afastamento === true,
         dias_afastamento: form.teve_afastamento === true ? form.dias_afastamento : "",
@@ -2086,4 +2083,3 @@ const InvestigacaoAcidente = () => {
 };
 
 export default InvestigacaoAcidente;
-
