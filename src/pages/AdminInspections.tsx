@@ -36,6 +36,7 @@ import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import {
   buildInspectionBoard,
   calculateInspectionBoardStats,
+  getLocalDateKey,
   type InspectionBoardInspectionEntry,
 } from "@/lib/inspectionBoard";
 import { deleteMaintenanceOrdersByInspection, loadMaintenanceOrders } from "@/lib/maintenanceOrders";
@@ -411,13 +412,11 @@ const AdminInspections = () => {
       inspection.submission_date ||
       inspection.created_at ||
       inspection.inspection_date;
-    const inspectionDate = dateValue ? new Date(dateValue) : null;
-    const fromDate = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
-    const toDate = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
+    const inspectionDateKey = getLocalDateKey(dateValue);
 
     const matchesDate =
-      (!fromDate || (inspectionDate && inspectionDate >= fromDate)) &&
-      (!toDate || (inspectionDate && inspectionDate <= toDate));
+      (!dateFrom || (inspectionDateKey && inspectionDateKey >= dateFrom)) &&
+      (!dateTo || (inspectionDateKey && inspectionDateKey <= dateTo));
 
     return (
       matchesEquipment &&
@@ -432,22 +431,17 @@ const AdminInspections = () => {
   const boardProcessedInspections = useMemo(() => {
     if (!shouldPrepareBoard) return [];
 
-    const fromDate = boardDateFrom ? new Date(`${boardDateFrom}T00:00:00`) : null;
-    const toDate = boardDateTo ? new Date(`${boardDateTo}T23:59:59.999`) : null;
-
     return processedInspections.filter((inspection) => {
       const dateValue =
         inspection?.submission_date ||
         inspection?.created_at ||
         inspection?.inspection_date ||
         null;
-      if (!dateValue) return false;
+      const inspectionDateKey = getLocalDateKey(dateValue);
+      if (!inspectionDateKey) return false;
 
-      const inspectionDate = new Date(dateValue);
-      if (Number.isNaN(inspectionDate.getTime())) return false;
-
-      const matchesFrom = !fromDate || inspectionDate >= fromDate;
-      const matchesTo = !toDate || inspectionDate <= toDate;
+      const matchesFrom = !boardDateFrom || inspectionDateKey >= boardDateFrom;
+      const matchesTo = !boardDateTo || inspectionDateKey <= boardDateTo;
       return matchesFrom && matchesTo;
     });
   }, [processedInspections, boardDateFrom, boardDateTo]);

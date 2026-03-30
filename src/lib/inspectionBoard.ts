@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+﻿import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export interface InspectionBoardEquipmentSource {
@@ -68,6 +68,19 @@ const parseDate = (value: string | Date | null | undefined): Date | null => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
+export const getLocalDateKey = (
+  value: string | Date | null | undefined,
+): string | null => {
+  const parsed = parseDate(value);
+  if (!parsed) return null;
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
 const isSameCalendarDay = (date: Date, reference: Date) =>
   date.getDate() === reference.getDate() &&
   date.getMonth() === reference.getMonth() &&
@@ -89,6 +102,7 @@ export const buildInspectionBoard = <TInspection>({
   >();
   const equipmentById = new Map<string, InspectionBoardEquipmentSource>();
   const today = new Date();
+  const todayKey = getLocalDateKey(today);
 
   const ensureEquipmentEntry = (
     sectorName: string,
@@ -167,7 +181,7 @@ export const buildInspectionBoard = <TInspection>({
     equipmentEntry.inspections.push({
       id: `${equipmentId}-${index}-${label}`,
       label,
-      isToday: inspectionDate ? isSameCalendarDay(inspectionDate, today) : false,
+      isToday: inspectionDate ? getLocalDateKey(inspectionDate) === todayKey : false,
       hasProblems: getInspectionHasProblems(inspection),
       hasOpenOrder: getInspectionHasOpenOrder(inspection),
       inspection,
@@ -220,3 +234,4 @@ export const calculateInspectionBoardStats = <TInspection>(
     inspectionsWithProblemsToday,
   };
 };
+
