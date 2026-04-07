@@ -794,7 +794,12 @@ const AdminInvestigacoes = () => {
       addLabelValue("Data/Hora", `${formatDate(record.data_ocorrencia)} ${safe(record.hora)}`);
       addLabelValue("Turno", record.turno);
       addLabelValue("Classificacao", formatNaturezaOcorrenciaLabel(record.natureza_ocorrencia));
-      addLabelValue("Tipo de acidente", record.tipo_acidente);
+      addLabelValue(
+        "Tipo de acidente",
+        record.teve_afastamento && record.dias_afastamento
+          ? `${record.tipo_acidente}, ${record.dias_afastamento} dia(s)`
+          : record.tipo_acidente
+      );
       addLabelValue("Setor", record.setor);
 
       addSectionTitle("Envolvido");
@@ -1408,7 +1413,14 @@ const AdminInvestigacoes = () => {
                       <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
                       <TableCell>{item.setor || "N/A"}</TableCell>
                       <TableCell>{formatNaturezaOcorrenciaLabel(item.natureza_ocorrencia)}</TableCell>
-                      <TableCell>{item.tipo_acidente || "N/A"}</TableCell>
+                      <TableCell>
+                        {item.tipo_acidente}
+                        {item.teve_afastamento && item.dias_afastamento ? (
+                          <span className="text-xs text-gray-600 block">
+                            {item.dias_afastamento} dia(s)
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell>
                         <Badge
                           variant={item.gravidade === "Critica" ? "destructive" : "secondary"}
@@ -1500,7 +1512,12 @@ const AdminInvestigacoes = () => {
                   <h3 className="font-medium text-sm mb-1">Classificacao</h3>
                   <p className="text-sm"><strong>Classificacao:</strong> {formatNaturezaOcorrenciaLabel(selected.natureza_ocorrencia)}</p>
                   <p className="text-sm"><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
-                  <p className="text-sm"><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
+                  <p className="text-sm">
+                    <strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}
+                    {selected.teve_afastamento && selected.dias_afastamento ? (
+                      <>, {selected.dias_afastamento} dia(s)</>
+                    ) : null}
+                  </p>
                   <p className="text-sm"><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>
                   <p className="text-sm"><strong>Probabilidade:</strong> {selected.probabilidade || "N/A"}</p>
                   <p className="text-sm">

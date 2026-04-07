@@ -146,6 +146,20 @@ const LEGACY_SECTOR_ALIASES: Record<string, string> = {
   MANUTENO: "MANUTENCAO",
   PRODUO: "PRODUCAO",
   MODELAO: "MODELACAO",
+  MECNICA: "MECANICA",
+};
+
+const normalizePersonName = (value: unknown) => {
+  const safeValue = toSafeString(value).trim();
+  if (!safeValue) return "";
+
+  const normalizedKey = normalizeSectorKey(safeValue);
+  const personMap: Record<string, string> = {
+    "JOO PAULO": "JOÃO PAULO",
+    "JOAO PAULO": "JOÃO PAULO",
+  };
+
+  return personMap[normalizedKey] || safeValue;
 };
 
 const normalizeSectorName = (value: unknown) => {
@@ -166,6 +180,8 @@ const normalizeSectorName = (value: unknown) => {
     PRODUCAO: "PRODUÇÃO",
     MODELAO: "MODELAÇÃO",
     MODELACAO: "MODELAÇÃO",
+    MECNICA: "MECÂNICA",
+    MECANICA: "MECÂNICA",
     "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
   };
 
@@ -177,9 +193,23 @@ const normalizeSectorName = (value: unknown) => {
   if (normalizedKey.startsWith("MANUTEN")) return "MANUTENÇÃO";
   if (normalizedKey.startsWith("PRODU")) return "PRODUÇÃO";
   if (normalizedKey.startsWith("MODEL")) return "MODELAÇÃO";
+  if (normalizedKey.startsWith("MECAN") || normalizedKey.startsWith("MECNIC")) return "MECÂNICA";
   if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
 
   return safeValue;
+};
+
+const normalizePersonName = (value: unknown) => {
+  const safeValue = toSafeString(value).trim();
+  if (!safeValue) return "";
+
+  const normalizedKey = normalizeSectorKey(safeValue);
+  const personMap: Record<string, string> = {
+    "JOO PAULO": "JOÃO PAULO",
+    "JOAO PAULO": "JOÃO PAULO",
+  };
+
+  return personMap[normalizedKey] || safeValue;
 };
 
 const formatDateTime = (value?: string) => {
@@ -476,9 +506,9 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
           created_at: createdAt,
           titulo: toSafeString(item.titulo),
           setor: normalizeSectorName(item.setor),
-          gestor: toSafeString(item.gestor),
-          tecnico_seg: toSafeString(item.tecnico_seg),
-          acompanhante: toSafeString(item.acompanhante),
+          gestor: normalizePersonName(item.gestor),
+          tecnico_seg: normalizePersonName(item.tecnico_seg),
+          acompanhante: normalizePersonName(item.acompanhante),
           respostas,
           ass_tst: toSafeString(item.ass_tst),
           ass_gestor: toSafeString(item.ass_gestor),
@@ -564,9 +594,9 @@ const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
         created_at: createdAt,
         titulo: toSafeString(row.titulo),
         setor: normalizeSectorName(row.setor),
-        gestor: toSafeString(row.gestor),
-        tecnico_seg: toSafeString(row.tecnico_seg),
-        acompanhante: toSafeString(row.acompanhante),
+        gestor: normalizePersonName(row.gestor),
+        tecnico_seg: normalizePersonName(row.tecnico_seg),
+        acompanhante: normalizePersonName(row.acompanhante),
         respostas,
         ass_tst: toSafeString(row.ass_tst),
         ass_gestor: toSafeString(row.ass_gestor),
