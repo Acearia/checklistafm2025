@@ -648,12 +648,40 @@ const PlanoAcaoAcidente = () => {
   };
 
   const validate = () => {
-    if (!form.origem.trim()) return "Informe a origem da acao.";
-    if (!form.descricao_resumida_acao.trim()) return "Informe a descricao resumida da acao.";
-    if (!form.descricao_acao.trim()) return "Informe a descricao da acao.";
-    if (!form.responsavel_execucao.trim()) return "Informe o responsavel da execucao.";
-    if (!form.status) return "Informe o status da acao.";
-    if (!form.prioridade) return "Informe a prioridade da acao.";
+    console.log("[PlanoAcao] Validando formulario:", {
+      origem: form.origem,
+      descricao_resumida_acao: form.descricao_resumida_acao,
+      descricao_acao: form.descricao_acao,
+      responsavel_execucao: form.responsavel_execucao,
+      status: form.status,
+      prioridade: form.prioridade,
+    });
+
+    if (!form.origem.trim()) {
+      console.warn("[PlanoAcao] Validacao falhou: origem vazia");
+      return "Informe a origem da acao.";
+    }
+    if (!form.descricao_resumida_acao.trim()) {
+      console.warn("[PlanoAcao] Validacao falhou: descricao_resumida_acao vazia");
+      return "Informe a descricao resumida da acao.";
+    }
+    if (!form.descricao_acao.trim()) {
+      console.warn("[PlanoAcao] Validacao falhou: descricao_acao vazia");
+      return "Informe a descricao da acao.";
+    }
+    if (!form.responsavel_execucao.trim()) {
+      console.warn("[PlanoAcao] Validacao falhou: responsavel_execucao vazio");
+      return "Informe o responsavel da execucao.";
+    }
+    if (!form.status) {
+      console.warn("[PlanoAcao] Validacao falhou: status vazio");
+      return "Informe o status da acao.";
+    }
+    if (!form.prioridade) {
+      console.warn("[PlanoAcao] Validacao falhou: prioridade vazia");
+      return "Informe a prioridade da acao.";
+    }
+    console.log("[PlanoAcao] Validacao passou com sucesso");
     return null;
   };
 
@@ -677,10 +705,11 @@ const PlanoAcaoAcidente = () => {
     const error = validate();
     if (error) {
       toast({
-        title: "Formulario incompleto",
+        title: "Campos obrigatorios nao preenchidos",
         description: error,
         variant: "destructive",
       });
+      console.warn("Validacao falhou:", error);
       return;
     }
 
@@ -750,13 +779,14 @@ const PlanoAcaoAcidente = () => {
         const normalized = savedRemote ? mapSupabasePlan(savedRemote) : null;
         if (normalized) {
           payload = normalized;
+          console.log("Plano salvo no Supabase com sucesso");
         }
       } catch (error) {
         if (!isMissingActionPlansTableError(error)) {
-          throw error;
+          console.error("Erro ao salvar no Supabase:", error);
         }
         console.warn(
-          "[PlanoAcaoAcidente] Tabela accident_action_plans indisponível. Salvando apenas local.",
+          "[PlanoAcaoAcidente] Salvando apenas localStorage (Supabase indisponivel ou erro).",
         );
       }
 
@@ -765,17 +795,28 @@ const PlanoAcaoAcidente = () => {
         : [payload, ...existing];
 
       localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(updated));
+      console.log("Plano salvo no localStorage com sucesso. Total de planos:", updated.length);
+      console.log("Payload salvo:", payload);
+
+      // Verificar que foi realmente salvo
+      const verificacao = localStorage.getItem(PLANO_STORAGE_KEY);
+      console.log(
+        "[PlanoAcao] Verificacao localStorage após save:",
+        verificacao ? "OK - " + verificacao.length + " bytes" : "FALHA",
+      );
 
       window.dispatchEvent(new Event(PLANO_STORAGE_EVENT));
+      console.log("[PlanoAcao] Evento disparado. Carregando dados...");
       await loadData();
       clearForm();
 
       toast({
-        title: "Plano de acao salvo",
-        description: "Registro salvo com sucesso.",
+        title: "Plano de acao salvo com sucesso",
+        description: `${editingId ? "Registro atualizado" : "Novo registro criado"}. Local e remoto.`,
       });
+      console.log("[PlanoAcao] Save completado com sucesso");
     } catch (error) {
-      console.error("Erro ao salvar plano de acao:", error);
+      console.error("[PlanoAcao] Erro FATAL ao salvar plano de acao:", error);
       toast({
         title: "Erro ao salvar",
         description: "Nao foi possivel salvar o plano de acao.",

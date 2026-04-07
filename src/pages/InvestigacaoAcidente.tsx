@@ -77,6 +77,8 @@ interface InvestigacaoAcidenteForm {
   descricao_detalhada: string;
   observacoes: string;
   investigador: string;
+  comissao_investigacao: boolean;
+  membros_comissao: string[];
 }
 
 interface AttachmentMeta {
@@ -455,6 +457,8 @@ const INITIAL_FORM: InvestigacaoAcidenteForm = {
   descricao_detalhada: "",
   observacoes: "",
   investigador: "",
+  comissao_investigacao: false,
+  membros_comissao: [],
 };
 
 const formatFileSize = (bytes: number) => {
@@ -1731,18 +1735,75 @@ const InvestigacaoAcidente = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-red-700" />
-              Seguranca e Assinatura
+              Comissao de Investigacao
             </CardTitle>
             <CardDescription>
-              Assinatura do investigador e opcional, preenchida apenas apos autenticacao.
+              Membros da comissão responsáveis pela investigação.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Membros da Comissao</Label>
+              <div className="space-y-2">
+                {form.membros_comissao.map((membro, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded">
+                    <span className="flex-1 text-sm">{membro}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        updateField("membros_comissao", 
+                          form.membros_comissao.filter((_, i) => i !== idx)
+                        );
+                      }}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="novoMembro"
+                  placeholder="Digite o nome do membro"
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      const input = e.currentTarget;
+                      if (input.value.trim()) {
+                        updateField("membros_comissao", [
+                          ...form.membros_comissao,
+                          input.value.trim()
+                        ]);
+                        input.value = "";
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const input = document.getElementById("novoMembro") as HTMLInputElement;
+                    if (input && input.value.trim()) {
+                      updateField("membros_comissao", [
+                        ...form.membros_comissao,
+                        input.value.trim()
+                      ]);
+                      input.value = "";
+                    }
+                  }}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Adicionar
+                </Button>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="investigador">Investigador (opcional)</Label>
               <Input id="investigador" value={form.investigador} readOnly disabled />
             </div>
-            <div className="flex items-end">
+            <div>
               <Button
                 type="button"
                 variant={isSigned ? "secondary" : "outline"}
