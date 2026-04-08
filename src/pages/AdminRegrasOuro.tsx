@@ -199,19 +199,6 @@ const normalizeSectorName = (value: unknown) => {
   return safeValue;
 };
 
-const normalizePersonName = (value: unknown) => {
-  const safeValue = toSafeString(value).trim();
-  if (!safeValue) return "";
-
-  const normalizedKey = normalizeSectorKey(safeValue);
-  const personMap: Record<string, string> = {
-    "JOO PAULO": "JOÃO PAULO",
-    "JOAO PAULO": "JOÃO PAULO",
-  };
-
-  return personMap[normalizedKey] || safeValue;
-};
-
 const formatDateTime = (value?: string) => {
   if (!value) return "N/A";
   const parsed = new Date(value);
@@ -1756,7 +1743,6 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
-
 
 
 
