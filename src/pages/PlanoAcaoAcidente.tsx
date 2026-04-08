@@ -270,8 +270,14 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
 const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
   if (!item || typeof item !== "object") return null;
 
-  const comments = Array.isArray(item.comments)
-    ? item.comments.map((comentario: any) => ({
+  const rawComments = Array.isArray(item.comments)
+    ? item.comments
+    : Array.isArray(item.comentarios)
+      ? item.comentarios
+      : [];
+
+  const comments = Array.isArray(rawComments)
+    ? rawComments.map((comentario: any) => ({
         id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
         texto: String(comentario?.texto || ""),
         autor: String(comentario?.autor || "Sistema"),
@@ -397,7 +403,15 @@ const PlanoAcaoAcidente = () => {
       const mergedMap = new Map<string, PlanoAcaoRecord>();
       [...remotePlans, ...localPlans].forEach((item) => {
         const key = item.id || `n-${item.numero_plano}-${item.numero_ocorrencia}`;
-        if (!mergedMap.has(key)) {
+        const current = mergedMap.get(key);
+        if (!current) {
+          mergedMap.set(key, item);
+          return;
+        }
+
+        const currentTimestamp = new Date(current.updated_at || current.created_at).getTime();
+        const incomingTimestamp = new Date(item.updated_at || item.created_at).getTime();
+        if (incomingTimestamp >= currentTimestamp) {
           mergedMap.set(key, item);
         }
       });

@@ -63,7 +63,7 @@ interface InvestigacaoRecord {
   natureza_ocorrencia: string;
   mao_de_obra: string;
   tipo_acidente: string;
-  teve_afastamento: boolean;
+  teve_afastamento: AfastamentoStatus;
   dias_afastamento: string;
   gravidade: string;
   probabilidade: string;
@@ -82,8 +82,12 @@ interface InvestigacaoRecord {
   descricao_detalhada: string;
   observacoes: string;
   investigador: string;
+  comissao_investigacao: boolean;
+  membros_comissao: string[];
   attachments: AttachmentMeta[];
 }
+
+type AfastamentoStatus = "Sim" | "Nao" | "Aguardando retorno medico";
 
 interface AnaliseCausasData {
   problema: string;
@@ -178,6 +182,25 @@ const formatNaturezaOcorrenciaLabel = (value?: string) => {
   return value;
 };
 
+const formatAfastamentoStatusLabel = (value?: string) => {
+  if (!value) return "N/A";
+  if (value === "Aguardando retorno medico") return "Aguardando retorno m\u00e9dico";
+  if (value === "Nao") return "Não";
+  return value;
+};
+
+const normalizeAfastamentoStatus = (value: unknown): AfastamentoStatus => {
+  if (value === "Sim" || value === true || value === 1 || value === "1") return "Sim";
+  if (value === "Aguardando retorno medico" || value === "Aguardando retorno médico") {
+    return "Aguardando retorno medico";
+  }
+  if (value === "Não") return "Nao";
+  return "Nao";
+};
+
+const hasAfastamentoStatus = (value: AfastamentoStatus) =>
+  value === "Sim" || value === "Aguardando retorno medico";
+
 
 const getInvestigacaoDateValue = (item: InvestigacaoRecord) => item.data_ocorrencia || item.created_at;
 
@@ -207,6 +230,14 @@ const parseInvestigacoes = (): InvestigacaoRecord[] => {
               preview_url: toSafeString(file?.preview_url),
             }))
           : [];
+        const rawNatureza = toSafeString(item.natureza_ocorrencia);
+        const teveAfastamento =
+          rawNatureza === "Aguardando retorno medico"
+            ? "Aguardando retorno medico"
+            : normalizeAfastamentoStatus(item.teve_afastamento);
+        const membrosComissao = Array.isArray(item.membros_comissao)
+          ? item.membros_comissao.map((membro: any) => toSafeString(membro)).filter(Boolean)
+          : [];
 
         return {
           id: toSafeString(item.id) || `${Date.now()}-${Math.random()}`,
@@ -221,10 +252,11 @@ const parseInvestigacoes = (): InvestigacaoRecord[] => {
           setor: toSafeString(item.setor),
           tempo_empresa: toSafeString(item.tempo_empresa),
           tempo_funcao: toSafeString(item.tempo_funcao),
-          natureza_ocorrencia: toSafeString(item.natureza_ocorrencia),
+          natureza_ocorrencia:
+            rawNatureza === "Aguardando retorno medico" ? "" : rawNatureza,
           mao_de_obra: toSafeString(item.mao_de_obra),
           tipo_acidente: toSafeString(item.tipo_acidente),
-          teve_afastamento: Boolean(item.teve_afastamento),
+          teve_afastamento,
           dias_afastamento: toSafeString(item.dias_afastamento),
           gravidade: toSafeString(item.gravidade),
           probabilidade: toSafeString(item.probabilidade),
@@ -243,6 +275,8 @@ const parseInvestigacoes = (): InvestigacaoRecord[] => {
           descricao_detalhada: toSafeString(item.descricao_detalhada),
           observacoes: toSafeString(item.observacoes),
           investigador: toSafeString(item.investigador),
+          comissao_investigacao: membrosComissao.length > 0,
+          membros_comissao: membrosComissao,
           attachments,
         };
       })
@@ -585,8 +619,8 @@ const AdminInvestigacoes = () => {
         investigadorFilter === FILTER_ALL || item.investigador === investigadorFilter;
       const matchesAfastamento =
         afastamentoFilter === FILTER_ALL ||
-        (afastamentoFilter === "com" && item.teve_afastamento) ||
-        (afastamentoFilter === "sem" && !item.teve_afastamento);
+        (afastamentoFilter === "com" && hasAfastamentoStatus(item.teve_afastamento)) ||
+        (afastamentoFilter === "sem" && !hasAfastamentoStatus(item.teve_afastamento));
 
       const normalizedSearch = searchTerm.trim().toLowerCase();
       const matchesSearch =
@@ -633,7 +667,7 @@ const AdminInvestigacoes = () => {
 
   const summary = useMemo(() => {
     const total = investigacoes.length;
-    const comAfastamento = investigacoes.filter((item) => item.teve_afastamento).length;
+    const comAfastamento = investigacoes.filter((item) => hasAfastamentoStatus(item.teve_afastamento)).length;
     const criticas = investigacoes.filter((item) => item.gravidade === "Critica").length;
     const assinadas = investigacoes.filter(hasInvestigacaoAssinada).length;
 
@@ -794,12 +828,7 @@ const AdminInvestigacoes = () => {
       addLabelValue("Data/Hora", `${formatDate(record.data_ocorrencia)} ${safe(record.hora)}`);
       addLabelValue("Turno", record.turno);
       addLabelValue("Classificacao", formatNaturezaOcorrenciaLabel(record.natureza_ocorrencia));
-      addLabelValue(
-        "Tipo de acidente",
-        record.teve_afastamento && record.dias_afastamento
-          ? `${record.tipo_acidente}, ${record.dias_afastamento} dia(s)`
-          : record.tipo_acidente
-      );
+      addLabelValue("Tipo de acidente", record.tipo_acidente);
       addLabelValue("Setor", record.setor);
 
       addSectionTitle("Envolvido");
@@ -809,7 +838,11 @@ const AdminInvestigacoes = () => {
       addLabelValue("Tempo na funcao", record.tempo_funcao);
       addLabelValue(
         "Afastamento",
-        record.teve_afastamento ? `Sim (${safe(record.dias_afastamento)} dia(s))` : "Nao",
+        `${formatAfastamentoStatusLabel(record.teve_afastamento)}${
+          record.teve_afastamento === "Sim" && record.dias_afastamento
+            ? ` (${safe(record.dias_afastamento)} dia(s))`
+            : ""
+        }`,
       );
 
       addSectionTitle("Analise");
@@ -821,6 +854,15 @@ const AdminInvestigacoes = () => {
       addLabelValue("Causa do acidente", record.causa_acidente);
       addLabelValue("Descricao detalhada", record.descricao_detalhada);
       addLabelValue("Observacoes", record.observacoes);
+
+      addSectionTitle("Comissao de Investigacao");
+      addLabelValue(
+        "Membros",
+        record.membros_comissao.length > 0
+          ? record.membros_comissao.map((membro, index) => `${index + 1}. ${membro}`).join("\n")
+          : "Nenhum membro informado.",
+      );
+      addLabelValue("Investigador", record.investigador || "Nao assinado");
 
       addSectionTitle("Acoes da ocorrencia");
       if (planosRelacionados.length === 0) {
@@ -1184,7 +1226,7 @@ const AdminInvestigacoes = () => {
         item.tipo_acidente,
         item.gravidade,
         item.probabilidade,
-        item.teve_afastamento ? "sim" : "nao",
+        formatAfastamentoStatusLabel(item.teve_afastamento),
         item.dias_afastamento,
         causas.problema,
         causas.causa_maquinas,
@@ -1395,7 +1437,7 @@ const AdminInvestigacoes = () => {
                     <TableHead>Classificacao</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Gravidade</TableHead>
-                    <TableHead>Assinatura</TableHead>
+                    <TableHead>Investigador</TableHead>
                     <TableHead className="text-right">Acoes</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1413,14 +1455,7 @@ const AdminInvestigacoes = () => {
                       <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
                       <TableCell>{item.setor || "N/A"}</TableCell>
                       <TableCell>{formatNaturezaOcorrenciaLabel(item.natureza_ocorrencia)}</TableCell>
-                      <TableCell>
-                        {item.tipo_acidente}
-                        {item.teve_afastamento && item.dias_afastamento ? (
-                          <span className="text-xs text-gray-600 block">
-                            {item.dias_afastamento} dia(s)
-                          </span>
-                        ) : null}
-                      </TableCell>
+                      <TableCell>{item.tipo_acidente}</TableCell>
                       <TableCell>
                         <Badge
                           variant={item.gravidade === "Critica" ? "destructive" : "secondary"}
@@ -1512,17 +1547,15 @@ const AdminInvestigacoes = () => {
                   <h3 className="font-medium text-sm mb-1">Classificacao</h3>
                   <p className="text-sm"><strong>Classificacao:</strong> {formatNaturezaOcorrenciaLabel(selected.natureza_ocorrencia)}</p>
                   <p className="text-sm"><strong>Mao de obra:</strong> {selected.mao_de_obra || "N/A"}</p>
-                  <p className="text-sm">
-                    <strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}
-                    {selected.teve_afastamento && selected.dias_afastamento ? (
-                      <>, {selected.dias_afastamento} dia(s)</>
-                    ) : null}
-                  </p>
+                  <p className="text-sm"><strong>Tipo:</strong> {selected.tipo_acidente || "N/A"}</p>
                   <p className="text-sm"><strong>Gravidade:</strong> {selected.gravidade || "N/A"}</p>
                   <p className="text-sm"><strong>Probabilidade:</strong> {selected.probabilidade || "N/A"}</p>
                   <p className="text-sm">
                     <strong>Afastamento:</strong>{" "}
-                    {selected.teve_afastamento ? `Sim (${selected.dias_afastamento || "0"} dia(s))` : "Nao"}
+                    {formatAfastamentoStatusLabel(selected.teve_afastamento)}
+                    {selected.teve_afastamento === "Sim" && selected.dias_afastamento
+                      ? ` (${selected.dias_afastamento} dia(s))`
+                      : ""}
                   </p>
                 </div>
               </div>
@@ -1568,7 +1601,22 @@ const AdminInvestigacoes = () => {
               </div>
 
               <div>
-                <h3 className="font-medium mb-2">Assinatura e anexos</h3>
+                <h3 className="font-medium mb-2">Comissao de investigacao</h3>
+                <div className="border p-3 rounded bg-gray-50 space-y-2 text-sm">
+                  <p>
+                    <strong>Membros:</strong>{" "}
+                    {selected.membros_comissao.length > 0
+                      ? selected.membros_comissao.join(", ")
+                      : "Nenhum membro informado"}
+                  </p>
+                  <p>
+                    <strong>Investigador:</strong> {selected.investigador || "Nao assinado"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="font-medium mb-2">Investigador e anexos</h3>
                 <div className="border p-3 rounded bg-gray-50 space-y-2 text-sm">
                   <p>
                     <strong>Investigador:</strong> {selected.investigador || "Nao assinado"}

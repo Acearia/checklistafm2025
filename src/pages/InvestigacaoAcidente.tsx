@@ -45,10 +45,8 @@ import { useNavigate } from "react-router-dom";
 
 type MaoDeObra = "Direta" | "Indireta";
 type TipoAcidente = "Tipico" | "Trajeto" | "Terceiros" | "Danos Morais" | "Ambiental";
-type NaturezaOcorrencia =
-  | "Incidente"
-  | "Acidente"
-  | "Aguardando retorno medico";
+type NaturezaOcorrencia = "Incidente" | "Acidente";
+type AfastamentoStatus = "Sim" | "Nao" | "Aguardando retorno medico";
 type Gravidade = "Minima" | "Mediana" | "Consideravel" | "Critica";
 type Probabilidade = "Improvavel" | "Pouco Provavel" | "Provavel" | "Altamente Provavel";
 type Turno = "1o" | "2o" | "3o" | "Geral";
@@ -66,7 +64,7 @@ interface InvestigacaoAcidenteForm {
   natureza_ocorrencia: NaturezaOcorrencia | "";
   mao_de_obra: MaoDeObra | "";
   tipo_acidente: TipoAcidente | "";
-  teve_afastamento: boolean | null;
+  teve_afastamento: AfastamentoStatus | "";
   dias_afastamento: string;
   gravidade: Gravidade | "";
   probabilidade: Probabilidade | "";
@@ -92,7 +90,6 @@ interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
   numero_ocorrencia: number;
   id: string;
   created_at: string;
-  teve_afastamento: boolean;
   attachments: AttachmentMeta[];
 }
 
@@ -416,6 +413,20 @@ const dedupeCausas = (values: string[]) => {
   return Array.from(unique.values()).sort((a, b) => a.localeCompare(b, "pt-BR"));
 };
 
+const normalizePersonLabel = (value: string) => value.trim().replace(/\s+/g, " ");
+
+const addUniquePerson = (current: string[], value: string) => {
+  const normalized = normalizePersonLabel(value);
+  if (!normalized) return current;
+
+  const normalizedKey = normalized.toLocaleLowerCase("pt-BR");
+  if (current.some((item) => item.trim().toLocaleLowerCase("pt-BR") === normalizedKey)) {
+    return current;
+  }
+
+  return [...current, normalized];
+};
+
 const REQUIRED_TEXT_FIELDS: Array<keyof InvestigacaoAcidenteForm> = [
   "titulo",
   "data_ocorrencia",
@@ -446,7 +457,7 @@ const INITIAL_FORM: InvestigacaoAcidenteForm = {
   natureza_ocorrencia: "",
   mao_de_obra: "",
   tipo_acidente: "",
-  teve_afastamento: null,
+  teve_afastamento: "",
   dias_afastamento: "",
   gravidade: "",
   probabilidade: "",
@@ -498,9 +509,17 @@ const formatTurnoResumo = (turno: string) => {
 };
 
 const formatNaturezaOcorrenciaLabel = (value: NaturezaOcorrencia | "") => {
-  if (value === "Aguardando retorno medico") return "Aguardando retorno m\u00e9dico";
   return value || "N\u00e3o informada";
 };
+
+const formatAfastamentoStatusLabel = (value: AfastamentoStatus | "") => {
+  if (value === "Aguardando retorno medico") return "Aguardando retorno m\u00e9dico";
+  if (value === "Sim") return "Sim";
+  if (value === "Nao") return "Não";
+  return "Não informado";
+};
+
+const isAfastamentoComDias = (value: AfastamentoStatus | "") => value === "Sim";
 
 const parseNumeroOcorrencia = (value: unknown) => {
   const numero = Number(value);
@@ -569,6 +588,8 @@ const InvestigacaoAcidente = () => {
   const [causaDialogOpen, setCausaDialogOpen] = useState(false);
   const [novoAgente, setNovoAgente] = useState("");
   const [novaCausa, setNovaCausa] = useState("");
+  const [novoMembroComissao, setNovoMembroComissao] = useState("");
+  const [membroComissaoSelecionado, setMembroComissaoSelecionado] = useState("");
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [successOccurrenceNumber, setSuccessOccurrenceNumber] = useState<number | null>(null);
 
@@ -880,6 +901,45 @@ const InvestigacaoAcidente = () => {
     }
   };
 
+  const handleAddMembroComissao = (value: string) => {
+    const normalized = normalizePersonLabel(value);
+    if (!normalized) {
+      toast({
+        title: "Membro invalido",
+        description: "Informe um nome valido para a comissao.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const updated = addUniquePerson(form.membros_comissao, normalized);
+    if (updated.length === form.membros_comissao.length) {
+      toast({
+        title: "Membro ja adicionado",
+        description: "Esse nome ja faz parte da comissao.",
+      });
+      return false;
+    }
+
+    updateField("membros_comissao", updated);
+    updateField("comissao_investigacao", true);
+    return true;
+  };
+
+  const handleRemoveMembroComissao = (indexToRemove: number) => {
+    const updated = form.membros_comissao.filter((_, index) => index !== indexToRemove);
+    updateField("membros_comissao", updated);
+    updateField("comissao_investigacao", updated.length > 0);
+  };
+
+  const handleAdicionarMembroComissao = () => {
+    const membro = membroComissaoSelecionado.trim() || novoMembroComissao.trim();
+    if (handleAddMembroComissao(membro)) {
+      setMembroComissaoSelecionado("");
+      setNovoMembroComissao("");
+    }
+  };
+
   const handleOpenSignDialog = async () => {
     if (!investigators.length) {
       await loadInvestigators();
@@ -897,11 +957,11 @@ const InvestigacaoAcidente = () => {
   const isClassificationComplete = Boolean(
     form.natureza_ocorrencia && form.mao_de_obra && form.tipo_acidente,
   );
-  const hasAfastamentoSelection = form.teve_afastamento !== null;
+  const hasAfastamentoSelection = form.teve_afastamento !== "";
   const isRiskComplete = Boolean(form.gravidade && form.probabilidade);
   const isAfastamentoComplete =
     hasAfastamentoSelection &&
-    (form.teve_afastamento !== true ||
+    (!isAfastamentoComDias(form.teve_afastamento) ||
       (Boolean(form.dias_afastamento.trim()) && Number(form.dias_afastamento) > 0));
   const isSigned = Boolean(form.investigador.trim());
   const hasAttachments = attachments.length > 0;
@@ -964,11 +1024,15 @@ const InvestigacaoAcidente = () => {
       return "Preencha todos os campos de classificacao e analise de risco.";
     }
 
-    if (form.teve_afastamento === null) {
+    if (!form.membros_comissao.length) {
+      return "Adicione ao menos um membro da comissao.";
+    }
+
+    if (form.teve_afastamento === "") {
       return "Informe se houve afastamento.";
     }
 
-    if (form.teve_afastamento === true) {
+    if (isAfastamentoComDias(form.teve_afastamento)) {
       const dias = Number(form.dias_afastamento);
       if (!form.dias_afastamento.trim() || Number.isNaN(dias) || dias <= 0) {
         return "Informe os dias de afastamento quando houver afastamento.";
@@ -1014,6 +1078,7 @@ const InvestigacaoAcidente = () => {
       }
 
       updateField("investigador", auth.username);
+      handleAddMembroComissao(auth.username);
       setSelectedInvestigator(auth.username);
       handleSignDialogChange(false);
 
@@ -1161,7 +1226,11 @@ const InvestigacaoAcidente = () => {
       );
       const matriculaAcidentado = operadorAcidentado?.matricula || "Nao informada";
       const classificacaoFinal = form.natureza_ocorrencia
-        ? `${formatNaturezaOcorrenciaLabel(form.natureza_ocorrencia)} ${form.teve_afastamento ? "com afastamento" : "sem afastamento"}!`
+        ? `${formatNaturezaOcorrenciaLabel(form.natureza_ocorrencia)} | Afastamento: ${formatAfastamentoStatusLabel(form.teve_afastamento)}${
+            isAfastamentoComDias(form.teve_afastamento) && form.dias_afastamento
+              ? ` (${form.dias_afastamento} dia(s))`
+              : ""
+          }`
         : "Nao informada";
 
       const resumoWhatsapp = [
@@ -1189,14 +1258,15 @@ const InvestigacaoAcidente = () => {
         ...form,
         setor: resolveFixedSectorName(form.setor),
         numero_ocorrencia: ocorrenciaNumero,
-        teve_afastamento: form.teve_afastamento === true,
-        dias_afastamento: form.teve_afastamento === true ? form.dias_afastamento : "",
+        teve_afastamento: form.teve_afastamento,
+        dias_afastamento: isAfastamentoComDias(form.teve_afastamento) ? form.dias_afastamento : "",
         id:
           typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
             ? crypto.randomUUID()
             : Date.now().toString(),
         created_at: new Date().toISOString(),
         attachments: serializedAttachments,
+        comissao_investigacao: form.membros_comissao.length > 0,
       };
 
       localStorage.setItem(
@@ -1219,6 +1289,8 @@ const InvestigacaoAcidente = () => {
       setAttachments([]);
       setSelectedInvestigator("");
       setAuthPassword("");
+      setNovoMembroComissao("");
+      setMembroComissaoSelecionado("");
     } catch (error) {
       console.error("Erro ao salvar investigacao:", error);
       toast({
@@ -1263,7 +1335,12 @@ const InvestigacaoAcidente = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Badge variant={form.membros_comissao.length > 0 ? "default" : "secondary"} className="justify-center">
+              {form.membros_comissao.length > 0
+                ? `${form.membros_comissao.length} membro(s) na comissao`
+                : "Comissao pendente"}
+            </Badge>
             <Badge variant={isSigned ? "default" : "secondary"} className="justify-center">
               {isSigned ? `Assinado: ${form.investigador}` : "Assinatura pendente"}
             </Badge>
@@ -1477,9 +1554,6 @@ const InvestigacaoAcidente = () => {
                 <SelectContent>
                   <SelectItem value="Incidente">Incidente</SelectItem>
                   <SelectItem value="Acidente">Acidente</SelectItem>
-                  <SelectItem value="Aguardando retorno medico">
-                    {"Aguardando retorno m\u00e9dico"}
-                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1522,18 +1596,12 @@ const InvestigacaoAcidente = () => {
             <div className="space-y-2">
               <Label>Afastamento *</Label>
               <Select
-                value={
-                  form.teve_afastamento === null
-                    ? undefined
-                    : form.teve_afastamento
-                      ? "sim"
-                      : "nao"
-                }
+                value={form.teve_afastamento || undefined}
                 onValueChange={(value) =>
                   setForm((prev) => ({
                     ...prev,
-                    teve_afastamento: value === "sim",
-                    dias_afastamento: value === "sim" ? prev.dias_afastamento : "",
+                    teve_afastamento: value as AfastamentoStatus,
+                    dias_afastamento: value === "Sim" ? prev.dias_afastamento : "",
                   }))
                 }
               >
@@ -1541,13 +1609,14 @@ const InvestigacaoAcidente = () => {
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sim">Sim</SelectItem>
-                  <SelectItem value="nao">Nao</SelectItem>
+                  <SelectItem value="Sim">Sim</SelectItem>
+                  <SelectItem value="Nao">Não</SelectItem>
+                  <SelectItem value="Aguardando retorno medico">Aguardando retorno médico</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {form.teve_afastamento === true && (
+            {isAfastamentoComDias(form.teve_afastamento) && (
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="dias_afastamento">Dias de afastamento *</Label>
                 <Input
@@ -1735,7 +1804,7 @@ const InvestigacaoAcidente = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4 text-red-700" />
-              Comissao de Investigacao
+              Comissão de Investigação
             </CardTitle>
             <CardDescription>
               Membros da comissão responsáveis pela investigação.
@@ -1743,70 +1812,67 @@ const InvestigacaoAcidente = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Membros da Comissao</Label>
-              <div className="space-y-2">
-                {form.membros_comissao.map((membro, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded">
-                    <span className="flex-1 text-sm">{membro}</span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        updateField("membros_comissao", 
-                          form.membros_comissao.filter((_, i) => i !== idx)
-                        );
-                      }}
-                    >
-                      ✕
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
+              <Label>Membros da comissão</Label>
+              <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_auto]">
+                <SearchableStringSelect
+                  value={membroComissaoSelecionado}
+                  onValueChange={(value) => {
+                    setMembroComissaoSelecionado(value);
+                    setNovoMembroComissao("");
+                  }}
+                  options={colaboradorOptions}
+                  placeholder="Buscar colaborador"
+                  searchPlaceholder="Buscar colaborador..."
+                  emptyText="Nenhum colaborador encontrado."
+                />
                 <Input
-                  id="novoMembro"
-                  placeholder="Digite o nome do membro"
-                  onKeyPress={(e) => {
+                  value={novoMembroComissao}
+                  onChange={(e) => {
+                    setNovoMembroComissao(e.target.value);
+                    setMembroComissaoSelecionado("");
+                  }}
+                  placeholder="Ou digite o nome manualmente"
+                  onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      const input = e.currentTarget;
-                      if (input.value.trim()) {
-                        updateField("membros_comissao", [
-                          ...form.membros_comissao,
-                          input.value.trim()
-                        ]);
-                        input.value = "";
-                      }
+                      e.preventDefault();
+                      handleAdicionarMembroComissao();
                     }
                   }}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const input = document.getElementById("novoMembro") as HTMLInputElement;
-                    if (input && input.value.trim()) {
-                      updateField("membros_comissao", [
-                        ...form.membros_comissao,
-                        input.value.trim()
-                      ]);
-                      input.value = "";
-                    }
-                  }}
-                >
+                <Button type="button" variant="outline" onClick={handleAdicionarMembroComissao}>
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Adicionar
                 </Button>
               </div>
+              <p className="text-xs text-gray-500">
+                Use a busca para selecionar colaboradores já cadastrados ou digite um nome novo.
+              </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="investigador">Investigador (opcional)</Label>
-              <Input id="investigador" value={form.investigador} readOnly disabled />
+              {form.membros_comissao.length > 0 ? (
+                <div className="space-y-2">
+                  {form.membros_comissao.map((membro, idx) => (
+                    <div key={`${membro}-${idx}`} className="flex items-center gap-2 rounded bg-gray-50 p-2">
+                      <span className="flex-1 text-sm">{membro}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveMembroComissao(idx)}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum membro adicionado ainda.</p>
+              )}
             </div>
             <div>
               <Button
                 type="button"
-                variant={isSigned ? "secondary" : "outline"}
+                variant={isSigned ? "default" : "secondary"}
                 onClick={handleOpenSignDialog}
                 className="w-full"
               >

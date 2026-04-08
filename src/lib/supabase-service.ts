@@ -65,6 +65,29 @@ const parseSectorNames = (value?: string | null) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const normalizeGoldenRuleDbAnswer = (value: unknown): GoldenRuleResponse["resposta"] => {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+
+  if (
+    normalized === "n/a" ||
+    normalized === "na" ||
+    normalized === "não se aplica" ||
+    normalized === "nao se aplica"
+  ) {
+    return "N/A";
+  }
+
+  if (normalized.startsWith("n")) {
+    return "Nao";
+  }
+
+  return "Sim";
+};
+
 export interface GoldenRuleRecordPayload {
   id?: string;
   numero_inspecao?: number;
@@ -1282,90 +1305,102 @@ export const goldenRuleService = {
 
     if (!savedRule) throw lastError;
 
-    const { error: deleteResponsesError } = await supabase
-      .from("golden_rule_responses")
-      .delete()
-      .eq("regra_id", savedRule.id);
-    if (deleteResponsesError) throw deleteResponsesError;
+    const rollbackPartialSave = async () => {
+      const { error } = await supabase.from("golden_rules").delete().eq("id", savedRule.id);
+      if (error && !relationMissingError(error, "golden_rules")) {
+        console.warn("[goldenRuleService] Falha ao desfazer salvamento parcial da regra de ouro:", error);
+      }
+    };
 
-    if (payload.responses.length > 0) {
-      const responseRows = payload.responses.map((item) => ({
-        regra_id: savedRule.id,
-        codigo: item.codigo,
-        numero: item.numero,
-        pergunta: item.pergunta,
-        resposta: item.resposta === "Nao" ? "Não" : item.resposta,
-        comentario: item.comentario || item.evidencias?.[0]?.comentario || null,
-        foto_name: item.foto?.name || item.evidencias?.[0]?.foto?.name || null,
-        foto_size: Number(item.foto?.size || item.evidencias?.[0]?.foto?.size || 0) || null,
-        foto_type: item.foto?.type || item.evidencias?.[0]?.foto?.type || null,
-        foto_data_url: item.foto?.data_url || item.evidencias?.[0]?.foto?.data_url || null,
-      }));
-
-      const { data: insertedResponses, error: insertResponsesError } = await supabase
+    try {
+      const { error: deleteResponsesError } = await supabase
         .from("golden_rule_responses")
-        .insert(responseRows)
-        .select("id, codigo");
-      if (insertResponsesError) throw insertResponsesError;
+        .delete()
+        .eq("regra_id", savedRule.id);
+      if (deleteResponsesError) throw deleteResponsesError;
 
-      try {
-        const responseIds = (insertedResponses || []).map((response: any) => response.id);
-        if (responseIds.length > 0) {
-          await (supabase as any)
-            .from("golden_rule_response_evidences")
-            .delete()
-            .in("response_id", responseIds);
-        }
+      if (payload.responses.length > 0) {
+        const responseRows = payload.responses.map((item) => ({
+          regra_id: savedRule.id,
+          codigo: item.codigo,
+          numero: item.numero,
+          pergunta: item.pergunta,
+          resposta: normalizeGoldenRuleDbAnswer(item.resposta),
+          comentario: item.comentario || item.evidencias?.[0]?.comentario || null,
+          foto_name: null,
+          foto_size: null,
+          foto_type: null,
+          foto_data_url: null,
+        }));
 
-        const evidenceRows = (insertedResponses || []).flatMap((response: any) => {
-          const source = payload.responses.find((item) => item.codigo === response.codigo);
-          return (source?.evidencias || [])
-            .filter((evidence) => evidence?.comentario?.trim() || evidence?.foto?.data_url)
-            .map((evidence, index) => ({
-              response_id: response.id,
-              order_index: index,
-              comentario: evidence.comentario?.trim() || null,
-              foto_name: evidence.foto?.name || null,
-              foto_size: Number(evidence.foto?.size || 0) || null,
-              foto_type: evidence.foto?.type || null,
-              foto_data_url: evidence.foto?.data_url || null,
-            }));
-        });
+        const { data: insertedResponses, error: insertResponsesError } = await supabase
+          .from("golden_rule_responses")
+          .insert(responseRows)
+          .select("id, codigo");
+        if (insertResponsesError) throw insertResponsesError;
 
-        if (evidenceRows.length > 0) {
-          const { error: evidenceInsertError } = await (supabase as any)
-            .from("golden_rule_response_evidences")
-            .insert(evidenceRows);
-          if (evidenceInsertError && !relationMissingError(evidenceInsertError, "golden_rule_response_evidences")) {
-            throw evidenceInsertError;
+        try {
+          const responseIds = (insertedResponses || []).map((response: any) => response.id);
+          if (responseIds.length > 0) {
+            await (supabase as any)
+              .from("golden_rule_response_evidences")
+              .delete()
+              .in("response_id", responseIds);
+          }
+
+          const evidenceRows = (insertedResponses || []).flatMap((response: any) => {
+            const source = payload.responses.find((item) => item.codigo === response.codigo);
+            return (source?.evidencias || [])
+              .filter((evidence) => evidence?.comentario?.trim() || evidence?.foto?.data_url)
+              .map((evidence, index) => ({
+                response_id: response.id,
+                order_index: index,
+                comentario: evidence.comentario?.trim() || null,
+                foto_name: evidence.foto?.name || null,
+                foto_size: Number(evidence.foto?.size || 0) || null,
+                foto_type: evidence.foto?.type || null,
+                foto_data_url: evidence.foto?.data_url || null,
+              }));
+          });
+
+          if (evidenceRows.length > 0) {
+            const { error: evidenceInsertError } = await (supabase as any)
+              .from("golden_rule_response_evidences")
+              .insert(evidenceRows);
+            if (evidenceInsertError && !relationMissingError(evidenceInsertError, "golden_rule_response_evidences")) {
+              throw evidenceInsertError;
+            }
+          }
+        } catch (error) {
+          if (!relationMissingError(error, "golden_rule_response_evidences")) {
+            throw error;
           }
         }
-      } catch (error) {
-        if (!relationMissingError(error, "golden_rule_response_evidences")) {
-          throw error;
-        }
       }
-    }
 
-    const { error: deleteAttachmentsError } = await supabase
-      .from("golden_rule_attachments")
-      .delete()
-      .eq("regra_id", savedRule.id);
-    if (deleteAttachmentsError) throw deleteAttachmentsError;
-
-    if (payload.attachments.length > 0) {
-      const attachmentRows = payload.attachments.map((item) => ({
-        regra_id: savedRule.id,
-        file_name: item.name || "arquivo",
-        file_size: Number(item.size || 0),
-        file_type: item.type || null,
-        file_data_url: item.data_url || null,
-      }));
-
-      const { error: insertAttachmentsError } = await supabase
+      const { error: deleteAttachmentsError } = await supabase
         .from("golden_rule_attachments")
-        .insert(attachmentRows);
-      if (insertAttachmentsError) throw insertAttachmentsError;
+        .delete()
+        .eq("regra_id", savedRule.id);
+      if (deleteAttachmentsError) throw deleteAttachmentsError;
+
+      if (payload.attachments.length > 0) {
+        const attachmentRows = payload.attachments.map((item) => ({
+          regra_id: savedRule.id,
+          file_name: item.name || "arquivo",
+          file_size: Number(item.size || 0),
+          file_type: item.type || null,
+          file_data_url: item.data_url || null,
+        }));
+
+        const { error: insertAttachmentsError } = await supabase
+          .from("golden_rule_attachments")
+          .insert(attachmentRows);
+        if (insertAttachmentsError) throw insertAttachmentsError;
+      }
+    } catch (error) {
+      await rollbackPartialSave();
+      throw error;
     }
 
     try {
@@ -1597,5 +1632,3 @@ export const migrationService = {
     }
   }
 };
-
-
