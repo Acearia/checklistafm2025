@@ -521,6 +521,18 @@ const formatAfastamentoStatusLabel = (value: AfastamentoStatus | "") => {
 
 const isAfastamentoComDias = (value: AfastamentoStatus | "") => value === "Sim";
 
+const formatDiasAfastamentoResumo = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const dias = Number(trimmed);
+  if (!Number.isFinite(dias) || dias <= 0) {
+    return `${trimmed} dias`;
+  }
+
+  return dias === 1 ? "1 dia" : `${dias} dias`;
+};
+
 const parseNumeroOcorrencia = (value: unknown) => {
   const numero = Number(value);
   if (!Number.isFinite(numero) || numero < 0) return null;
@@ -1226,10 +1238,16 @@ const InvestigacaoAcidente = () => {
       );
       const matriculaAcidentado = operadorAcidentado?.matricula || "Nao informada";
       const classificacaoFinal = form.natureza_ocorrencia
-        ? `${formatNaturezaOcorrenciaLabel(form.natureza_ocorrencia)} | Afastamento: ${formatAfastamentoStatusLabel(form.teve_afastamento)}${
-            isAfastamentoComDias(form.teve_afastamento) && form.dias_afastamento
-              ? ` (${form.dias_afastamento} dia(s))`
-              : ""
+        ? `${formatNaturezaOcorrenciaLabel(form.natureza_ocorrencia)}${
+            isAfastamentoComDias(form.teve_afastamento)
+              ? ` com afastamento${
+                  form.dias_afastamento.trim()
+                    ? ` (${formatDiasAfastamentoResumo(form.dias_afastamento)})`
+                    : ""
+                }`
+              : form.teve_afastamento === "Aguardando retorno medico"
+                ? ` | Afastamento: ${formatAfastamentoStatusLabel(form.teve_afastamento)}`
+                : ` | Afastamento: ${formatAfastamentoStatusLabel(form.teve_afastamento)}`
           }`
         : "Nao informada";
 
