@@ -64,7 +64,22 @@ const normalizeText = (value: string | null | undefined, fallback: string) => {
 
 const parseDate = (value: string | Date | null | undefined): Date | null => {
   if (!value) return null;
-  const parsed = value instanceof Date ? value : new Date(value);
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]);
+    const day = Number(dateOnlyMatch[3]);
+    return new Date(year, month - 1, day);
+  }
+
+  const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
@@ -234,4 +249,3 @@ export const calculateInspectionBoardStats = <TInspection>(
     inspectionsWithProblemsToday,
   };
 };
-

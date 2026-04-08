@@ -39,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { parseLocalDateValue } from "@/lib/dateHelpers";
 import { initializeDefaultData } from "@/lib/checklistStore";
 import { loadChecklistAlerts, markAlertSeenByAdmin } from "@/lib/checklistTemplate";
 import {
@@ -386,7 +387,12 @@ const AdminChecklistsOverview = () => {
     const allOK = Object.values(inspection.answers).every(answer => answer === true);
     
     // Last inspection of the day (today)
-    const isToday = new Date(inspection.submissionDate).toDateString() === new Date().toDateString();
+    const inspectionDate = parseLocalDateValue(inspection.submissionDate);
+    const inspectionDateKey = inspectionDate
+      ? format(inspectionDate, "yyyy-MM-dd")
+      : null;
+    const todayKey = format(new Date(), "yyyy-MM-dd");
+    const isToday = inspectionDateKey === todayKey;
     
     if (allOK && isToday) {
       return "bg-green-100"; // OK hoje
@@ -424,8 +430,8 @@ const AdminChecklistsOverview = () => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const date = parseLocalDateValue(dateString);
+    return date ? format(date, "dd/MM/yyyy HH:mm", { locale: ptBR }) : "N/A";
   };
 
   const handleOpenScheduleDialog = (schedule?: ScheduledInspection) => {

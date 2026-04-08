@@ -1,5 +1,6 @@
 
 import { ChecklistItem, Equipment, Operator } from "./data";
+import { getTodayLocalDateKey } from "./dateHelpers";
 
 export interface ChecklistFormState {
   operator: Operator | null;
@@ -46,7 +47,7 @@ export const initialChecklistState: ChecklistFormState = {
   photos: [],
   comments: '',
   signature: null,
-  inspectionDate: new Date().toISOString().split('T')[0],
+  inspectionDate: getTodayLocalDateKey() || new Date().toISOString().split('T')[0],
 };
 
 // Configuração padrão do banco de dados

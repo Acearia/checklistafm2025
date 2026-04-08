@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { getChecklistState, saveChecklistState, clearChecklistState } from "@/lib/checklistStore";
+import { getTodayLocalDateKey } from "@/lib/dateHelpers";
 import { isDatabaseConnected } from "@/lib/dataInitializer";
 import { appendChecklistAlert } from "@/lib/checklistTemplate";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
@@ -15,7 +16,7 @@ export const useChecklistSubmit = () => {
   const [currentState, setCurrentState] = useState(getChecklistState());
   const [isSaving, setIsSaving] = useState(false);
   const [inspectionDate] = useState<string>(
-    currentState.inspectionDate || new Date().toISOString().split('T')[0]
+    currentState.inspectionDate || getTodayLocalDateKey() || new Date().toISOString().split('T')[0]
   );
   const [dbConnectionStatus, setDbConnectionStatus] = useState<'unchecked' | 'connected' | 'error'>('unchecked');
 
@@ -259,4 +260,3 @@ export const useChecklistSubmit = () => {
     handleSubmit
   };
 };
-

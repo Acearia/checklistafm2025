@@ -18,8 +18,10 @@ import InspectionBoardPanel from "@/components/inspection/InspectionBoardPanel";
 import {
   buildInspectionBoard,
   calculateInspectionBoardStats,
+  getLocalDateKey,
   type InspectionBoardInspectionEntry,
 } from "@/lib/inspectionBoard";
+import { parseLocalDateValue } from "@/lib/dateHelpers";
 import { loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
 import {
@@ -91,6 +93,16 @@ const AdminDashboard = () => {
     format(new Date(), "yyyy-MM-dd"),
   );
 
+  const formatInspectionDate = (value: string | Date | null | undefined) => {
+    const parsed = parseLocalDateValue(value);
+    return parsed ? format(parsed, "dd/MM/yyyy", { locale: ptBR }) : "N/A";
+  };
+
+  const formatInspectionTime = (value: string | Date | null | undefined) => {
+    const parsed = parseLocalDateValue(value);
+    return parsed ? format(parsed, "HH:mm", { locale: ptBR }) : "N/A";
+  };
+
   useEffect(() => {
     if (!loading) {
       loadDashboardData();
@@ -129,7 +141,9 @@ const AdminDashboard = () => {
       
       // Inspeções recentes (últimas 5)
       const sortedInspections = [...inspections].sort((a, b) => {
-        return new Date(b.submission_date || b.created_at).getTime() - new Date(a.submission_date || a.created_at).getTime();
+        const dateA = parseLocalDateValue(a.submission_date || a.created_at)?.getTime() ?? 0;
+        const dateB = parseLocalDateValue(b.submission_date || b.created_at)?.getTime() ?? 0;
+        return dateB - dateA;
       });
       
       setRecentInspections(sortedInspections.slice(0, 5));
@@ -151,9 +165,11 @@ const AdminDashboard = () => {
         // Count inspections for this month
         const monthStart = new Date(year, monthIndex, 1);
         const monthEnd = new Date(year, monthIndex + 1, 0);        
+        const monthStartKey = format(monthStart, "yyyy-MM-dd");
+        const monthEndKey = format(monthEnd, "yyyy-MM-dd");
         const count = inspections.filter(inspection => {
-          const inspDate = new Date(inspection.submission_date || inspection.created_at);
-          return inspDate >= monthStart && inspDate <= monthEnd;
+          const inspDateKey = getLocalDateKey(inspection.submission_date || inspection.created_at);
+          return Boolean(inspDateKey && inspDateKey >= monthStartKey && inspDateKey <= monthEndKey);
         }).length;        
         lastFourMonthsData.push({
           name: monthName,
@@ -346,8 +362,8 @@ const AdminDashboard = () => {
   );
 
   const boardInspections = useMemo(() => {
-    const fromDate = boardDateFrom ? new Date(`${boardDateFrom}T00:00:00`) : null;
-    const toDate = boardDateTo ? new Date(`${boardDateTo}T23:59:59.999`) : null;
+    const fromDateKey = boardDateFrom || null;
+    const toDateKey = boardDateTo || null;
 
     return inspections.filter((inspection: any) => {
       const dateValue =
@@ -355,13 +371,11 @@ const AdminDashboard = () => {
         inspection?.created_at ||
         inspection?.inspection_date ||
         null;
-      if (!dateValue) return false;
+      const inspectionDateKey = getLocalDateKey(dateValue);
+      if (!inspectionDateKey) return false;
 
-      const inspectionDate = new Date(dateValue);
-      if (Number.isNaN(inspectionDate.getTime())) return false;
-
-      const matchesFrom = !fromDate || inspectionDate >= fromDate;
-      const matchesTo = !toDate || inspectionDate <= toDate;
+      const matchesFrom = !fromDateKey || inspectionDateKey >= fromDateKey;
+      const matchesTo = !toDateKey || inspectionDateKey <= toDateKey;
       return matchesFrom && matchesTo;
     });
   }, [inspections, boardDateFrom, boardDateTo]);
@@ -796,10 +810,10 @@ const AdminDashboard = () => {
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium">
-                          {format(new Date(inspection.submission_date || inspection.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatInspectionDate(inspection.submission_date || inspection.created_at)}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {format(new Date(inspection.submission_date || inspection.created_at), "HH:mm", { locale: ptBR })}
+                          {formatInspectionTime(inspection.submission_date || inspection.created_at)}
                         </div>
                       </div>
                     </div>
@@ -821,6 +835,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-
-

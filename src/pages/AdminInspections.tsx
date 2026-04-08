@@ -48,6 +48,7 @@ import jsPDF from "jspdf";
 import { inspectionService } from "@/lib/supabase-service";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
+import { parseLocalDateValue } from "@/lib/dateHelpers";
 const INSPECTIONS_AUTO_REFRESH_MS = 15000;
 
 const AdminInspections = () => {
@@ -90,6 +91,12 @@ const AdminInspections = () => {
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
   }, [equipment]);
+
+  const formatInspectionDate = (value: string | Date | null | undefined) => {
+    const parsed = parseLocalDateValue(value);
+    if (!parsed) return "N/A";
+    return format(parsed, "dd/MM/yyyy", { locale: ptBR });
+  };
 
   useEffect(() => {
     const updateOrders = () => {
@@ -283,9 +290,7 @@ const AdminInspections = () => {
           inspection.submission_date ||
           inspection.created_at ||
           inspection.inspection_date;
-        const formattedDate = dateValue
-          ? format(new Date(dateValue), "dd/MM/yyyy", { locale: ptBR })
-          : "N/A";
+        const formattedDate = formatInspectionDate(dateValue);
         const hasProblems = (inspection as any).problemCount > 0;
         const statusLabel = hasProblems
           ? `${(inspection as any).problemCount} alerta(s)`
@@ -869,9 +874,9 @@ const AdminInspections = () => {
                     
                     return (
                       <TableRow key={index}>
-                        <TableCell>
-                          {format(new Date(inspection.submission_date || inspection.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                        </TableCell>
+                      <TableCell>
+                        {formatInspectionDate(inspection.submission_date || inspection.created_at)}
+                      </TableCell>
                         <TableCell>{inspectionEquipment?.name || "N/A"}</TableCell>
                         <TableCell>{inspectionEquipment?.kp || "N/A"}</TableCell>
                         <TableCell>{inspectionOperator?.name || "N/A"}</TableCell>
@@ -1006,7 +1011,7 @@ const AdminInspections = () => {
                     
                     return (
                       <>
-                        Data: {format(new Date(selectedInspection.submission_date || selectedInspection.created_at), "dd/MM/yyyy", { locale: ptBR })} | 
+                        Data: {formatInspectionDate(selectedInspection.submission_date || selectedInspection.created_at)} |
                         Equipamento: {inspectionEquipment?.name || selectedInspection.equipment?.name || "N/A"} | 
                         Operador: {inspectionOperator?.name || selectedInspection.operator?.name || "N/A"} | 
                         Alertas: {problemCount}
@@ -1212,4 +1217,3 @@ const AdminInspections = () => {
 };
 
 export default AdminInspections;
-

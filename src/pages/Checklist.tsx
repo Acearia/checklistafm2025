@@ -1,6 +1,7 @@
 ﻿
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { getTodayLocalDateKey } from "@/lib/dateHelpers";
 import { Save, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ const Checklist = () => {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [signature, setSignature] = useState<string | null>(null);
   const [inspectionDate, setInspectionDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    getTodayLocalDateKey() || new Date().toISOString().split('T')[0]
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -1106,5 +1107,4 @@ const Checklist = () => {
 };
 
 export default Checklist;
-
 
