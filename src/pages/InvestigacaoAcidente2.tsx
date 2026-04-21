@@ -219,6 +219,43 @@ const QUESTION_ITEMS: QuestionItem[] = [
     numero: "21",
     texto: "Existe EPIs descartados dentro do setor?",
   },
+  {
+    id: "1n22",
+    numero: "22",
+    texto: "Setor está limpo e organizado?",
+  },
+  {
+    id: "1n23",
+    numero: "23",
+    texto: "Rotas de fugas estão desobstruídas?",
+  },
+  {
+    id: "1n24",
+    numero: "24",
+    texto:
+      "Blocos autônomos e luminárias de saída de emergência estão funcionando e ligadas na energia?",
+  },
+  {
+    id: "1n25",
+    numero: "25",
+    texto: "Extintores e hidrantes estão devidamente sinalizados?",
+  },
+  {
+    id: "1n26",
+    numero: "26",
+    texto: "Hidrantes foram testados e estão funcionando corretamente?",
+  },
+  {
+    id: "1n27",
+    numero: "27",
+    texto:
+      "As caixas de hidrantes estão com conectores storz, chaves e mangueiras em quantidades corretas?",
+  },
+  {
+    id: "1n28",
+    numero: "28",
+    texto: "Mangueiras de hidrante estão com manutenção em dia?",
+  },
 ];
 
 const normalizeText = (value: unknown) => {
@@ -1416,7 +1453,6 @@ const InvestigacaoAcidente2 = () => {
 };
 
 export default InvestigacaoAcidente2;
-
 
 
 
