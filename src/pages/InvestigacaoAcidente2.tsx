@@ -505,21 +505,11 @@ const InvestigacaoAcidente2 = () => {
   );
 
   const tecnicoInvestigadorOptions = useMemo<SearchableStringOption[]>(() => {
-    const allowedNames = new Map(
-      REGRAS_DE_OURO_TECNICOS.map((name) => [normalizePersonKey(name), name]),
-    );
-
-    const fromLeaders = dedupeSorted(leaders.map((item: any) => normalizeText(item?.name)))
-      .map((name) => allowedNames.get(normalizePersonKey(name)))
-      .filter((name): name is string => Boolean(name));
-
-    const resolved = Array.from(new Set(fromLeaders));
-    const items = resolved.length > 0 ? resolved : [...REGRAS_DE_OURO_TECNICOS];
-    return items.map((option) => ({
+    return [...REGRAS_DE_OURO_TECNICOS].map((option) => ({
       value: option,
       label: option,
     }));
-  }, [leaders]);
+  }, []);
 
   const acompanhanteOptions = useMemo<SearchableStringOption[]>(() => {
     const uniqueByName = new Map<string, SearchableStringOption>();
