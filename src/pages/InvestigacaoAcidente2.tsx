@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { CheckCircle, ClipboardList, Upload } from "lucide-react";
 import SignatureCanvas from "@/components/SignatureCanvas";
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 type SignatureKey = "ass_tst" | "ass_gestor" | "ass_acomp";
-type QuestionAnswer = "Sim" | "NÃ£o" | "N/A";
+type QuestionAnswer = "Sim" | "Não" | "N/A";
 
 interface QuestionItem {
   id: string;
@@ -101,7 +101,7 @@ const COUNTER_KEY = "checklistafm-regras-de-ouro-counter";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const REGRAS_DE_OURO_TECNICOS = [
   "CELSO PEREIRA",
-  "JOÃƒO PAULO",
+  "JOÃO PAULO",
 ] as const;
 
 const QUESTION_ITEMS: QuestionItem[] = [
@@ -109,109 +109,109 @@ const QUESTION_ITEMS: QuestionItem[] = [
     id: "1n1",
     numero: "01",
     texto:
-      "O(s) operador(es) tem treinamento para a(s) mÃ¡quina(s) ou equipamento(s) que estÃ¡(Ã£o) operando?",
+      "O(s) operador(es) tem treinamento para a(s) máquina(s) ou equipamento(s) que está(ão) operando?",
   },
   {
     id: "1n2",
     numero: "02",
-    texto: "O(s) operador(es) estÃ¡(Ã£o) usando corretamente todos os EPIs obrigatÃ³rios?",
+    texto: "O(s) operador(es) está(ão) usando corretamente todos os EPIs obrigatórios?",
   },
   {
     id: "1n3",
     numero: "03",
     texto:
-      "O(s) operador(es) estÃ¡(Ã£o) autorizado(s) para a(s) mÃ¡quina(s) ou equipamento(s) que estÃ¡(Ã£o) operando?",
+      "O(s) operador(es) está(ão) autorizado(s) para a(s) máquina(s) ou equipamento(s) que está(ão) operando?",
   },
   {
     id: "1n4",
     numero: "04",
-    texto: "O(s) dispositivos de seguranÃ§a das mÃ¡quinas estÃ¡(Ã£o) funcionando corretamente?",
+    texto: "Os dispositivos de segurança das máquinas estão funcionando corretamente?",
   },
   {
     id: "1n5",
     numero: "05",
     texto:
-      "Ã‰ possÃ­vel identificar algum comportamento que possa causar acidentes de trabalho? Exemplos: correr, brincar, desrespeitar procedimentos etc.",
+      "É possível identificar algum comportamento que possa causar acidentes de trabalho? Exemplos: correr, brincar, desrespeitar procedimentos etc.",
   },
   {
     id: "1n6",
     numero: "06",
-    texto: "Ã‰ possÃ­vel identificar alguma condiÃ§Ã£o insegura no local?",
+    texto: "É possível identificar alguma condição insegura no local?",
   },
   {
     id: "1n7",
     numero: "07",
     texto:
-      "O(s) check list(s) do(s) equipamento(s) do setor estÃ¡(Ã£o) sendo aplicado(s) corretamente?",
+      "O(s) check list(s) do(s) equipamento(s) do setor está(ão) sendo aplicado(s) corretamente?",
   },
   {
     id: "1n8",
     numero: "08",
     texto:
-      "Ã‰ possÃ­vel identificar alguÃ©m no setor utilizando adorno(s)? Exemplos: alianÃ§a, corrente, relÃ³gio etc.",
+      "É possível identificar alguém no setor utilizando adorno(s)? Exemplos: aliança, corrente, relógio etc.",
   },
   {
     id: "1n9",
     numero: "09",
-    texto: "Ã‰ possÃ­vel identificar alguÃ©m de cabelos longos e soltos no setor?",
+    texto: "É possível identificar alguém de cabelos longos e soltos no setor?",
   },
   {
     id: "1n10",
     numero: "10",
     texto:
-      "Ã‰ possÃ­vel identificar alguÃ©m com roupas de materiais sintÃ©ticos no setor? Exemplos: lÃ£, viscose etc.",
+      "É possível identificar alguém com roupas de materiais sintéticos no setor? Exemplos: lã, viscose etc.",
   },
   {
     id: "1n11",
     numero: "11",
-    texto: "Existe no setor alguma atividade sendo executada por pessoa nÃ£o habilitada?",
+    texto: "Existe no setor alguma atividade sendo executada por pessoa não habilitada?",
   },
   {
     id: "1n12",
     numero: "12",
     texto:
-      "Ã‰ possÃ­vel identificar alguma ferramenta improvisada, defeituosa ou desgastada, sendo usada ou armazenada no setor?",
+      "É possível identificar alguma ferramenta improvisada, defeituosa ou desgastada, sendo usada ou armazenada no setor?",
   },
   {
     id: "1n13",
     numero: "13",
-    texto: "Ã‰ possÃ­vel identificar alguÃ©m no setor utilizando ou em posse de celular?",
+    texto: "É possível identificar alguém no setor utilizando ou em posse de celular?",
   },
   {
     id: "1n14",
     numero: "14",
-    texto: "Os chuveiros e lava olhos estÃ£o funcionando corretamente e estÃ£o desobstruÃ­dos?",
+    texto: "Os chuveiros e lava olhos estão funcionando corretamente e estão desobstruídos?",
   },
   {
     id: "1n15",
     numero: "15",
     texto:
-      "Os extintores do local estÃ£o pressurizados, com a recarga em dia e estÃ£o desobstruÃ­dos?",
+      "Os extintores do local estão pressurizados, com a recarga em dia e estão desobstruídos?",
   },
   {
     id: "1n16",
     numero: "16",
-    texto: "Alarme de incÃªndio estÃ¡ funcionando?",
+    texto: "Alarme de incêndio está funcionando?",
   },
   {
     id: "1n17",
     numero: "17",
-    texto: "Detector de fumaÃ§a estÃ¡ funcionando?",
+    texto: "Detector de fumaça está funcionando?",
   },
   {
     id: "1n18",
     numero: "18",
-    texto: "Checklist da empilhadeira estÃ¡ sendo realizado?",
+    texto: "Checklist da empilhadeira está sendo realizado?",
   },
   {
     id: "1n19",
     numero: "19",
-    texto: "Checklist da transpaleteira estÃ¡ sendo realizado?",
+    texto: "Checklist da transpaleteira está sendo realizado?",
   },
   {
     id: "1n20",
     numero: "20",
-    texto: "Checklist da mini carregadeira estÃ¡ sendo realizado?",
+    texto: "Checklist da mini carregadeira está sendo realizado?",
   },
   {
     id: "1n21",
@@ -221,45 +221,45 @@ const QUESTION_ITEMS: QuestionItem[] = [
   {
     id: "1n22",
     numero: "22",
-    texto: "Setor estÃ¡ limpo e organizado?",
+    texto: "Setor está limpo e organizado?",
   },
   {
     id: "1n23",
     numero: "23",
-    texto: "Rotas de fugas estÃ£o desobstruÃ­das?",
+    texto: "Rotas de fugas estão desobstruídas?",
   },
   {
     id: "1n24",
     numero: "24",
     texto:
-      "Blocos autÃ´nomos e luminÃ¡rias de saÃ­da de emergÃªncia estÃ£o funcionando e ligadas na energia?",
+      "Blocos autônomos e luminárias de saída de emergência estão funcionando e ligadas na energia?",
   },
   {
     id: "1n25",
     numero: "25",
-    texto: "Extintores e hidrantes estÃ£o devidamente sinalizados?",
+    texto: "Extintores e hidrantes estão devidamente sinalizados?",
   },
   {
     id: "1n26",
     numero: "26",
-    texto: "Hidrantes foram testados e estÃ£o funcionando corretamente?",
+    texto: "Hidrantes foram testados e estão funcionando corretamente?",
   },
   {
     id: "1n27",
     numero: "27",
     texto:
-      "As caixas de hidrantes estÃ£o com conectores storz, chaves e mangueiras em quantidades corretas?",
+      "As caixas de hidrantes estão com conectores storz, chaves e mangueiras em quantidades corretas?",
   },
   {
     id: "1n28",
     numero: "28",
-    texto: "Mangueiras de hidrante estÃ£o com manutenÃ§Ã£o em dia?",
+    texto: "Mangueiras de hidrante estão com manutenção em dia?",
   },
 ];
 
 const normalizeText = (value: unknown) => {
   const text = value == null ? "" : String(value);
-  if (!/[ÃƒÃ‚\uFFFD]/.test(text)) return text;
+  if (!/[ÃÂ\uFFFD]/.test(text)) return text;
   try {
     const bytes = Uint8Array.from(Array.from(text, (char) => char.charCodeAt(0) & 0xff));
     return new TextDecoder("utf-8").decode(bytes).replace(/\uFFFD+/g, "");
@@ -297,29 +297,29 @@ const normalizeSectorName = (value: unknown) => {
 
   const normalizedKey = normalizeSectorKey(safeValue);
   const sectorMap: Record<string, string> = {
-    EXPEDIO: "EXPEDIÃ‡ÃƒO",
-    EXPEDICAO: "EXPEDIÃ‡ÃƒO",
-    REBARBAO: "REBARBAÃ‡ÃƒO",
-    REBARBACAO: "REBARBAÃ‡ÃƒO",
-    FUSO: "FUSÃƒO",
-    FUSAO: "FUSÃƒO",
-    MANUTENO: "MANUTENÃ‡ÃƒO",
-    MANUTENCAO: "MANUTENÃ‡ÃƒO",
-    PRODUO: "PRODUÃ‡ÃƒO",
-    PRODUCAO: "PRODUÃ‡ÃƒO",
-    MODELAO: "MODELAÃ‡ÃƒO",
-    MODELACAO: "MODELAÃ‡ÃƒO",
-    "LOGISTICA INTERNA": "LOGÃSTICA INTERNA",
+    EXPEDIO: "EXPEDIÇÃO",
+    EXPEDICAO: "EXPEDIÇÃO",
+    REBARBAO: "REBARBAÇÃO",
+    REBARBACAO: "REBARBAÇÃO",
+    FUSO: "FUSÃO",
+    FUSAO: "FUSÃO",
+    MANUTENO: "MANUTENÇÃO",
+    MANUTENCAO: "MANUTENÇÃO",
+    PRODUO: "PRODUÇÃO",
+    PRODUCAO: "PRODUÇÃO",
+    MODELAO: "MODELAÇÃO",
+    MODELACAO: "MODELAÇÃO",
+    "LOGISTICA INTERNA": "LOGÍSTICA INTERNA",
   };
 
   if (sectorMap[normalizedKey]) return sectorMap[normalizedKey];
-  if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÃ‡ÃƒO";
-  if (normalizedKey.startsWith("REBARBA")) return "REBARBAÃ‡ÃƒO";
-  if (normalizedKey.startsWith("FUS")) return "FUSÃƒO";
-  if (normalizedKey.startsWith("MANUTEN")) return "MANUTENÃ‡ÃƒO";
-  if (normalizedKey.startsWith("PRODU")) return "PRODUÃ‡ÃƒO";
-  if (normalizedKey.startsWith("MODEL")) return "MODELAÃ‡ÃƒO";
-  if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÃSTICA INTERNA";
+  if (normalizedKey.startsWith("EXPEDI")) return "EXPEDIÇÃO";
+  if (normalizedKey.startsWith("REBARBA")) return "REBARBAÇÃO";
+  if (normalizedKey.startsWith("FUS")) return "FUSÃO";
+  if (normalizedKey.startsWith("MANUTEN")) return "MANUTENÇÃO";
+  if (normalizedKey.startsWith("PRODU")) return "PRODUÇÃO";
+  if (normalizedKey.startsWith("MODEL")) return "MODELAÇÃO";
+  if (normalizedKey.startsWith("LOGISTICA INTERNA")) return "LOGÍSTICA INTERNA";
 
   return safeValue;
 };
@@ -361,7 +361,7 @@ const DEFAULT_NAO_QUESTION_IDS = new Set([
   "1n21",
 ]);
 const getDefaultAnswer = (questionId: string): QuestionAnswer =>
-  DEFAULT_NAO_QUESTION_IDS.has(questionId) ? "NÃ£o" : "Sim";
+  DEFAULT_NAO_QUESTION_IDS.has(questionId) ? "Não" : "Sim";
 
 const isResponseOutOfPattern = (questionId: string, answer: QuestionAnswer) =>
   answer !== "N/A" && answer !== getDefaultAnswer(questionId);
@@ -394,7 +394,7 @@ const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoCo
 
 const getAnswerTone = (answer: QuestionAnswer) => {
   if (answer === "Sim") return "text-green-600";
-  if (answer === "NÃ£o") return "text-red-600";
+  if (answer === "Não") return "text-red-600";
   return "text-gray-500";
 };
 
@@ -425,9 +425,9 @@ const createInitialSignatures = () => ({
 });
 
 const SIGNATURE_LABELS: Record<SignatureKey, string> = {
-  ass_tst: "TÃ©cnico Seg. Trabalho",
-  ass_gestor: "Gestor da Ãrea",
-  ass_acomp: "Acompanhante da InspeÃ§Ã£o",
+  ass_tst: "Técnico Seg. Trabalho",
+  ass_gestor: "Gestor da Área",
+  ass_acomp: "Acompanhante da Inspeção",
 };
 
 const isMissingGoldenRulesTableError = (error: unknown) => {
@@ -475,7 +475,7 @@ const InvestigacaoAcidente2 = () => {
           setPreviewNumber(nextPreview);
         }
       } catch (error) {
-        console.warn("[InvestigacaoAcidente2] Nao foi possivel consultar o proximo numero remoto.", error);
+        console.warn("[InvestigacaoAcidente2] Não foi possível consultar o próximo número remoto.", error);
       }
     })();
 
@@ -528,9 +528,9 @@ const InvestigacaoAcidente2 = () => {
         value: name,
         label: name,
         searchText: [name, matricula, cargo, setorOperador].filter(Boolean).join(" "),
-        description: [matricula ? `Matricula: ${matricula}` : "", cargo, setorOperador]
+        description: [matricula ? `Matrícula: ${matricula}` : "", cargo, setorOperador]
           .filter(Boolean)
-          .join(" â€¢ "),
+          .join(" • "),
       });
     });
 
@@ -546,9 +546,9 @@ const InvestigacaoAcidente2 = () => {
         value: name,
         label: name,
         searchText: [name, matricula, "lider", "usuario"].filter(Boolean).join(" "),
-        description: [matricula ? `Matricula: ${matricula}` : "", "Lider/Usuario"]
+        description: [matricula ? `Matrícula: ${matricula}` : "", "Líder/Usuário"]
           .filter(Boolean)
-          .join(" â€¢ "),
+          .join(" • "),
       });
     });
 
@@ -579,7 +579,7 @@ const InvestigacaoAcidente2 = () => {
 
     if (!normalizedName) {
       toast({
-        title: "Nome obrigatÃ³rio",
+        title: "Nome obrigatório",
         description: "Informe o nome antes de adicionar.",
         variant: "destructive",
       });
@@ -588,8 +588,8 @@ const InvestigacaoAcidente2 = () => {
 
     if (!normalizedMatricula) {
       toast({
-        title: "MatrÃ­cula obrigatÃ³ria",
-        description: "Informe a matrÃ­cula antes de adicionar.",
+        title: "Matrícula obrigatória",
+        description: "Informe a matrícula antes de adicionar.",
         variant: "destructive",
       });
       return;
@@ -666,7 +666,7 @@ const InvestigacaoAcidente2 = () => {
       console.error("[InvestigacaoAcidente2] Erro ao salvar pessoa manual:", error);
       toast({
         title: "Erro ao salvar cadastro",
-        description: "NÃ£o foi possÃ­vel gravar esse cadastro no banco.",
+        description: "Não foi possível gravar esse cadastro no banco.",
         variant: "destructive",
       });
     }
@@ -778,10 +778,10 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const validateForm = () => {
-    if (!titulo.trim()) return "Preencha o Titulo.";
+    if (!titulo.trim()) return "Preencha o Título.";
     if (!setor.trim()) return "Selecione o Setor.";
     if (!gestor.trim()) return "Selecione o Gestor.";
-    if (!tecnicoSeg.trim()) return "Selecione o Tecnico.";
+    if (!tecnicoSeg.trim()) return "Selecione o Técnico.";
     if (!acompanhante.trim()) return "Selecione o Acompanhante.";
     if (!signatures.ass_tst) return "Registre a assinatura do Tecnico de Seguranca.";
     if (!signatures.ass_gestor) return "Registre a assinatura do Gestor.";
@@ -801,11 +801,11 @@ const InvestigacaoAcidente2 = () => {
       });
 
       if (requiresEvidence && completedEvidenceCount === 0) {
-        return `Adicione pelo menos uma foto com comentario no item ${item.numero} quando a resposta estiver fora do padrao.`;
+        return `Adicione pelo menos uma foto com comentário no item ${item.numero} quando a resposta estiver fora do padrão.`;
       }
 
       if (invalidEvidenceIndex >= 0) {
-        return `Complete comentario e foto da evidencia ${invalidEvidenceIndex + 1} do item ${item.numero}.`;
+        return `Complete comentário e foto da evidência ${invalidEvidenceIndex + 1} do item ${item.numero}.`;
       }
     }
 
@@ -955,7 +955,7 @@ const InvestigacaoAcidente2 = () => {
           window.dispatchEvent(new Event(STORAGE_EVENT));
         } catch (storageError) {
           console.warn(
-            "[InvestigacaoAcidente2] Regra salva no banco, mas o cache local nao foi atualizado.",
+            "[InvestigacaoAcidente2] Regra salva no banco, mas o cache local não foi atualizado.",
             storageError,
           );
         }
@@ -1006,7 +1006,7 @@ const InvestigacaoAcidente2 = () => {
       console.error("Erro ao salvar regra de ouro:", error);
       toast({
         title: "Erro ao salvar",
-        description: "Nao foi possivel concluir o envio.",
+        description: "Não foi possível concluir o envio.",
         variant: "destructive",
       });
     } finally {
@@ -1041,7 +1041,7 @@ const InvestigacaoAcidente2 = () => {
             <div className="space-y-1">
               <CardTitle className="text-2xl text-blue-900">Regras de Ouro</CardTitle>
               <CardDescription>
-                Preenchimento no padrÃ£o de inspeÃ§Ã£o: respostas diretas SIM/NÃƒO/N/A, com comentÃ¡rios e assinaturas.
+                Preenchimento no padrão de inspeção: respostas diretas SIM/NÃO/N/A, com comentários e assinaturas.
               </CardDescription>
               <p className="text-sm text-gray-600">Progresso: {completionPercent}%</p>
             </div>
@@ -1065,7 +1065,7 @@ const InvestigacaoAcidente2 = () => {
             </div>
 
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="investigacao2-titulo">TÃ­tulo *</Label>
+              <Label htmlFor="investigacao2-titulo">Título *</Label>
               <Input
                 id="investigacao2-titulo"
                 value={titulo}
@@ -1113,17 +1113,17 @@ const InvestigacaoAcidente2 = () => {
               </div>
 
             <div className="space-y-2">
-              <Label>TÃ©cnico / Investigador *</Label>
+              <Label>Técnico / Investigador *</Label>
               <SearchableStringSelect
                 value={tecnicoSeg}
                 onValueChange={setTecnicoSeg}
                 options={tecnicoInvestigadorOptions}
-                placeholder="Selecionar o TÃ©cnico"
-                searchPlaceholder="Buscar tÃ©cnico..."
-                emptyText="Nenhum tÃ©cnico encontrado."
+                placeholder="Selecionar o Técnico"
+                searchPlaceholder="Buscar técnico..."
+                emptyText="Nenhum técnico encontrado."
               />
               <p className="text-xs text-gray-500">
-                TÃ©cnicos/Investigadores de SeguranÃ§a: CELSO PEREIRA e JOÃƒO PAULO.
+                Técnicos/Investigadores de Segurança: CELSO PEREIRA e JOÃO PAULO.
               </p>
             </div>
 
@@ -1159,7 +1159,7 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Checklist de Perguntas</CardTitle>
             <CardDescription>
-              Responda cada item com Sim, NÃ£o ou N/A. Quando a resposta ficar diferente do padrÃ£o da pergunta, comentÃ¡rio e foto sÃ£o obrigatÃ³rios. Em N/A nÃ£o Ã© necessÃ¡rio preencher nada.
+              Responda cada item com Sim, Não ou N/A. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios. Em N/A não é necessário preencher nada.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1183,7 +1183,7 @@ const InvestigacaoAcidente2 = () => {
                         size="sm"
                         onClick={() => addEvidence(item.id)}
                       >
-                        Adicionar foto/comentÃ¡rio
+                        Adicionar foto/comentário
                       </Button>
                     </div>
 
@@ -1192,7 +1192,7 @@ const InvestigacaoAcidente2 = () => {
                         {response.answer.toUpperCase()}
                       </span>
                       <div className="grid w-full grid-cols-3 gap-2">
-                        {(["Sim", "NÃ£o", "N/A"] as QuestionAnswer[]).map((answerOption) => (
+                        {(["Sim", "Não", "N/A"] as QuestionAnswer[]).map((answerOption) => (
                           <Button
                             key={answerOption}
                             type="button"
@@ -1212,7 +1212,7 @@ const InvestigacaoAcidente2 = () => {
                     <div id={`evidencias-${item.id}`} className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm text-gray-600">
-                          Adicione uma ou mais evidÃªncias com comentÃ¡rio e foto para este item.
+                          Adicione uma ou mais evidências com comentário e foto para este item.
                         </p>
                         <Button
                           type="button"
@@ -1220,12 +1220,12 @@ const InvestigacaoAcidente2 = () => {
                           size="sm"
                           onClick={() => addEvidence(item.id)}
                         >
-                          Adicionar outra foto/comentÃ¡rio
+                          Adicionar outra foto/comentário
                         </Button>
                       </div>
                       {response.evidences.length === 0 ? (
                         <p className="text-sm text-gray-500">
-                          Nenhuma evidÃªncia adicionada para este item.
+                          Nenhuma evidência adicionada para este item.
                         </p>
                       ) : (
                         response.evidences.map((evidence, index) => (
@@ -1292,7 +1292,7 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Assinaturas</CardTitle>
             <CardDescription>
-              Assine digitalmente os trÃªs responsÃ¡veis, igual ao padrÃ£o de inspeÃ§Ã£o.
+              Assine digitalmente os três responsáveis, igual ao padrão de inspeção.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -1391,7 +1391,7 @@ const InvestigacaoAcidente2 = () => {
               {manualPersonTarget === "gestor" ? "Adicionar gestor" : "Adicionar acompanhante"}
             </DialogTitle>
             <DialogDescription>
-              Use este campo quando a pessoa ainda nÃ£o estiver cadastrada na lista.
+              Use este campo quando a pessoa ainda não estiver cadastrada na lista.
             </DialogDescription>
           </DialogHeader>
 
@@ -1410,12 +1410,12 @@ const InvestigacaoAcidente2 = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="manual-person-matricula">MatrÃ­cula</Label>
+            <Label htmlFor="manual-person-matricula">Matrícula</Label>
             <Input
               id="manual-person-matricula"
               value={manualPersonMatricula}
               onChange={(event) => setManualPersonMatricula(event.target.value)}
-              placeholder="Digite a matrÃ­cula"
+              placeholder="Digite a matrícula"
             />
           </div>
 
