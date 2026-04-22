@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { CheckCircle, ClipboardList, Upload } from "lucide-react";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,18 @@ interface InvestigacaoChecklistRecord {
   anexos: AttachmentMeta[];
 }
 
+interface GoldenRuleHistoryRecord {
+  id: string;
+  created_at: string;
+  setor: string;
+}
+
+interface PeriodicQuestionLock {
+  locked: boolean;
+  lastInspectionAt: Date | null;
+  unlockAt: Date | null;
+}
+
 interface PlanoAcaoContext {
   fonte: "regra-ouro";
   registro_id: string;
@@ -99,6 +111,8 @@ const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const COUNTER_KEY = "checklistafm-regras-de-ouro-counter";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
+const PERIODIC_15_DAY_QUESTION_IDS = new Set(["1n15", "1n16", "1n17"]);
+const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
 const REGRAS_DE_OURO_TECNICOS = [
   "CELSO PEREIRA",
   "JOÃO PAULO",
@@ -348,6 +362,95 @@ const getCounterValue = () => {
   return Number.isNaN(parsed) ? 0 : Math.max(parsed, 0);
 };
 
+const getSectorComparisonKey = (value: unknown) => normalizeSectorKey(normalizeText(value).trim());
+
+const parseDateOrNull = (value: unknown) => {
+  const text = value == null ? "" : String(value).trim();
+  if (!text) return null;
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const readStoredGoldenRuleHistory = (): GoldenRuleHistoryRecord[] => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const rawStored = localStorage.getItem(STORAGE_KEY) || "[]";
+    const parsed = JSON.parse(rawStored);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item: any) => ({
+        id: String(item?.id || "").trim(),
+        created_at: String(item?.created_at || "").trim(),
+        setor: String(item?.setor || "").trim(),
+      }))
+      .filter((item) => item.id && item.created_at && item.setor);
+  } catch {
+    return [];
+  }
+};
+
+const mergeGoldenRuleHistory = (records: GoldenRuleHistoryRecord[]) => {
+  const byId = new Map<string, GoldenRuleHistoryRecord>();
+
+  records.forEach((record) => {
+    if (!record.id) return;
+    byId.set(record.id, record);
+  });
+
+  return Array.from(byId.values());
+};
+
+const getPeriodicQuestionLock = (
+  setor: unknown,
+  history: GoldenRuleHistoryRecord[],
+): PeriodicQuestionLock => {
+  const sectorKey = getSectorComparisonKey(setor);
+  if (!sectorKey) {
+    return {
+      locked: false,
+      lastInspectionAt: null,
+      unlockAt: null,
+    };
+  }
+
+  const latestInspection = history.reduce<
+    (GoldenRuleHistoryRecord & { createdAt: Date }) | null
+  >((latest, record) => {
+    const recordSectorKey = getSectorComparisonKey(record.setor);
+    if (recordSectorKey !== sectorKey) return latest;
+
+    const createdAt = parseDateOrNull(record.created_at);
+    if (!createdAt) return latest;
+
+    if (!latest || createdAt.getTime() > latest.createdAt.getTime()) {
+      return {
+        ...record,
+        createdAt,
+      };
+    }
+
+    return latest;
+  }, null);
+
+  if (!latestInspection) {
+    return {
+      locked: false,
+      lastInspectionAt: null,
+      unlockAt: null,
+    };
+  }
+
+  const unlockAt = addDays(latestInspection.createdAt, PERIODIC_15_DAY_INTERVAL_DAYS);
+  return {
+    locked: Date.now() < unlockAt.getTime(),
+    lastInspectionAt: latestInspection.createdAt,
+    unlockAt,
+  };
+};
+
 const formatInspectionNumber = (value: number) => String(value).padStart(3, "0");
 const DEFAULT_NAO_QUESTION_IDS = new Set([
   "1n5",
@@ -458,6 +561,7 @@ const InvestigacaoAcidente2 = () => {
   const [manualPersonMatricula, setManualPersonMatricula] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [previewNumber, setPreviewNumber] = useState(() => getCounterValue() + 1);
+  const [goldenRuleHistory, setGoldenRuleHistory] = useState<GoldenRuleHistoryRecord[]>([]);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submittedInspectionNumber, setSubmittedInspectionNumber] = useState<number | null>(null);
   const [successRedirectMessage, setSuccessRedirectMessage] = useState(
@@ -481,6 +585,49 @@ const InvestigacaoAcidente2 = () => {
 
     return () => {
       active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadGoldenRuleHistory = async () => {
+      const storedHistory = readStoredGoldenRuleHistory();
+
+      try {
+        const remoteHistory = await goldenRuleService.safeGetAllWithFallback();
+        if (!active) return;
+
+        const normalizedRemoteHistory = Array.isArray(remoteHistory)
+          ? remoteHistory
+              .map((item: any) => ({
+                id: String(item?.id || "").trim(),
+                created_at: String(item?.created_at || "").trim(),
+                setor: String(item?.setor || "").trim(),
+              }))
+              .filter((item) => item.id && item.created_at && item.setor)
+          : [];
+
+        setGoldenRuleHistory(mergeGoldenRuleHistory([...normalizedRemoteHistory, ...storedHistory]));
+      } catch (error) {
+        console.warn("[InvestigacaoAcidente2] Nao foi possivel carregar o historico das regras de ouro.", error);
+        if (active) {
+          setGoldenRuleHistory(storedHistory);
+        }
+      }
+    };
+
+    const syncGoldenRuleHistory = () => {
+      if (!active) return;
+      setGoldenRuleHistory((current) => mergeGoldenRuleHistory([...current, ...readStoredGoldenRuleHistory()]));
+    };
+
+    void loadGoldenRuleHistory();
+    window.addEventListener(STORAGE_EVENT, syncGoldenRuleHistory);
+
+    return () => {
+      active = false;
+      window.removeEventListener(STORAGE_EVENT, syncGoldenRuleHistory);
     };
   }, []);
 
@@ -510,6 +657,14 @@ const InvestigacaoAcidente2 = () => {
       label: option,
     }));
   }, []);
+
+  const periodicQuestionLock = useMemo(
+    () => getPeriodicQuestionLock(setor, goldenRuleHistory),
+    [goldenRuleHistory, setor],
+  );
+
+  const isPeriodicQuestionLocked = (questionId: string) =>
+    periodicQuestionLock.locked && PERIODIC_15_DAY_QUESTION_IDS.has(questionId);
 
   const acompanhanteOptions = useMemo<SearchableStringOption[]>(() => {
     const uniqueByName = new Map<string, SearchableStringOption>();
@@ -703,6 +858,8 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const addEvidence = (questionId: string) => {
+    if (isPeriodicQuestionLocked(questionId)) return;
+
     setResponses((previous) => ({
       ...previous,
       [questionId]: {
@@ -726,6 +883,8 @@ const InvestigacaoAcidente2 = () => {
     evidenceId: string,
     patch: Partial<QuestionState["evidences"][number]>,
   ) => {
+    if (isPeriodicQuestionLocked(questionId)) return;
+
     setResponses((previous) => ({
       ...previous,
       [questionId]: {
@@ -738,6 +897,8 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const removeEvidence = (questionId: string, evidenceId: string) => {
+    if (isPeriodicQuestionLocked(questionId)) return;
+
     setResponses((previous) => ({
       ...previous,
       [questionId]: {
@@ -748,6 +909,8 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const updateAnswer = (questionId: string, answer: QuestionAnswer) => {
+    if (isPeriodicQuestionLocked(questionId)) return;
+
     setResponses((previous) => {
       const current = previous[questionId];
       if (answer === "N/A") {
@@ -788,6 +951,10 @@ const InvestigacaoAcidente2 = () => {
     if (!signatures.ass_acomp) return "Registre a assinatura do Acompanhante.";
 
     for (const item of QUESTION_ITEMS) {
+      if (isPeriodicQuestionLocked(item.id)) {
+        continue;
+      }
+
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
       const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
@@ -839,8 +1006,11 @@ const InvestigacaoAcidente2 = () => {
       const serializedRespostas = await Promise.all(
         QUESTION_ITEMS.map(async (item) => {
           const current = responses[item.id];
+          const isLockedQuestion = isPeriodicQuestionLocked(item.id);
+          const effectiveAnswer = isLockedQuestion ? "N/A" : current.answer;
+          const effectiveEvidences = isLockedQuestion ? [] : current.evidences;
           const evidencias = await Promise.all(
-            current.evidences.map(async (evidence) => ({
+            effectiveEvidences.map(async (evidence) => ({
               id: evidence.id,
               comentario: evidence.comment.trim(),
               foto: evidence.photo
@@ -862,7 +1032,7 @@ const InvestigacaoAcidente2 = () => {
             codigo: item.id,
             numero: item.numero,
             pergunta: item.texto,
-            resposta: current.answer,
+            resposta: effectiveAnswer,
             comentario: firstEvidence?.comentario || "",
             foto: firstEvidence?.foto || null,
             evidencias: validEvidencias,
@@ -1163,10 +1333,17 @@ const InvestigacaoAcidente2 = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {periodicQuestionLock.locked && periodicQuestionLock.unlockAt && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                As perguntas 15, 16 e 17 para este setor ficam liberadas novamente em{" "}
+                {format(periodicQuestionLock.unlockAt, "dd/MM/yyyy")}.
+              </div>
+            )}
             {QUESTION_ITEMS.map((item) => {
               const response = responses[item.id];
+              const isLockedQuestion = isPeriodicQuestionLocked(item.id);
               const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
-              const showExtra = requiresEvidence || response.evidences.length > 0;
+              const showExtra = !isLockedQuestion && (requiresEvidence || response.evidences.length > 0);
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
@@ -1177,28 +1354,46 @@ const InvestigacaoAcidente2 = () => {
 
                     <div className="space-y-2">
                       <p className="text-base font-medium text-blue-950">{item.texto}</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addEvidence(item.id)}
-                      >
-                        Adicionar foto/comentário
-                      </Button>
+                      {isLockedQuestion && periodicQuestionLock.unlockAt ? (
+                        <p className="text-sm font-medium text-amber-700">
+                          Bloqueada até {format(periodicQuestionLock.unlockAt, "dd/MM/yyyy")}.
+                        </p>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addEvidence(item.id)}
+                        >
+                          Adicionar foto/comentário
+                        </Button>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <span className={cn("text-lg font-bold", getAnswerTone(response.answer))}>
-                        {response.answer.toUpperCase()}
+                      <span
+                        className={cn(
+                          "text-lg font-bold",
+                          isLockedQuestion ? "text-amber-600" : getAnswerTone(response.answer),
+                        )}
+                      >
+                        {isLockedQuestion ? "BLOQUEADA" : response.answer.toUpperCase()}
                       </span>
                       <div className="grid w-full grid-cols-3 gap-2">
                         {(["Sim", "Não", "N/A"] as QuestionAnswer[]).map((answerOption) => (
                           <Button
                             key={answerOption}
                             type="button"
-                            variant={response.answer === answerOption ? "default" : "outline"}
+                            variant={
+                              isLockedQuestion
+                                ? "outline"
+                                : response.answer === answerOption
+                                  ? "default"
+                                  : "outline"
+                            }
                             size="sm"
                             className="w-full"
+                            disabled={isLockedQuestion}
                             onClick={() => updateAnswer(item.id, answerOption)}
                           >
                             {answerOption}
