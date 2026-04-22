@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, Eye, FileText, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
 import jsPDF from "jspdf";
@@ -77,6 +77,14 @@ interface RegraOuroRecord {
   anexos: AttachmentMeta[];
 }
 
+interface SectorQuestionLock {
+  setorKey: string;
+  setor: string;
+  lastInspectionAt: Date | null;
+  unlockAt: Date | null;
+  locked: boolean;
+}
+
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
@@ -109,6 +117,8 @@ const DEFAULT_NO_RESPONSE_KEYS = new Set([
   "9",
 ]);
 
+const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
+
 
 
 const isMissingGoldenRulesTableError = (error: unknown) => {
@@ -129,6 +139,16 @@ const decodePotentialMojibake = (value: string) => {
 
 const toSafeString = (value: unknown) =>
   value == null ? "" : decodePotentialMojibake(String(value));
+
+const getSectorComparisonKey = (value: unknown) => normalizeSectorKey(normalizeSectorName(value).trim());
+
+const parseDateOrNull = (value: unknown) => {
+  const text = value == null ? "" : String(value).trim();
+  if (!text) return null;
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 const normalizeSectorKey = (value: string) =>
   value
@@ -204,6 +224,34 @@ const formatDateTime = (value?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "N/A";
   return format(parsed, "dd/MM/yyyy HH:mm", { locale: ptBR });
+};
+
+const buildSectorQuestionLocks = (records: RegraOuroRecord[]) => {
+  const locks = new Map<string, SectorQuestionLock>();
+
+  records.forEach((record) => {
+    const sectorKey = getSectorComparisonKey(record.setor);
+    if (!sectorKey) return;
+
+    const createdAt = parseDateOrNull(record.created_at);
+    if (!createdAt) return;
+
+    const current = locks.get(sectorKey);
+    if (current && current.lastInspectionAt && current.lastInspectionAt.getTime() >= createdAt.getTime()) {
+      return;
+    }
+
+    const unlockAt = addDays(createdAt, PERIODIC_15_DAY_INTERVAL_DAYS);
+    locks.set(sectorKey, {
+      setorKey: sectorKey,
+      setor: record.setor || "N/A",
+      lastInspectionAt: createdAt,
+      unlockAt,
+      locked: Date.now() < unlockAt.getTime(),
+    });
+  });
+
+  return locks;
 };
 
 const formatInspectionNumber = (value: number) => String(value).padStart(3, "0");
@@ -745,6 +793,11 @@ const AdminRegrasOuro = () => {
         return setor === item.setor ? item : { ...item, setor };
       }),
     [records, resolveCanonicalSectorName],
+  );
+
+  const sectorQuestionLocks = useMemo(
+    () => buildSectorQuestionLocks(recordsWithCanonicalSector),
+    [recordsWithCanonicalSector],
   );
 
   const uniqueSetores = useMemo(
@@ -1365,6 +1418,7 @@ const AdminRegrasOuro = () => {
                     <TableHead>Data/Hora</TableHead>
                     <TableHead>Título</TableHead>
                     <TableHead>Setor</TableHead>
+                    <TableHead>Trava 15 dias</TableHead>
                     <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
                     <TableHead>Não conformidade</TableHead>
@@ -1374,6 +1428,8 @@ const AdminRegrasOuro = () => {
                 <TableBody>
                   {filteredRecords.map((item) => {
                     const temNaoConformidade = item.respostas.some(responseHasNonConformityEvidence);
+                    const sectorLock = sectorQuestionLocks.get(getSectorComparisonKey(item.setor));
+                    const isQuestionLocked = Boolean(sectorLock?.locked);
 
                     return (
                       <TableRow key={item.id}>
@@ -1381,6 +1437,28 @@ const AdminRegrasOuro = () => {
                         <TableCell>{formatDateTime(item.created_at)}</TableCell>
                         <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
                         <TableCell>{item.setor || "N/A"}</TableCell>
+                        <TableCell>
+                          {sectorLock ? (
+                            <div className="space-y-1">
+                              <Badge variant={isQuestionLocked ? "destructive" : "secondary"}>
+                                {isQuestionLocked ? "Bloqueado" : "Liberado"}
+                              </Badge>
+                              <div className="text-xs text-gray-600">
+                                {isQuestionLocked ? (
+                                  <>
+                                    Retorna em {format(sectorLock.unlockAt as Date, "dd/MM/yyyy")}
+                                  </>
+                                ) : (
+                                  <>
+                                    Última em {format(sectorLock.lastInspectionAt as Date, "dd/MM/yyyy")}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <Badge variant="outline">Sem histórico</Badge>
+                          )}
+                        </TableCell>
                         <TableCell>{item.tecnico_seg || "N/A"}</TableCell>
                         <TableCell>{item.gestor || "N/A"}</TableCell>
                         <TableCell>
@@ -1453,6 +1531,20 @@ const AdminRegrasOuro = () => {
                   <p><strong>Técnico:</strong> {selected.tecnico_seg || "N/A"}</p>
                   <p><strong>Gestor:</strong> {selected.gestor || "N/A"}</p>
                   <p><strong>Acompanhante:</strong> {selected.acompanhante || "N/A"}</p>
+                  {sectorQuestionLocks.get(getSectorComparisonKey(selected.setor)) && (
+                    <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-amber-900">
+                      {(() => {
+                        const lock = sectorQuestionLocks.get(getSectorComparisonKey(selected.setor));
+                        if (!lock) return null;
+                        return lock.locked
+                          ? `Perguntas 15, 16 e 17 bloqueadas até ${format(lock.unlockAt as Date, "dd/MM/yyyy")}.`
+                          : `Perguntas 15, 16 e 17 liberadas. Próxima verificação em ${format(
+                              lock.unlockAt as Date,
+                              "dd/MM/yyyy",
+                            )}.`;
+                      })()}
+                    </p>
+                  )}
                 </div>
                 <div className="rounded border p-3 text-sm">
                   <p className="mb-3 text-sm font-semibold">Resumo do registro</p>
@@ -1743,7 +1835,3 @@ const AdminRegrasOuro = () => {
 };
 
 export default AdminRegrasOuro;
-
-
-
-
