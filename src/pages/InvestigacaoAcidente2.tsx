@@ -589,10 +589,7 @@ const openPlanoAcaoForQuestion = (
   storePlanoAcaoContext(context);
 
   const url = buildPlanoAcaoUrl(context);
-  const opened = typeof window !== "undefined" ? window.open(url, "_blank", "noopener,noreferrer") : null;
-  if (!opened) {
-    fallbackNavigate(url);
-  }
+  fallbackNavigate(url);
 };
 
 const getAnswerTone = (answer: QuestionAnswer) => {
