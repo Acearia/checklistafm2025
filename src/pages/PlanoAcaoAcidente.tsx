@@ -66,6 +66,11 @@ interface PlanoAcaoContext {
   tecnico: string;
   descricao_ocorrencia: string;
   origem: string;
+  descricao_resumida_acao?: string;
+  question_id?: string;
+  question_numero?: string;
+  question_texto?: string;
+  question_resposta?: string;
 }
 
 interface ComentarioPlano {
@@ -323,26 +328,49 @@ const formatDate = (value: string) => {
   return parsed.toLocaleDateString("pt-BR");
 };
 
+const normalizeDateInput = (value: string) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10);
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const parsePlanoAcaoContext = (): PlanoAcaoContext | null => {
   if (typeof window === "undefined") return null;
 
   try {
-    const raw = sessionStorage.getItem(PLANO_ACAO_CONTEXT_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || parsed.fonte !== "regra-ouro") return null;
+    const readContext = (storage: Storage, clearAfterRead = false) => {
+      const raw = storage.getItem(PLANO_ACAO_CONTEXT_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.fonte !== "regra-ouro") return null;
 
-    return {
-      fonte: "regra-ouro",
-      registro_id: String(parsed.registro_id || ""),
-      numero_referencia: Number(parsed.numero_referencia) || 0,
-      data_referencia: String(parsed.data_referencia || ""),
-      titulo: String(parsed.titulo || ""),
-      setor: String(parsed.setor || ""),
-      tecnico: String(parsed.tecnico || ""),
-      descricao_ocorrencia: String(parsed.descricao_ocorrencia || ""),
-      origem: String(parsed.origem || "Regra de Ouro"),
+      if (clearAfterRead) {
+        storage.removeItem(PLANO_ACAO_CONTEXT_KEY);
+      }
+
+      return {
+        fonte: "regra-ouro" as const,
+        registro_id: String(parsed.registro_id || ""),
+        numero_referencia: Number(parsed.numero_referencia) || 0,
+        data_referencia: normalizeDateInput(String(parsed.data_referencia || "")),
+        titulo: String(parsed.titulo || ""),
+        setor: String(parsed.setor || ""),
+        tecnico: String(parsed.tecnico || ""),
+        descricao_ocorrencia: String(parsed.descricao_ocorrencia || ""),
+        origem: String(parsed.origem || "Regra de Ouro"),
+        descricao_resumida_acao: String(parsed.descricao_resumida_acao || ""),
+        question_id: String(parsed.question_id || ""),
+        question_numero: String(parsed.question_numero || ""),
+        question_texto: String(parsed.question_texto || ""),
+        question_resposta: String(parsed.question_resposta || ""),
+      };
     };
+
+    return readContext(sessionStorage) || readContext(localStorage, true);
   } catch (error) {
     console.error("Erro ao carregar contexto do plano de acao:", error);
     return null;
@@ -498,7 +526,10 @@ const PlanoAcaoAcidente = () => {
     if (
       Number(form.numero_ocorrencia) === planoContext.numero_referencia &&
       form.origem === planoContext.origem &&
-      form.descricao_ocorrencia === planoContext.descricao_ocorrencia
+      form.descricao_ocorrencia === planoContext.descricao_ocorrencia &&
+      form.descricao_resumida_acao ===
+        (planoContext.descricao_resumida_acao ||
+          `Tratar irregularidade da pergunta ${planoContext.question_numero || ""}`.trim())
     ) {
       return;
     }
@@ -506,15 +537,19 @@ const PlanoAcaoAcidente = () => {
     setForm((previous) => ({
       ...previous,
       numero_ocorrencia: planoContext.numero_referencia,
-      data_ocorrencia: planoContext.data_referencia,
+      data_ocorrencia: normalizeDateInput(planoContext.data_referencia),
       descricao_ocorrencia: planoContext.descricao_ocorrencia,
       origem: planoContext.origem || "Regra de Ouro",
+      descricao_resumida_acao:
+        planoContext.descricao_resumida_acao ||
+        `Tratar irregularidade da pergunta ${planoContext.question_numero || planoContext.numero_referencia}`,
       prioridade_ocorrencia: previous.prioridade_ocorrencia || "Baixa",
     }));
   }, [
     editingId,
     fonteParam,
     form.descricao_ocorrencia,
+    form.descricao_resumida_acao,
     form.numero_ocorrencia,
     form.origem,
     planoContext,
@@ -625,6 +660,9 @@ const PlanoAcaoAcidente = () => {
     if (fonteParam === "regra-ouro") {
       if (registroParam) nextParams.set("registro", registroParam);
       if (ocorrenciaParam) nextParams.set("ocorrencia", String(ocorrenciaParam));
+      if (planoContext?.question_id || planoContext?.question_numero) {
+        nextParams.set("pergunta", planoContext.question_id || planoContext.question_numero || "");
+      }
       nextParams.set("fonte", "regra-ouro");
     } else if (ocorrenciaParam) {
       nextParams.set("ocorrencia", String(ocorrenciaParam));
@@ -644,7 +682,7 @@ const PlanoAcaoAcidente = () => {
           : ocorrenciaParam || 0,
       data_ocorrencia:
         fonteParam === "regra-ouro"
-          ? planoContext?.data_referencia || ""
+          ? normalizeDateInput(planoContext?.data_referencia || "")
           : "",
       descricao_ocorrencia:
         fonteParam === "regra-ouro"
@@ -654,6 +692,10 @@ const PlanoAcaoAcidente = () => {
         fonteParam === "regra-ouro"
           ? planoContext?.origem || "Regra de Ouro"
           : INITIAL_FORM.origem,
+      descricao_resumida_acao:
+        fonteParam === "regra-ouro"
+          ? planoContext?.descricao_resumida_acao || "Tratar irregularidade da Regra de Ouro"
+          : "",
     });
     setComentarios([]);
     setNovoComentario("");
@@ -823,6 +865,8 @@ const PlanoAcaoAcidente = () => {
       console.log("[PlanoAcao] Evento disparado. Carregando dados...");
       await loadData();
       clearForm();
+      sessionStorage.removeItem(PLANO_ACAO_CONTEXT_KEY);
+      localStorage.removeItem(PLANO_ACAO_CONTEXT_KEY);
 
       toast({
         title: "Plano de acao salvo com sucesso",
@@ -910,6 +954,15 @@ const PlanoAcaoAcidente = () => {
               <p>
                 Setor: {planoContext.setor || "N/A"} | Tecnico: {planoContext.tecnico || "N/A"}
               </p>
+              {(planoContext.question_numero || planoContext.question_texto) && (
+                <div className="mt-2 space-y-1">
+                  <p className="font-medium">
+                    Pergunta {planoContext.question_numero || "N/A"}{" "}
+                    {planoContext.question_resposta ? `- Resposta ${planoContext.question_resposta}` : ""}
+                  </p>
+                  {planoContext.question_texto && <p>{planoContext.question_texto}</p>}
+                </div>
+              )}
             </div>
           )}
 

@@ -96,6 +96,11 @@ interface PlanoAcaoContext {
   tecnico: string;
   descricao_ocorrencia: string;
   origem: string;
+  descricao_resumida_acao?: string;
+  question_id?: string;
+  question_numero?: string;
+  question_texto?: string;
+  question_resposta?: QuestionAnswer;
 }
 
 interface QuestionState {
@@ -452,6 +457,14 @@ const getPeriodicQuestionLock = (
 };
 
 const formatInspectionNumber = (value: number) => String(value).padStart(3, "0");
+const formatDateForInput = (value: string) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.slice(0, 10);
+  }
+  return format(parsed, "yyyy-MM-dd");
+};
 const DEFAULT_NAO_QUESTION_IDS = new Set([
   "1n5",
   "1n6",
@@ -487,13 +500,100 @@ const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoCo
   fonte: "regra-ouro",
   registro_id: record.id,
   numero_referencia: Number(record.numero_inspecao) || 0,
-  data_referencia: record.created_at || "",
+  data_referencia: formatDateForInput(record.created_at || ""),
   titulo: record.titulo || `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)}`,
   setor: record.setor || "",
   tecnico: record.tecnico_seg || "",
   descricao_ocorrencia: buildNonConformitySummary(record.respostas),
   origem: "Regra de Ouro",
+  descricao_resumida_acao: "Tratar irregularidades identificadas na Regra de Ouro",
 });
+
+const storePlanoAcaoContext = (context: PlanoAcaoContext) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    const payload = JSON.stringify(context);
+    sessionStorage.setItem(PLANO_ACAO_CONTEXT_KEY, payload);
+    localStorage.setItem(PLANO_ACAO_CONTEXT_KEY, payload);
+  } catch (error) {
+    console.warn("[InvestigacaoAcidente2] Nao foi possivel persistir o contexto do plano de acao.", error);
+  }
+};
+
+const buildPlanoAcaoUrl = (context: PlanoAcaoContext) => {
+  const params = new URLSearchParams({
+    origem: "admin",
+    fonte: "regra-ouro",
+    registro: context.registro_id,
+    ocorrencia: String(context.numero_referencia || 0),
+  });
+
+  if (context.question_id) {
+    params.set("pergunta", context.question_id);
+  }
+
+  return `/plano-acao-acidente?${params.toString()}`;
+};
+
+const buildQuestionPlanoAcaoContext = (
+  item: QuestionItem,
+  response: QuestionState,
+  currentState: {
+    previewNumber: number;
+    titulo: string;
+    setor: string;
+    tecnicoSeg: string;
+  },
+): PlanoAcaoContext => {
+  const { previewNumber: currentPreviewNumber, titulo: currentTitulo, setor: currentSetor, tecnicoSeg: currentTecnico } =
+    currentState;
+
+  return {
+    fonte: "regra-ouro",
+    registro_id: `rascunho-regra-ouro-${currentPreviewNumber}-${item.id}`,
+    numero_referencia: currentPreviewNumber,
+    data_referencia: formatDateForInput(new Date().toISOString()),
+    titulo: currentTitulo || `Regra de Ouro ${formatInspectionNumber(currentPreviewNumber)}`,
+    setor: currentSetor || "",
+    tecnico: currentTecnico || "",
+    descricao_ocorrencia: [
+      `Pergunta ${item.numero}: ${item.texto}`,
+      `Resposta registrada: ${response.answer}`,
+      response.evidences.length > 0 ? `Evidencias anexadas: ${response.evidences.length}` : "",
+      "Irregularidade identificada. Abrir plano de acao para definir responsavel, prazo e tratativa.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    origem: "Regra de Ouro",
+    descricao_resumida_acao: `Tratar irregularidade da pergunta ${item.numero}`,
+    question_id: item.id,
+    question_numero: item.numero,
+    question_texto: item.texto,
+    question_resposta: response.answer,
+  };
+};
+
+const openPlanoAcaoForQuestion = (
+  item: QuestionItem,
+  response: QuestionState,
+  currentState: {
+    previewNumber: number;
+    titulo: string;
+    setor: string;
+    tecnicoSeg: string;
+  },
+  fallbackNavigate: (path: string) => void,
+) => {
+  const context = buildQuestionPlanoAcaoContext(item, response, currentState);
+  storePlanoAcaoContext(context);
+
+  const url = buildPlanoAcaoUrl(context);
+  const opened = typeof window !== "undefined" ? window.open(url, "_blank", "noopener,noreferrer") : null;
+  if (!opened) {
+    fallbackNavigate(url);
+  }
+};
 
 const getAnswerTone = (answer: QuestionAnswer) => {
   if (answer === "Sim") return "text-green-600";
@@ -566,6 +666,15 @@ const InvestigacaoAcidente2 = () => {
   const [submittedInspectionNumber, setSubmittedInspectionNumber] = useState<number | null>(null);
   const [successRedirectMessage, setSuccessRedirectMessage] = useState(
     "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.",
+  );
+  const planoAcaoCurrentState = useMemo(
+    () => ({
+      previewNumber,
+      titulo,
+      setor,
+      tecnicoSeg,
+    }),
+    [previewNumber, setor, tecnicoSeg, titulo],
   );
 
   useEffect(() => {
@@ -1359,14 +1468,34 @@ const InvestigacaoAcidente2 = () => {
                           Bloqueada até {format(periodicQuestionLock.unlockAt, "dd/MM/yyyy")}.
                         </p>
                       ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addEvidence(item.id)}
-                        >
-                          Adicionar foto/comentário
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addEvidence(item.id)}
+                          >
+                            Adicionar foto/comentário
+                          </Button>
+                          {requiresEvidence && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                openPlanoAcaoForQuestion(
+                                  item,
+                                  response,
+                                  planoAcaoCurrentState,
+                                  navigate,
+                                )
+                              }
+                            >
+                              <ClipboardList className="mr-2 h-4 w-4" />
+                              Plano de ação
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
 
