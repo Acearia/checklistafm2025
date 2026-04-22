@@ -27,9 +27,25 @@ import type { MaintenanceOrder } from "@/lib/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
-import { applyAlertRuleToItem } from "@/lib/alertRules";
+import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import type { GroupQuestion } from "@/lib/types-compat";
 import { isEquipmentTypeMatch } from "@/lib/equipmentType";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+type ChecklistAlertPreviewItem = {
+  id: string;
+  question: string;
+  answer: string;
+};
 
 const Checklist = () => {
   const { toast } = useToast();
@@ -82,6 +98,8 @@ const Checklist = () => {
   const [maintenanceOrderNumber, setMaintenanceOrderNumber] = useState("");
   const [maintenanceStatus, setMaintenanceStatus] = useState<MaintenanceOrder["status"]>("open");
   const [maintenanceNotes, setMaintenanceNotes] = useState("");
+  const [submitAlertDialogOpen, setSubmitAlertDialogOpen] = useState(false);
+  const [submitAlertItems, setSubmitAlertItems] = useState<ChecklistAlertPreviewItem[]>([]);
   
   // State for photos and comments
   const [photos, setPhotos] = useState<{ id: string, data: string }[]>([]);
@@ -134,6 +152,29 @@ const Checklist = () => {
       .filter(order => order.equipmentId === selectedEquipment.id)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }, [selectedEquipment, maintenanceOrders]);
+
+  const getChecklistAlertPreviewItems = () => {
+    return checklist
+      .filter((item) => {
+        const itemWithRules = applyAlertRuleToItem({
+          id: item.id,
+          question: item.question,
+          answer: item.answer,
+          alertOnYes: item.alertOnYes ?? false,
+          alertOnNo: item.alertOnNo ?? false,
+        });
+
+        return shouldTriggerAlert(item.question, item.answer, {
+          onYes: itemWithRules.alertOnYes,
+          onNo: itemWithRules.alertOnNo,
+        });
+      })
+      .map((item) => ({
+        id: item.id,
+        question: item.question,
+        answer: item.answer || "",
+      }));
+  };
 
   // Debug: Log operators when they change
   useEffect(() => {
@@ -624,9 +665,98 @@ const Checklist = () => {
     });
   };
 
+  const executeSubmit = async () => {
+    setIsSaving(true);
+
+    try {
+      const { inspectionService } = await import('@/lib/supabase-service');
+
+      const operatorMatricula = getOperatorIdentifier(selectedOperator);
+
+      const inspectionData = {
+        operator_matricula: operatorMatricula,
+        equipment_id: selectedEquipment!.id,
+        inspection_date: inspectionDate,
+        submission_date: new Date().toISOString(),
+        comments: comments || null,
+        signature: signature || null,
+        photos: photos.length > 0 ? photos : [],
+        checklist_answers: checklist.map(item => ({
+          id: item.id,
+          question: item.question,
+          answer: item.answer,
+          alertOnYes: item.alertOnYes ?? false,
+          alertOnNo: item.alertOnNo ?? false,
+        }))
+      };
+
+      await inspectionService.create(inspectionData);
+      refresh();
+
+      if (selectedEquipment?.sector) {
+        try {
+          const savedLeaders = localStorage.getItem('checklistafm-leaders');
+          if (savedLeaders) {
+            const leaders = JSON.parse(savedLeaders);
+            const sectorLeaders = leaders.filter(leader => leader.sector === selectedEquipment.sector);
+
+            if (sectorLeaders.length > 0) {
+              toast({
+                title: "Notificação enviada",
+                description: `${sectorLeaders.length} líder(es) do setor ${selectedEquipment.sector} foram notificados`,
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error processing leader notifications:", error);
+        }
+      }
+
+      toast({
+        title: "Checklist enviado com sucesso!",
+        description: `Inspeção do equipamento ${selectedEquipment!.name} registrada`,
+        variant: "default",
+      });
+
+      const equipmentName = selectedEquipment!.name;
+
+      setChecklist(checklist.map(item => ({ ...item, answer: null })));
+      setSignature(null);
+      setSelectedEquipment(null);
+      setPhotos([]);
+      setComments('');
+      setHighlightUnanswered(false);
+      setHasInteractedWithChecklist(false);
+      saveChecklistState({
+        equipment: null,
+        checklist: [],
+        photos: [],
+        comments: '',
+        signature: null,
+      });
+      setSuccessEquipmentName(equipmentName);
+      setSubmissionSuccess(true);
+
+      setTimeout(() => {
+        setSubmissionSuccess(false);
+        setSuccessEquipmentName(null);
+        navigate('/');
+      }, 2000);
+    } catch (error) {
+      console.error('Error saving inspection:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedOperator) {
       toast({
         title: "Erro",
@@ -666,96 +796,23 @@ const Checklist = () => {
       return;
     }
 
-    setIsSaving(true);
-
-    try {
-      // Save inspection to Supabase
-      const { inspectionService } = await import('@/lib/supabase-service');
-      
-      const operatorMatricula = getOperatorIdentifier(selectedOperator);
-      
-      const inspectionData = {
-        operator_matricula: operatorMatricula,
-        equipment_id: selectedEquipment.id,
-        inspection_date: inspectionDate,
-        submission_date: new Date().toISOString(),
-        comments: comments || null,
-        signature: signature || null,
-        photos: photos.length > 0 ? photos : [],
-        checklist_answers: checklist.map(item => ({
-          id: item.id,
-          question: item.question,
-          answer: item.answer,
-          alertOnYes: item.alertOnYes ?? false,
-          alertOnNo: item.alertOnNo ?? false,
-        }))
-      };
-
-      await inspectionService.create(inspectionData);
-      refresh();
-
-      // Check if leader already exists for this sector if updating
-      if (selectedEquipment.sector) {
-        try {
-          const savedLeaders = localStorage.getItem('checklistafm-leaders');
-          if (savedLeaders) {
-            const leaders = JSON.parse(savedLeaders);
-            const sectorLeaders = leaders.filter(leader => leader.sector === selectedEquipment.sector);
-            
-            if (sectorLeaders.length > 0) {
-              // If we have leaders for this sector, simulate sending email notification
-              toast({
-                title: "Notificação enviada",
-                description: `${sectorLeaders.length} líder(es) do setor ${selectedEquipment.sector} foram notificados`,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error processing leader notifications:", error);
-        }
-      }
-
-      toast({
-        title: "Checklist enviado com sucesso!",
-        description: `Inspeção do equipamento ${selectedEquipment.name} registrada`,
-        variant: "default",
-      });
-
-      const equipmentName = selectedEquipment.name;
-
-      setChecklist(checklist.map(item => ({ ...item, answer: null })));
-      setSignature(null);
-      setSelectedEquipment(null);
-      setPhotos([]);
-      setComments('');
-      setHighlightUnanswered(false);
-      setHasInteractedWithChecklist(false);
-      saveChecklistState({
-        equipment: null,
-        checklist: [],
-        photos: [],
-        comments: '',
-        signature: null,
-      });
-      setSuccessEquipmentName(equipmentName);
-      setSubmissionSuccess(true);
-
-      // Navigate to leader dashboard if the operator has a sector set
-      setTimeout(() => {
-        setSubmissionSuccess(false);
-        setSuccessEquipmentName(null);
-        navigate('/');
-      }, 2000);
-    } catch (error) {
-      console.error('Error saving inspection:', error);
-      toast({
-        title: "Erro ao salvar",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao salvar a inspeção. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
+    const alertPreviewItems = getChecklistAlertPreviewItems();
+    if (alertPreviewItems.length > 0) {
+      setSubmitAlertItems(alertPreviewItems);
+      setSubmitAlertDialogOpen(true);
+      return;
     }
+
+    await executeSubmit();
+  };
+
+  const handleConfirmSubmit = async () => {
+    setSubmitAlertDialogOpen(false);
+    await executeSubmit();
+  };
+
+  const handleCancelSubmitConfirmation = () => {
+    setSubmitAlertDialogOpen(false);
   };
 
   return (
@@ -944,6 +1001,45 @@ const Checklist = () => {
         </form>
       </div>
 
+      <AlertDialog open={submitAlertDialogOpen} onOpenChange={setSubmitAlertDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar envio com alerta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Existem respostas com alerta nesta inspeção. Confirme se deseja finalizar
+              mesmo assim com essas falhas registradas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="max-h-64 overflow-y-auto rounded-md border bg-slate-50 p-3">
+            <p className="mb-3 text-sm font-medium text-slate-700">
+              Itens com alerta:
+            </p>
+            <div className="space-y-2">
+              {submitAlertItems.map((item, index) => (
+                <div key={item.id} className="rounded-md border bg-white p-3 text-sm">
+                  <p className="font-medium text-slate-900">
+                    {index + 1}. {item.question}
+                  </p>
+                  <p className="mt-1 text-slate-600">
+                    Resposta: <span className="font-semibold">{item.answer || "Sem resposta"}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelSubmitConfirmation}>
+              Voltar e revisar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSubmit}>
+              Finalizar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={maintenanceDialogOpen} onOpenChange={setMaintenanceDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -1107,4 +1203,3 @@ const Checklist = () => {
 };
 
 export default Checklist;
-
