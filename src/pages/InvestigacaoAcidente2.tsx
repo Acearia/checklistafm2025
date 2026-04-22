@@ -24,7 +24,13 @@ import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
 import { FIXED_FORM_SECTORS, resolveFixedSectorName } from "@/lib/fixed-sectors";
 import { buildStoredPassword } from "@/lib/password-utils";
-import { goldenRuleService, leaderService, operatorService } from "@/lib/supabase-service";
+import {
+  accidentActionPlanService,
+  goldenRuleService,
+  leaderService,
+  operatorService,
+  type AccidentActionPlanRecordPayload,
+} from "@/lib/supabase-service";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -103,6 +109,14 @@ interface PlanoAcaoContext {
   question_resposta?: QuestionAnswer;
 }
 
+interface ActionPlanDraft {
+  descricao_resumida_acao: string;
+  responsavel_execucao: string;
+  inicio_planejado: string;
+  termino_planejado: string;
+  descricao_acao: string;
+}
+
 interface QuestionState {
   answer: QuestionAnswer;
   evidences: Array<{
@@ -116,6 +130,9 @@ const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
 const COUNTER_KEY = "checklistafm-regras-de-ouro-counter";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
+const ACTION_PLAN_STORAGE_KEY = "checklistafm-planos-acao-acidente";
+const ACTION_PLAN_COUNTER_KEY = "checklistafm-plano-acao-counter";
+const ACTION_PLAN_STORAGE_EVENT = "checklistafm-plano-acao-updated";
 const PERIODIC_15_DAY_QUESTION_IDS = new Set(["1n15", "1n16", "1n17"]);
 const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
 const REGRAS_DE_OURO_TECNICOS = [
@@ -509,6 +526,44 @@ const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoCo
   descricao_resumida_acao: "Tratar irregularidades identificadas na Regra de Ouro",
 });
 
+const getActionPlanCounterValue = () => {
+  if (typeof window === "undefined") return 0;
+  return Number(localStorage.getItem(ACTION_PLAN_COUNTER_KEY) || 0) || 0;
+};
+
+const getNextActionPlanNumber = () => {
+  const next = getActionPlanCounterValue() + 1;
+  localStorage.setItem(ACTION_PLAN_COUNTER_KEY, String(next));
+  return next;
+};
+
+const parseStoredActionPlans = (): Array<Record<string, unknown>> => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = localStorage.getItem(ACTION_PLAN_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error("Erro ao ler planos de acao locais:", error);
+    return [];
+  }
+};
+
+const createActionPlanDraft = (item: QuestionItem, response: QuestionState): ActionPlanDraft => {
+  const today = format(new Date(), "yyyy-MM-dd");
+  const deadline = format(addDays(new Date(), 15), "yyyy-MM-dd");
+
+  return {
+    descricao_resumida_acao: `Tratar irregularidade da pergunta ${item.numero}`,
+    responsavel_execucao: "",
+    inicio_planejado: today,
+    termino_planejado: deadline,
+    descricao_acao: `Pergunta ${item.numero} - ${item.texto}\nResposta registrada: ${response.answer}\n\nDescreva aqui a ação corretiva, o responsável e o prazo.`,
+  };
+};
+
 const storePlanoAcaoContext = (context: PlanoAcaoContext) => {
   if (typeof window === "undefined") return;
 
@@ -583,13 +638,120 @@ const openPlanoAcaoForQuestion = (
     setor: string;
     tecnicoSeg: string;
   },
-  fallbackNavigate: (path: string) => void,
+  openQuestionId: string | null,
+  setOpenQuestionId: React.Dispatch<React.SetStateAction<string | null>>,
+  setActionPlanDrafts: React.Dispatch<React.SetStateAction<Record<string, ActionPlanDraft>>>,
 ) => {
-  const context = buildQuestionPlanoAcaoContext(item, response, currentState);
-  storePlanoAcaoContext(context);
+  setOpenQuestionId((previous) => (previous === item.id ? null : item.id));
+  setActionPlanDrafts((previous) =>
+    previous[item.id] ? previous : { ...previous, [item.id]: createActionPlanDraft(item, response) },
+  );
+};
 
-  const url = buildPlanoAcaoUrl(context);
-  fallbackNavigate(url);
+const buildActionPlanPayloadForQuestion = (
+  item: QuestionItem,
+  response: QuestionState,
+  draft: ActionPlanDraft,
+  savedRecord: InvestigacaoChecklistRecord,
+  finalInspectionNumber: number,
+): AccidentActionPlanRecordPayload => {
+  const now = new Date().toISOString();
+  const questionContext = buildQuestionPlanoAcaoContext(item, response, {
+    previewNumber: finalInspectionNumber,
+    titulo: savedRecord.titulo,
+    setor: savedRecord.setor,
+    tecnicoSeg: savedRecord.tecnico_seg,
+  });
+
+  return {
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    numero_plano: getNextActionPlanNumber(),
+    created_at: now,
+    updated_at: now,
+    numero_ocorrencia: finalInspectionNumber,
+    data_ocorrencia: questionContext.data_referencia || formatDateForInput(savedRecord.created_at || now),
+    prioridade_ocorrencia: "Baixa",
+    descricao_ocorrencia: questionContext.descricao_ocorrencia,
+    origem: "Regra de Ouro",
+    descricao_resumida_acao: draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || "",
+    severidade: "",
+    probabilidade: "",
+    prioridade: "Baixa",
+    status: "Aberta",
+    responsavel_execucao: draft.responsavel_execucao.trim(),
+    inicio_planejado: draft.inicio_planejado.trim(),
+    termino_planejado: draft.termino_planejado.trim(),
+    acao_iniciada: "",
+    acao_finalizada: "",
+    descricao_acao: draft.descricao_acao.trim(),
+    observacoes_conclusao: "",
+    data_eficacia: "",
+    observacao_eficacia: "",
+    comentarios: [
+      {
+        id:
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`,
+        texto: [
+          `Plano iniciado a partir da Regra de Ouro ${formatInspectionNumber(finalInspectionNumber)}.`,
+          `Pergunta ${item.numero}: ${item.texto}`,
+          `Resposta registrada: ${response.answer}`,
+        ].join("\n"),
+        autor: savedRecord.tecnico_seg || "Sistema",
+        created_at: now,
+      },
+    ],
+  };
+};
+
+const persistActionPlansForInspection = async (
+  savedRecord: InvestigacaoChecklistRecord,
+  finalInspectionNumber: number,
+  responses: Record<string, QuestionState>,
+  actionPlanDrafts: Record<string, ActionPlanDraft>,
+) => {
+  const nonConformingItems = QUESTION_ITEMS.filter((item) =>
+    isResponseOutOfPattern(item.id, responses[item.id]?.answer || "N/A"),
+  );
+
+  if (nonConformingItems.length === 0) {
+    return 0;
+  }
+
+  const existingPlans = parseStoredActionPlans();
+  const persistedPlans = [...existingPlans];
+
+  for (const item of nonConformingItems) {
+    const response = responses[item.id];
+    if (!response) continue;
+
+    const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
+    const payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
+
+    try {
+      await accidentActionPlanService.upsertFromLegacy(payload);
+    } catch (error) {
+      if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
+        console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+      }
+    }
+
+    const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
+    if (existingIndex >= 0) {
+      persistedPlans[existingIndex] = payload;
+    } else {
+      persistedPlans.unshift(payload);
+    }
+  }
+
+  localStorage.setItem(ACTION_PLAN_STORAGE_KEY, JSON.stringify(persistedPlans));
+  window.dispatchEvent(new Event(ACTION_PLAN_STORAGE_EVENT));
+
+  return nonConformingItems.length;
 };
 
 const getAnswerTone = (answer: QuestionAnswer) => {
@@ -664,6 +826,8 @@ const InvestigacaoAcidente2 = () => {
   const [successRedirectMessage, setSuccessRedirectMessage] = useState(
     "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.",
   );
+  const [openActionPlanQuestionId, setOpenActionPlanQuestionId] = useState<string | null>(null);
+  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft>>({});
   const planoAcaoCurrentState = useMemo(
     () => ({
       previewNumber,
@@ -673,6 +837,24 @@ const InvestigacaoAcidente2 = () => {
     }),
     [previewNumber, setor, tecnicoSeg, titulo],
   );
+
+  useEffect(() => {
+    setActionPlanDrafts((previous) => {
+      let changed = false;
+      const next = { ...previous };
+
+      QUESTION_ITEMS.forEach((item) => {
+        const response = responses[item.id];
+        if (!response) return;
+        if (isResponseOutOfPattern(item.id, response.answer) && !next[item.id]) {
+          next[item.id] = createActionPlanDraft(item, response);
+          changed = true;
+        }
+      });
+
+      return changed ? next : previous;
+    });
+  }, [responses]);
 
   useEffect(() => {
     let active = true;
@@ -1046,6 +1228,23 @@ const InvestigacaoAcidente2 = () => {
     });
   };
 
+  const updateActionPlanDraft = (questionId: string, patch: Partial<ActionPlanDraft>) => {
+    const question = QUESTION_ITEMS.find((item) => item.id === questionId);
+    if (!question) return;
+
+    setActionPlanDrafts((previous) => {
+      const response = responses[questionId];
+      const baseDraft = previous[questionId] || createActionPlanDraft(question, response);
+      return {
+        ...previous,
+        [questionId]: {
+          ...baseDraft,
+          ...patch,
+        },
+      };
+    });
+  };
+
   const validateForm = () => {
     if (!titulo.trim()) return "Preencha o Título.";
     if (!setor.trim()) return "Selecione o Setor.";
@@ -1075,6 +1274,22 @@ const InvestigacaoAcidente2 = () => {
 
       if (requiresEvidence && completedEvidenceCount === 0) {
         return `Adicione pelo menos uma foto com comentário no item ${item.numero} quando a resposta estiver fora do padrão.`;
+      }
+
+      if (requiresEvidence) {
+        const draft = actionPlanDrafts[item.id];
+        if (!draft) {
+          return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
+        }
+        if (!draft.descricao_resumida_acao.trim()) {
+          return `Preencha o resumo da ação do item ${item.numero}.`;
+        }
+        if (!draft.responsavel_execucao.trim()) {
+          return `Preencha o responsável do plano de ação do item ${item.numero}.`;
+        }
+        if (!draft.descricao_acao.trim()) {
+          return `Preencha a descrição da ação do item ${item.numero}.`;
+        }
       }
 
       if (invalidEvidenceIndex >= 0) {
@@ -1241,23 +1456,25 @@ const InvestigacaoAcidente2 = () => {
       const hasNonConformity = savedRecord.respostas.some((response) =>
         isResponseOutOfPattern(response.codigo, response.resposta),
       );
-      let nextPath = "/";
       let nextSuccessMessage = "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.";
 
       if (hasNonConformity) {
-        sessionStorage.setItem(
-          PLANO_ACAO_CONTEXT_KEY,
-          JSON.stringify(buildPlanoAcaoContext(savedRecord)),
+        const savedActionPlans = await persistActionPlansForInspection(
+          savedRecord,
+          finalInspectionNumber,
+          responses,
+          actionPlanDrafts,
         );
-        nextPath = `/plano-acao-acidente?origem=admin&fonte=regra-ouro&registro=${encodeURIComponent(savedRecord.id)}&ocorrencia=${finalInspectionNumber}`;
         nextSuccessMessage =
-          "Foram identificadas n\u00e3o conformidades. Voc\u00ea ser\u00e1 redirecionado para o plano de a\u00e7\u00e3o em instantes.";
+          savedActionPlans > 0
+            ? `Foram identificadas n\u00e3o conformidades. ${savedActionPlans} plano(s) de a\u00e7\u00e3o foram gerados.`
+            : "Foram identificadas n\u00e3o conformidades e o plano de a\u00e7\u00e3o foi preparado.";
       }
 
       toast({
         title: "Regra de Ouro registrada",
         description: hasNonConformity
-          ? `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo. O plano de a\u00e7\u00e3o ser\u00e1 aberto em seguida.`
+          ? `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo. O plano de a\u00e7\u00e3o foi gerado no prÃ³prio item irregular.`
           : `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo com sucesso.`,
       });
 
@@ -1269,6 +1486,8 @@ const InvestigacaoAcidente2 = () => {
       setResponses(createInitialResponses());
       setSignatures(createInitialSignatures());
       setAttachments([]);
+      setActionPlanDrafts({});
+      setOpenActionPlanQuestionId(null);
       setPreviewNumber(finalInspectionNumber + 1);
       setSubmittedInspectionNumber(finalInspectionNumber);
       setSuccessRedirectMessage(nextSuccessMessage);
@@ -1276,7 +1495,7 @@ const InvestigacaoAcidente2 = () => {
       window.setTimeout(() => {
         setSubmissionSuccess(false);
         setSubmittedInspectionNumber(null);
-        navigate(nextPath);
+        navigate("/");
       }, 2000);
     } catch (error) {
       console.error("Erro ao salvar regra de ouro:", error);
@@ -1484,7 +1703,9 @@ const InvestigacaoAcidente2 = () => {
                                   item,
                                   response,
                                   planoAcaoCurrentState,
-                                  navigate,
+                                  openActionPlanQuestionId,
+                                  setOpenActionPlanQuestionId,
+                                  setActionPlanDrafts,
                                 )
                               }
                             >
@@ -1601,6 +1822,108 @@ const InvestigacaoAcidente2 = () => {
                           </div>
                         ))
                       )}
+                    </div>
+                  )}
+
+                  {openActionPlanQuestionId === item.id && (
+                    <div className="space-y-3 border-t border-emerald-100 bg-emerald-50/40 px-4 pb-4 pt-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-emerald-900">Plano de ação da irregularidade</p>
+                          <p className="text-xs text-emerald-800">
+                            Esse rascunho será salvo junto com a inspeção e vai cair no painel de planos de ação.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setOpenActionPlanQuestionId(null)}
+                        >
+                          Fechar
+                        </Button>
+                      </div>
+
+                      {(() => {
+                        const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
+
+                        return (
+                          <>
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <Label htmlFor={`plano-resumo-${item.id}`}>Resumo da ação *</Label>
+                                <Input
+                                  id={`plano-resumo-${item.id}`}
+                                  value={draft.descricao_resumida_acao}
+                                  onChange={(event) =>
+                                    updateActionPlanDraft(item.id, {
+                                      descricao_resumida_acao: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Ex: Tratar irregularidade da pergunta 01"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor={`plano-responsavel-${item.id}`}>Responsável *</Label>
+                                <Input
+                                  id={`plano-responsavel-${item.id}`}
+                                  value={draft.responsavel_execucao}
+                                  onChange={(event) =>
+                                    updateActionPlanDraft(item.id, {
+                                      responsavel_execucao: event.target.value,
+                                    })
+                                  }
+                                  placeholder="Quem vai executar a ação"
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor={`plano-inicio-${item.id}`}>Início planejado</Label>
+                                <Input
+                                  id={`plano-inicio-${item.id}`}
+                                  type="date"
+                                  value={draft.inicio_planejado}
+                                  onChange={(event) =>
+                                    updateActionPlanDraft(item.id, {
+                                      inicio_planejado: event.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <Label htmlFor={`plano-prazo-${item.id}`}>Prazo final</Label>
+                                <Input
+                                  id={`plano-prazo-${item.id}`}
+                                  type="date"
+                                  value={draft.termino_planejado}
+                                  onChange={(event) =>
+                                    updateActionPlanDraft(item.id, {
+                                      termino_planejado: event.target.value,
+                                    })
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`plano-descricao-${item.id}`}>Descrição da ação *</Label>
+                              <Textarea
+                                id={`plano-descricao-${item.id}`}
+                                rows={4}
+                                value={draft.descricao_acao}
+                                onChange={(event) =>
+                                  updateActionPlanDraft(item.id, {
+                                    descricao_acao: event.target.value,
+                                  })
+                                }
+                                placeholder="Descreva o que será feito para corrigir a irregularidade."
+                              />
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
