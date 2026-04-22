@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { getChecklistState, saveChecklistState, clearChecklistState } from "@/lib/checklistStore";
@@ -9,12 +9,21 @@ import { appendChecklistAlert } from "@/lib/checklistTemplate";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import type { ChecklistAlert } from "@/lib/types";
 
+interface ChecklistAlertPreviewItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
 export const useChecklistSubmit = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [signature, setSignature] = useState<string | null>(null);
   const [currentState, setCurrentState] = useState(getChecklistState());
   const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitConfirmationOpen, setIsSubmitConfirmationOpen] = useState(false);
+  const [submitConfirmationItems, setSubmitConfirmationItems] = useState<ChecklistAlertPreviewItem[]>([]);
+  const bypassSubmitConfirmationRef = useRef(false);
   const [inspectionDate] = useState<string>(
     currentState.inspectionDate || getTodayLocalDateKey() || new Date().toISOString().split('T')[0]
   );
@@ -87,6 +96,32 @@ export const useChecklistSubmit = () => {
     return alertsCreated;
   };
 
+  const getChecklistAlertPreviewItems = (): ChecklistAlertPreviewItem[] => {
+    if (!currentState.checklist || currentState.checklist.length === 0) {
+      return [];
+    }
+
+    return currentState.checklist
+      .filter((item) => {
+        if (!item) return false;
+        const itemWithRules = applyAlertRuleToItem({
+          question: item.question,
+          alertOnYes: item.alertOnYes,
+          alertOnNo: item.alertOnNo,
+        });
+
+        return shouldTriggerAlert(item.question, item.answer, {
+          onYes: itemWithRules.alertOnYes,
+          onNo: itemWithRules.alertOnNo,
+        });
+      })
+      .map((item) => ({
+        id: item.id,
+        question: item.question,
+        answer: item.answer || "",
+      }));
+  };
+
   const handleBack = () => {
     // Save signature before going back
     if (signature) {
@@ -95,7 +130,7 @@ export const useChecklistSubmit = () => {
     navigate('/checklist-steps/media');
   };
 
-  const handleSubmit = async () => {
+  const executeSubmit = async () => {
     if (!signature) {
       toast({
         title: "Assinatura não encontrada",
@@ -233,6 +268,38 @@ export const useChecklistSubmit = () => {
     }
   };
 
+  const handleSubmit = async () => {
+    if (!signature) {
+      toast({
+        title: "Assinatura nÃ£o encontrada",
+        description: "Por favor, assine o formulÃ¡rio para confirmar a inspeÃ§Ã£o",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const alertPreviewItems = getChecklistAlertPreviewItems();
+    if (alertPreviewItems.length > 0 && !bypassSubmitConfirmationRef.current) {
+      setSubmitConfirmationItems(alertPreviewItems);
+      setIsSubmitConfirmationOpen(true);
+      return;
+    }
+
+    bypassSubmitConfirmationRef.current = false;
+    await executeSubmit();
+  };
+
+  const handleConfirmSubmit = async () => {
+    bypassSubmitConfirmationRef.current = true;
+    setIsSubmitConfirmationOpen(false);
+    await executeSubmit();
+  };
+
+  const handleCancelSubmitConfirmation = () => {
+    bypassSubmitConfirmationRef.current = false;
+    setIsSubmitConfirmationOpen(false);
+  };
+
   // Checklist answer summary
   const getChecklistSummary = () => {
     if (!currentState.checklist || currentState.checklist.length === 0) {
@@ -255,8 +322,12 @@ export const useChecklistSubmit = () => {
     isSaving,
     inspectionDate,
     dbConnectionStatus,
+    isSubmitConfirmationOpen,
+    submitConfirmationItems,
     getChecklistSummary,
     handleBack,
-    handleSubmit
+    handleSubmit,
+    handleConfirmSubmit,
+    handleCancelSubmitConfirmation
   };
 };
