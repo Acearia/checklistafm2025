@@ -104,7 +104,12 @@ const formatText = (value?: string) => {
   return trimmed.length > 0 ? trimmed : "N/A";
 };
 
-const normalizeQuestionCode = (value?: string | number | null) => String(value || "").replace(/\D/g, "");
+const normalizeQuestionCode = (value?: string | number | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isNaN(parsed) ? digits : String(parsed);
+};
 
 const extractQuestionNumberFromPlan = (record?: PlanoAcaoRecord | null) => {
   if (!record) return "";
@@ -320,6 +325,8 @@ const AdminPlanosAcao = () => {
   const [dateTo, setDateTo] = useState("");
   const [viewPlano, setViewPlano] = useState<PlanoAcaoRecord | null>(null);
   const [goldenRules, setGoldenRules] = useState<any[]>([]);
+  const [goldenRuleDetail, setGoldenRuleDetail] = useState<any | null>(null);
+  const [goldenRuleDetailLoading, setGoldenRuleDetailLoading] = useState(false);
 
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
@@ -456,9 +463,10 @@ const AdminPlanosAcao = () => {
   const selectedQuestionNumber = useMemo(() => extractQuestionNumberFromPlan(viewPlano), [viewPlano]);
 
   const selectedQuestionEvidencePhoto = useMemo(() => {
-    if (!selectedGoldenRule || !selectedQuestionNumber) return "";
+    const sourceRule = goldenRuleDetail || selectedGoldenRule;
+    if (!sourceRule || !selectedQuestionNumber) return "";
 
-    const responses = Array.isArray(selectedGoldenRule.responses) ? selectedGoldenRule.responses : [];
+    const responses = Array.isArray(sourceRule.responses) ? sourceRule.responses : [];
     const question = responses.find((response: any) => {
       const numero = normalizeQuestionCode(response?.numero);
       const codigo = normalizeQuestionCode(response?.codigo);
@@ -466,13 +474,82 @@ const AdminPlanosAcao = () => {
       return numero === target || codigo === target;
     });
 
-    const evidencePhoto =
-      question?.foto?.data_url ||
-      question?.evidences?.find((evidence: any) => evidence?.foto?.data_url)?.foto?.data_url ||
-      "";
+    const evidencePhoto = (() => {
+      const directCandidates = [
+        question?.foto?.data_url,
+        question?.foto_data_url,
+        question?.foto?.url,
+        question?.foto?.preview_url,
+      ];
+
+      const directPhoto = directCandidates.find((value) => String(value || "").trim().length > 0);
+      if (directPhoto) return directPhoto;
+
+      const evidences = Array.isArray(question?.evidences) ? question.evidences : [];
+      for (const evidence of evidences) {
+        const evidenceCandidates = [
+          evidence?.foto?.data_url,
+          evidence?.foto_data_url,
+          evidence?.foto?.url,
+          evidence?.foto?.preview_url,
+          evidence?.url,
+          evidence?.preview_url,
+        ];
+
+        const found = evidenceCandidates.find((value) => String(value || "").trim().length > 0);
+        if (found) return found;
+      }
+
+      return "";
+    })();
 
     return String(evidencePhoto || "").trim();
-  }, [selectedGoldenRule, selectedQuestionNumber]);
+  }, [goldenRuleDetail, selectedGoldenRule, selectedQuestionNumber]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadDetail = async () => {
+      if (!viewPlano || viewPlano.origem.trim().toLowerCase() !== "regra de ouro") {
+        setGoldenRuleDetail(null);
+        setGoldenRuleDetailLoading(false);
+        return;
+      }
+
+      const summaryRule =
+        goldenRules.find((item) => Number(item?.numero_inspecao) === Number(viewPlano.numero_ocorrencia)) ||
+        null;
+
+      if (!summaryRule?.id) {
+        setGoldenRuleDetail(summaryRule);
+        setGoldenRuleDetailLoading(false);
+        return;
+      }
+
+      setGoldenRuleDetailLoading(true);
+      try {
+        const detail = await goldenRuleService.getById(summaryRule.id);
+        if (!cancelled) {
+          setGoldenRuleDetail(detail || summaryRule);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn("Erro ao carregar detalhes da Regra de Ouro para o resumo do plano:", error);
+          setGoldenRuleDetail(summaryRule);
+        }
+      } finally {
+        if (!cancelled) {
+          setGoldenRuleDetailLoading(false);
+        }
+      }
+    };
+
+    void loadDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [viewPlano, goldenRules]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
@@ -923,7 +1000,11 @@ const AdminPlanosAcao = () => {
 
               <div className="space-y-3 rounded-lg border p-4">
                 <h3 className="text-sm font-semibold">Foto da irregularidade</h3>
-                {selectedQuestionEvidencePhoto ? (
+                {goldenRuleDetailLoading ? (
+                  <div className="rounded-md border bg-gray-50 p-4 text-sm text-muted-foreground">
+                    Carregando foto da evidência...
+                  </div>
+                ) : selectedQuestionEvidencePhoto ? (
                   <div className="overflow-hidden rounded-md border bg-muted/20">
                     <img
                       src={selectedQuestionEvidencePhoto}
