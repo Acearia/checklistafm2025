@@ -551,18 +551,13 @@ const parseStoredActionPlans = (): Array<Record<string, unknown>> => {
   }
 };
 
-const createActionPlanDraft = (item: QuestionItem, response: QuestionState): ActionPlanDraft => {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const deadline = format(addDays(new Date(), 15), "yyyy-MM-dd");
-
-  return {
-    descricao_resumida_acao: `Tratar irregularidade da pergunta ${item.numero}`,
-    responsavel_execucao: "",
-    inicio_planejado: today,
-    termino_planejado: deadline,
-    descricao_acao: `Pergunta ${item.numero} - ${item.texto}\nResposta registrada: ${response.answer}\n\nDescreva aqui a ação corretiva, o responsável e o prazo.`,
-  };
-};
+const createActionPlanDraft = (_item: QuestionItem, _response: QuestionState): ActionPlanDraft => ({
+  descricao_resumida_acao: "",
+  responsavel_execucao: "",
+  inicio_planejado: "",
+  termino_planejado: "",
+  descricao_acao: "",
+});
 
 const storePlanoAcaoContext = (context: PlanoAcaoContext) => {
   if (typeof window === "undefined") return;
@@ -676,12 +671,13 @@ const buildActionPlanPayloadForQuestion = (
     prioridade_ocorrencia: "Baixa",
     descricao_ocorrencia: questionContext.descricao_ocorrencia,
     origem: "Regra de Ouro",
-    descricao_resumida_acao: draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || "",
+    descricao_resumida_acao:
+      draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || `Tratar irregularidade da pergunta ${item.numero}`,
     severidade: "",
     probabilidade: "",
     prioridade: "Baixa",
     status: "Aberta",
-    responsavel_execucao: draft.responsavel_execucao.trim(),
+    responsavel_execucao: draft.responsavel_execucao.trim() || savedRecord.tecnico_seg || savedRecord.gestor || "Sistema",
     inicio_planejado: draft.inicio_planejado.trim(),
     termino_planejado: draft.termino_planejado.trim(),
     acao_iniciada: "",
@@ -1276,17 +1272,11 @@ const InvestigacaoAcidente2 = () => {
         return `Adicione pelo menos uma foto com comentário no item ${item.numero} quando a resposta estiver fora do padrão.`;
       }
 
-      if (requiresEvidence) {
-        const draft = actionPlanDrafts[item.id];
-        if (!draft) {
-          return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
-        }
-        if (!draft.descricao_resumida_acao.trim()) {
-          return `Preencha o resumo da ação do item ${item.numero}.`;
-        }
-        if (!draft.responsavel_execucao.trim()) {
-          return `Preencha o responsável do plano de ação do item ${item.numero}.`;
-        }
+    if (requiresEvidence) {
+      const draft = actionPlanDrafts[item.id];
+      if (!draft) {
+        return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
+      }
         if (!draft.descricao_acao.trim()) {
           return `Preencha a descrição da ação do item ${item.numero}.`;
         }
@@ -2086,15 +2076,3 @@ const InvestigacaoAcidente2 = () => {
 };
 
 export default InvestigacaoAcidente2;
-
-
-
-
-
-
-
-
-
-
-
-
