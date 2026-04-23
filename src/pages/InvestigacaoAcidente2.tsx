@@ -1850,7 +1850,6 @@ const InvestigacaoAcidente2 = () => {
                                       descricao_resumida_acao: event.target.value,
                                     })
                                   }
-                                  placeholder="Ex: Tratar irregularidade da pergunta 01"
                                 />
                               </div>
 
@@ -1864,7 +1863,6 @@ const InvestigacaoAcidente2 = () => {
                                       responsavel_execucao: event.target.value,
                                     })
                                   }
-                                  placeholder="Quem vai executar a ação"
                                 />
                               </div>
 
@@ -1908,7 +1906,6 @@ const InvestigacaoAcidente2 = () => {
                                     descricao_acao: event.target.value,
                                   })
                                 }
-                                placeholder="Descreva o que será feito para corrigir a irregularidade."
                               />
                             </div>
                           </>
