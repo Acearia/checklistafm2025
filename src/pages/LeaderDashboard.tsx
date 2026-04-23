@@ -1417,6 +1417,14 @@ const LeaderDashboard = () => {
               Exportar PDF
             </Button>
             <Button
+              onClick={() => navigate("/leader/registros")}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <FileText className="h-4 w-4" />
+              Regras e Planos
+            </Button>
+            <Button
               onClick={() => {
                 localStorage.removeItem("checklistafm-leader-auth");
                 localStorage.removeItem("checklistafm-leader-id");
@@ -2495,5 +2503,4 @@ const LeaderDashboard = () => {
 };
 
 export default LeaderDashboard;
-
 

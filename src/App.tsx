@@ -24,6 +24,7 @@ import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
 import PlanoAcaoAcidente from "./pages/PlanoAcaoAcidente";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
+import LeaderRulesPlans from "./pages/LeaderRulesPlans";
 import ChecklistDetail from "./pages/ChecklistDetail";
 import ChecklistOperator from "./pages/checklist/ChecklistOperator";
 import ChecklistEquipment from "./pages/checklist/ChecklistEquipment";
@@ -51,6 +52,7 @@ function App() {
         
         <Route path="/leader/login" element={<LeaderLogin />} />
         <Route path="/leader/dashboard" element={<LeaderDashboard />} />
+        <Route path="/leader/registros" element={<LeaderRulesPlans />} />
         <Route path="/leader/checklists/:id" element={<ChecklistDetail />} />
         
         <Route path="/admin/login" element={<AdminLogin />} />
