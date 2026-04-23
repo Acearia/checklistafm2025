@@ -67,6 +67,7 @@ interface PlanoAcaoContext {
   descricao_ocorrencia: string;
   origem: string;
   descricao_resumida_acao?: string;
+  descricao_acao?: string;
   question_id?: string;
   question_numero?: string;
   question_texto?: string;
@@ -363,6 +364,7 @@ const parsePlanoAcaoContext = (): PlanoAcaoContext | null => {
         descricao_ocorrencia: String(parsed.descricao_ocorrencia || ""),
         origem: String(parsed.origem || "Regra de Ouro"),
         descricao_resumida_acao: String(parsed.descricao_resumida_acao || ""),
+        descricao_acao: String(parsed.descricao_acao || ""),
         question_id: String(parsed.question_id || ""),
         question_numero: String(parsed.question_numero || ""),
         question_texto: String(parsed.question_texto || ""),
@@ -695,6 +697,10 @@ const PlanoAcaoAcidente = () => {
       descricao_resumida_acao:
         fonteParam === "regra-ouro"
           ? planoContext?.descricao_resumida_acao || "Tratar irregularidade da Regra de Ouro"
+          : "",
+      descricao_acao:
+        fonteParam === "regra-ouro"
+          ? planoContext?.descricao_acao || ""
           : "",
     });
     setComentarios([]);

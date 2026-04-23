@@ -103,6 +103,7 @@ interface PlanoAcaoContext {
   descricao_ocorrencia: string;
   origem: string;
   descricao_resumida_acao?: string;
+  descricao_acao?: string;
   question_id?: string;
   question_numero?: string;
   question_texto?: string;
@@ -617,6 +618,7 @@ const buildQuestionPlanoAcaoContext = (
       .join("\n"),
     origem: "Regra de Ouro",
     descricao_resumida_acao: `Tratar irregularidade da pergunta ${item.numero}`,
+    descricao_acao: "",
     question_id: item.id,
     question_numero: item.numero,
     question_texto: item.texto,
@@ -669,10 +671,16 @@ const buildActionPlanPayloadForQuestion = (
     numero_ocorrencia: finalInspectionNumber,
     data_ocorrencia: questionContext.data_referencia || formatDateForInput(savedRecord.created_at || now),
     prioridade_ocorrencia: "Baixa",
-    descricao_ocorrencia: questionContext.descricao_ocorrencia,
+    descricao_ocorrencia: [
+      questionContext.descricao_ocorrencia,
+      draft.descricao_acao.trim() ? `\n\nAção proposta:\n${draft.descricao_acao.trim()}` : "",
+    ]
+      .filter(Boolean)
+      .join(""),
     origem: "Regra de Ouro",
     descricao_resumida_acao:
       draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || `Tratar irregularidade da pergunta ${item.numero}`,
+    descricao_acao: draft.descricao_acao.trim(),
     severidade: "",
     probabilidade: "",
     prioridade: "Baixa",
@@ -727,6 +735,23 @@ const persistActionPlansForInspection = async (
 
     const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
     const payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
+    storePlanoAcaoContext({
+      fonte: "regra-ouro",
+      registro_id: savedRecord.id,
+      numero_referencia: finalInspectionNumber,
+      data_referencia: savedRecord.created_at,
+      titulo: savedRecord.titulo,
+      setor: savedRecord.setor,
+      tecnico: savedRecord.tecnico_seg,
+      descricao_ocorrencia: payload.descricao_ocorrencia || "",
+      origem: payload.origem || "Regra de Ouro",
+      descricao_resumida_acao: payload.descricao_resumida_acao || "",
+      descricao_acao: payload.descricao_acao || "",
+      question_id: item.id,
+      question_numero: item.numero,
+      question_texto: item.texto,
+      question_resposta: response.answer,
+    });
 
     try {
       await accidentActionPlanService.upsertFromLegacy(payload);
