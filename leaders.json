@@ -1,9 +1,10 @@
 [
   {
-    "name": "Fernando Dalabona",
+    "name": "Fernando Dallabona",
     "email": "fernando.dalabona@afm.com.br",
+    "operator_matricula": "2368",
     "sectors": ["TRATAMENTO TÉRMICO"],
-    "shift": "default"
+    "shift": "Geral"
   },
   {
     "name": "Renê Simas",
@@ -23,21 +24,14 @@
       "CORTE",
       "ACABAMENTO DE PEÇAS"
     ],
-    "shift": "1T"
+    "shift": "1º"
   },
   {
-    "name": "Vanderson Donato",
+    "name": "Vanderson Donato Rech Machado",
     "email": "vanderson.donato@afm.com.br",
-    "sectors": [
-      "REBOLO PENDULAR",
-      "REBARBAÇÃO",
-      "MAÇARICO",
-      "LIXADEIRA MANUAL",
-      "JATEAMENTO",
-      "CORTE",
-      "ACABAMENTO DE PEÇAS"
-    ],
-    "shift": "2T"
+    "operator_matricula": "1929",
+    "sectors": ["ACABAMENTO", "SOLDA", "CORTE", "JATEAMENTO"],
+    "shift": "1º"
   },
   {
     "name": "Fabrício Dalabona",
@@ -58,15 +52,14 @@
   {
     "name": "Rafael Batista",
     "email": "rafael.batista@afm.com.br",
-    "sectors": [
-      "SUCATA",
-      "FUSÃO"
-    ],
-    "shift": "default"
+    "operator_matricula": "2092",
+    "sectors": ["SUCATA", "FUSÃO"],
+    "shift": "Geral"
   },
   {
-    "name": "Gilson Castro",
+    "name": "Gilson de Castro",
     "email": "gilson.castro@afm.com.br",
+    "operator_matricula": "1985",
     "sectors": [
       "DESMOLDAGEM",
       "LINHA DE MOLDAGEM E FECHAMENTO",
@@ -74,11 +67,12 @@
       "MOLDAGEM",
       "MOLDES E MACHOS"
     ],
-    "shift": "1T"
+    "shift": "1º"
   },
   {
-    "name": "Renan Marangoni",
+    "name": "Renan dos Santos Marangoni",
     "email": "renan.marangoni@afm.com.br",
+    "operator_matricula": "2467",
     "sectors": [
       "DESMOLDAGEM",
       "LINHA DE MOLDAGEM E FECHAMENTO",
@@ -86,11 +80,12 @@
       "MOLDAGEM",
       "MOLDES E MACHOS"
     ],
-    "shift": "2T"
+    "shift": "2º"
   },
   {
-    "name": "Carlos Zimmermann",
+    "name": "Carlos Eduardo Zimermann",
     "email": "carlos.zimmermann@afm.com.br",
+    "operator_matricula": "1509",
     "sectors": [
       "DESMOLDAGEM",
       "LINHA DE MOLDAGEM E FECHAMENTO",
@@ -98,39 +93,153 @@
       "MOLDAGEM",
       "MOLDES E MACHOS"
     ],
-    "shift": "Supervisor"
+    "shift": "Geral"
   },
   {
-    "name": "Felipe Gayo",
+    "name": "Felipe Augusto Gayo",
     "email": "felipe.gayo@afm.com.br",
+    "operator_matricula": "2195",
     "sectors": ["ALMOXARIFADO"],
-    "shift": "default"
+    "shift": "Geral"
   },
   {
-    "name": "Bruno Rech",
+    "name": "Bruno Ricardo Rech",
     "email": "bruno.rech@afm.com.br",
+    "operator_matricula": "3052",
     "sectors": ["LOGÍSTICA INTERNA"],
-    "shift": "default"
+    "shift": "Geral"
   },
   {
     "name": "Elbert Ferreira",
     "email": "elbert.ferreira@afm.com.br",
-    "sectors": [
-      "EXPEDIÇÃO",
-      "CQF"
-    ],
-    "shift": "default"
+    "operator_matricula": "2001",
+    "sectors": ["EXPEDIÇÃO", "CQF"],
+    "shift": "Geral"
   },
   {
     "name": "Ivan Kraisch",
     "email": "ivan.kraisch@afm.com.br",
+    "operator_matricula": "1969",
     "sectors": ["MANUTENÇÃO"],
-    "shift": "default"
+    "shift": "Geral"
   },
   {
-    "name": "Guilherme Lencke",
-    "email": "guilherme.lencke@afm.com.br",
+    "name": "Guilherme Lemke",
+    "email": "guilherme.lemke@afm.com.br",
+    "operator_matricula": "1543",
     "sectors": ["USINAGEM"],
-    "shift": "default"
+    "shift": "Geral"
+  },
+  {
+    "name": "Robson Bressanini",
+    "email": "robson.bressanini@afm.com.br",
+    "operator_matricula": "3804",
+    "sectors": ["ACABAMENTO", "SOLDA", "CORTE", "JATEAMENTO"],
+    "shift": "2º"
+  },
+  {
+    "name": "Carlos Schnaider",
+    "email": "carlos.schnaider@afm.com.br",
+    "operator_matricula": "2053",
+    "sectors": ["MANUTENÇÃO"],
+    "shift": "3º"
+  },
+  {
+    "name": "Jaime Gustavo Gadotti",
+    "email": "jaime.gadotti@afm.com.br",
+    "operator_matricula": "3425",
+    "sectors": ["MANUTENÇÃO"],
+    "shift": "2º"
+  },
+  {
+    "name": "Godofredo Wilbert",
+    "email": "godofredo.wilbert@afm.com.br",
+    "operator_matricula": "2060",
+    "sectors": ["MARCENARIA", "DT"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Leonel Gonsales Quimenes",
+    "email": "leonel.quimenes@afm.com.br",
+    "operator_matricula": "2009",
+    "sectors": ["FUSÃO", "SUCATA"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Alano Costa Batista",
+    "email": "alano.batista@afm.com.br",
+    "operator_matricula": "1567",
+    "sectors": ["FUSÃO"],
+    "shift": "3º"
+  },
+  {
+    "name": "Ederson Scaburri",
+    "email": "ederson.scaburri@afm.com.br",
+    "operator_matricula": "1546",
+    "sectors": ["MANUTENÇÃO"],
+    "shift": "1º"
+  },
+  {
+    "name": "Murilo Nunes Fernandes",
+    "email": "murilo.fernandes@afm.com.br",
+    "operator_matricula": "2611",
+    "sectors": ["MANUTENÇÃO"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Rosangela Hartmann",
+    "email": "rosangela.hartmann@afm.com.br",
+    "operator_matricula": "1733",
+    "sectors": ["CQD", "QUALIDADE LABORATÓRIO"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Mabel Kristine Bramoski Longen",
+    "email": "mabel.longen@afm.com.br",
+    "operator_matricula": "1200",
+    "sectors": ["AMBULATÓRIO"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Ricardo Luz",
+    "email": "ricardo.luz@afm.com.br",
+    "operator_matricula": "2912",
+    "sectors": ["COMPRAS"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Lucineia Machado",
+    "email": "lucineia.machado@afm.com.br",
+    "operator_matricula": "2595",
+    "sectors": ["FACILITES"],
+    "shift": "1º"
+  },
+  {
+    "name": "Marcus Vinicius da Silva Cruz",
+    "email": "marcus.cruz@afm.com.br",
+    "operator_matricula": "3448",
+    "sectors": ["SEGURANÇA"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Jose Avenir Alves",
+    "email": "jose.avenir.alves@afm.com.br",
+    "operator_matricula": "4693",
+    "sectors": ["COMERCIAL"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Jose Augusto Gayo",
+    "email": "jose.augusto.gayo@afm.com.br",
+    "operator_matricula": "7781",
+    "sectors": ["RH"],
+    "shift": "Geral"
+  },
+  {
+    "name": "Nélio Luis Cordeiro",
+    "email": "nelio.cordeiro@afm.com.br",
+    "operator_matricula": "28",
+    "sectors": ["PCP"],
+    "shift": "Geral"
   }
 ]

@@ -78,11 +78,14 @@ async function upsertLeader(leader, existingLeaders) {
   const existing = existingLeaders.find(
     (item) => normalize(item.email) === normalize(leader.email),
   );
+  const operatorMatricula =
+    String(leader.operator_matricula ?? leader.matricula ?? leader.cracha ?? "").trim() || null;
   const payload = {
     name: leader.name,
     email: leader.email,
     sector: leader.sectors.join(", "),
-    password_hash: DEFAULT_HASH,
+    operator_matricula: operatorMatricula,
+    password_hash: existing?.password_hash || DEFAULT_HASH,
   };
 
   if (existing) {
