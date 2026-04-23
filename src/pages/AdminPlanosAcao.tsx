@@ -27,8 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { accidentActionPlanService } from "@/lib/supabase-service";
+import { accidentActionPlanService, goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { canDeleteAdminRecords, getStoredAdminSession } from "@/lib/adminSession";
 
@@ -105,6 +104,24 @@ const formatText = (value?: string) => {
   return trimmed.length > 0 ? trimmed : "N/A";
 };
 
+const normalizeQuestionCode = (value?: string | number | null) => String(value || "").replace(/\D/g, "");
+
+const extractQuestionNumberFromPlan = (record?: PlanoAcaoRecord | null) => {
+  if (!record) return "";
+  const texts = [
+    record.descricao_resumida_acao,
+    record.descricao_ocorrencia,
+    ...(Array.isArray(record.comentarios) ? record.comentarios.map((item) => item?.texto || "") : []),
+  ];
+
+  for (const text of texts) {
+    const match = String(text).match(/Pergunta\s+(\d+)/i) || String(text).match(/Pergunta\s+(\d{1,3})/i);
+    if (match?.[1]) return match[1];
+  }
+
+  return "";
+};
+
 const calculateEficaciaDueDate = (finishedAt?: string) => {
   if (!finishedAt) return "";
   const baseDate = new Date(`${finishedAt}T00:00:00`);
@@ -159,6 +176,14 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
           observacoes_conclusao: String(item.observacoes_conclusao || ""),
           data_eficacia: String(item.data_eficacia || ""),
           observacao_eficacia: String(item.observacao_eficacia || ""),
+          comentarios: Array.isArray(item.comentarios)
+            ? item.comentarios.map((comentario: any) => ({
+                id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
+                texto: String(comentario?.texto || ""),
+                autor: String(comentario?.autor || "Sistema"),
+                created_at: String(comentario?.created_at || ""),
+              }))
+            : [],
         };
       })
       .filter((item): item is PlanoAcaoRecord => Boolean(item))
@@ -231,6 +256,14 @@ const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
     observacoes_conclusao: String(item.observacoes_conclusao || ""),
     data_eficacia: String(item.data_eficacia || ""),
     observacao_eficacia: String(item.observacao_eficacia || ""),
+    comentarios: Array.isArray(item.comentarios)
+      ? item.comentarios.map((comentario: any) => ({
+          id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
+          texto: String(comentario?.texto || ""),
+          autor: String(comentario?.autor || "Sistema"),
+          created_at: String(comentario?.created_at || ""),
+        }))
+      : [],
   };
 };
 
@@ -286,6 +319,7 @@ const AdminPlanosAcao = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [viewPlano, setViewPlano] = useState<PlanoAcaoRecord | null>(null);
+  const [goldenRules, setGoldenRules] = useState<any[]>([]);
 
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
@@ -321,6 +355,14 @@ const AdminPlanosAcao = () => {
     setInvestigacoes(parseInvestigacoes());
 
     try {
+      try {
+        const rules = await goldenRuleService.safeGetAllWithFallback();
+        setGoldenRules(Array.isArray(rules) ? rules : []);
+      } catch (error) {
+        console.warn("Erro ao carregar regras de ouro para visualizacao do plano:", error);
+        setGoldenRules([]);
+      }
+
       const remoteRows = await accidentActionPlanService.safeGetAllWithFallback();
       if (remoteRows.length === 0) {
         setRecords(localRecords);
@@ -403,11 +445,34 @@ const AdminPlanosAcao = () => {
     return investigacaoByOcorrencia.get(viewPlano.numero_ocorrencia) || null;
   }, [viewPlano, investigacaoByOcorrencia]);
 
-  const planoPreviewPhoto = useMemo(() => {
-    if (!selectedInvestigacao) return "";
-    const image = selectedInvestigacao.attachments.find((attachment) => isImageAttachment(attachment));
-    return image ? resolveAttachmentPreviewUrl(image) : "";
-  }, [selectedInvestigacao]);
+  const selectedGoldenRule = useMemo(() => {
+    if (!viewPlano || viewPlano.origem.trim().toLowerCase() !== "regra de ouro") return null;
+    return (
+      goldenRules.find((item) => Number(item?.numero_inspecao) === Number(viewPlano.numero_ocorrencia)) ||
+      null
+    );
+  }, [viewPlano, goldenRules]);
+
+  const selectedQuestionNumber = useMemo(() => extractQuestionNumberFromPlan(viewPlano), [viewPlano]);
+
+  const selectedQuestionEvidencePhoto = useMemo(() => {
+    if (!selectedGoldenRule || !selectedQuestionNumber) return "";
+
+    const responses = Array.isArray(selectedGoldenRule.responses) ? selectedGoldenRule.responses : [];
+    const question = responses.find((response: any) => {
+      const numero = normalizeQuestionCode(response?.numero);
+      const codigo = normalizeQuestionCode(response?.codigo);
+      const target = normalizeQuestionCode(selectedQuestionNumber);
+      return numero === target || codigo === target;
+    });
+
+    const evidencePhoto =
+      question?.foto?.data_url ||
+      question?.evidences?.find((evidence: any) => evidence?.foto?.data_url)?.foto?.data_url ||
+      "";
+
+    return String(evidencePhoto || "").trim();
+  }, [selectedGoldenRule, selectedQuestionNumber]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
@@ -857,18 +922,18 @@ const AdminPlanosAcao = () => {
               </div>
 
               <div className="space-y-3 rounded-lg border p-4">
-                <h3 className="text-sm font-semibold">Foto da ocorrência</h3>
-                {planoPreviewPhoto ? (
+                <h3 className="text-sm font-semibold">Foto da irregularidade</h3>
+                {selectedQuestionEvidencePhoto ? (
                   <div className="overflow-hidden rounded-md border bg-muted/20">
                     <img
-                      src={planoPreviewPhoto}
-                      alt={`Foto da ocorrência ${formatNumero(viewPlano.numero_ocorrencia)}`}
+                      src={selectedQuestionEvidencePhoto}
+                      alt={`Foto da pergunta ${selectedQuestionNumber || "N/A"}`}
                       className="max-h-[420px] w-full object-contain"
                     />
                   </div>
                 ) : (
                   <div className="rounded-md border bg-gray-50 p-4 text-sm text-muted-foreground">
-                    Nenhuma foto disponível para esta ocorrência.
+                    Nenhuma foto de evidência encontrada para a pergunta irregular deste plano.
                   </div>
                 )}
               </div>
