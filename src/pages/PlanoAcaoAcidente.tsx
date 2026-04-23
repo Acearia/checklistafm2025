@@ -625,11 +625,10 @@ const PlanoAcaoAcidente = () => {
     setComentarios(selectedPlano.comentarios || []);
     setNovoComentario("");
     setAutorComentario("");
-    setForm({
+      setForm({
       numero_ocorrencia: selectedPlano.numero_ocorrencia,
       data_ocorrencia: selectedPlano.data_ocorrencia,
       prioridade_ocorrencia: selectedPlano.prioridade_ocorrencia,
-      descricao_ocorrencia: selectedPlano.descricao_ocorrencia,
       descricao_ocorrencia:
         selectedPlano.descricao_ocorrencia || selectedPlano.descricao_acao || "",
       origem: selectedPlano.origem,

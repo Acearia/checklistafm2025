@@ -680,7 +680,6 @@ const buildActionPlanPayloadForQuestion = (
     origem: "Regra de Ouro",
     descricao_resumida_acao:
       draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || `Tratar irregularidade da pergunta ${item.numero}`,
-    descricao_acao: draft.descricao_acao.trim(),
     severidade: "",
     probabilidade: "",
     prioridade: "Baixa",

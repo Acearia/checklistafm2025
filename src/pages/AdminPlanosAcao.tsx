@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { accidentActionPlanService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { canDeleteAdminRecords, getStoredAdminSession } from "@/lib/adminSession";
@@ -67,6 +68,17 @@ interface InvestigacaoResumo {
   setor: string;
   data_ocorrencia: string;
   titulo: string;
+  attachments: AttachmentMeta[];
+}
+
+interface AttachmentMeta {
+  name: string;
+  size: number;
+  type: string;
+  data_url?: string;
+  dataUrl?: string;
+  url?: string;
+  preview_url?: string;
 }
 
 const INVESTIGACAO_STORAGE_KEY = "checklistafm-investigacoes-acidente";
@@ -241,6 +253,17 @@ const parseInvestigacoes = (): InvestigacaoResumo[] => {
           setor: String(item.setor || ""),
           data_ocorrencia: String(item.data_ocorrencia || ""),
           titulo: String(item.titulo || ""),
+          attachments: Array.isArray(item.attachments)
+            ? item.attachments.map((attachment: any) => ({
+                name: String(attachment?.name || ""),
+                size: Number(attachment?.size) || 0,
+                type: String(attachment?.type || ""),
+                data_url: String(attachment?.data_url || ""),
+                dataUrl: String(attachment?.dataUrl || ""),
+                url: String(attachment?.url || ""),
+                preview_url: String(attachment?.preview_url || ""),
+              }))
+            : [],
         };
       })
       .filter((item): item is InvestigacaoResumo => Boolean(item));
@@ -379,6 +402,12 @@ const AdminPlanosAcao = () => {
     if (!viewPlano) return null;
     return investigacaoByOcorrencia.get(viewPlano.numero_ocorrencia) || null;
   }, [viewPlano, investigacaoByOcorrencia]);
+
+  const planoPreviewPhoto = useMemo(() => {
+    if (!selectedInvestigacao) return "";
+    const image = selectedInvestigacao.attachments.find((attachment) => isImageAttachment(attachment));
+    return image ? resolveAttachmentPreviewUrl(image) : "";
+  }, [selectedInvestigacao]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
@@ -825,6 +854,23 @@ const AdminPlanosAcao = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-4">
+                <h3 className="text-sm font-semibold">Foto da ocorrência</h3>
+                {planoPreviewPhoto ? (
+                  <div className="overflow-hidden rounded-md border bg-muted/20">
+                    <img
+                      src={planoPreviewPhoto}
+                      alt={`Foto da ocorrência ${formatNumero(viewPlano.numero_ocorrencia)}`}
+                      className="max-h-[420px] w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-md border bg-gray-50 p-4 text-sm text-muted-foreground">
+                    Nenhuma foto disponível para esta ocorrência.
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
