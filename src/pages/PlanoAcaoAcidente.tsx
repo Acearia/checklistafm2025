@@ -536,15 +536,15 @@ const PlanoAcaoAcidente = () => {
       return;
     }
 
-    setForm((previous) => ({
-      ...previous,
-      numero_ocorrencia: planoContext.numero_referencia,
-      data_ocorrencia: normalizeDateInput(planoContext.data_referencia),
-      descricao_ocorrencia: planoContext.descricao_ocorrencia,
-      origem: planoContext.origem || "Regra de Ouro",
-      descricao_resumida_acao:
-        planoContext.descricao_resumida_acao ||
-        `Tratar irregularidade da pergunta ${planoContext.question_numero || planoContext.numero_referencia}`,
+      setForm((previous) => ({
+        ...previous,
+        numero_ocorrencia: planoContext.numero_referencia,
+        data_ocorrencia: normalizeDateInput(planoContext.data_referencia),
+        descricao_ocorrencia: planoContext.descricao_ocorrencia || planoContext.descricao_acao || "",
+        origem: planoContext.origem || "Regra de Ouro",
+        descricao_resumida_acao:
+          planoContext.descricao_resumida_acao ||
+          `Tratar irregularidade da pergunta ${planoContext.question_numero || planoContext.numero_referencia}`,
       prioridade_ocorrencia: previous.prioridade_ocorrencia || "Baixa",
     }));
   }, [
@@ -597,6 +597,8 @@ const PlanoAcaoAcidente = () => {
       data_ocorrencia: selectedPlano.data_ocorrencia,
       prioridade_ocorrencia: selectedPlano.prioridade_ocorrencia,
       descricao_ocorrencia: selectedPlano.descricao_ocorrencia,
+      descricao_ocorrencia:
+        selectedPlano.descricao_ocorrencia || selectedPlano.descricao_acao || "",
       origem: selectedPlano.origem,
       descricao_resumida_acao: selectedPlano.descricao_resumida_acao,
       severidade: selectedPlano.severidade,
@@ -688,7 +690,7 @@ const PlanoAcaoAcidente = () => {
           : "",
       descricao_ocorrencia:
         fonteParam === "regra-ouro"
-          ? planoContext?.descricao_ocorrencia || ""
+          ? planoContext?.descricao_ocorrencia || planoContext?.descricao_acao || ""
           : "",
       origem:
         fonteParam === "regra-ouro"
@@ -901,7 +903,7 @@ const PlanoAcaoAcidente = () => {
       numero_ocorrencia: record.numero_ocorrencia,
       data_ocorrencia: record.data_ocorrencia,
       prioridade_ocorrencia: record.prioridade_ocorrencia,
-      descricao_ocorrencia: record.descricao_ocorrencia,
+      descricao_ocorrencia: record.descricao_ocorrencia || record.descricao_acao || "",
       origem: record.origem,
       descricao_resumida_acao: record.descricao_resumida_acao,
       severidade: record.severidade,
