@@ -379,6 +379,39 @@ const parsePlanoAcaoContext = (): PlanoAcaoContext | null => {
   }
 };
 
+const mergePlanoRecords = (primary: PlanoAcaoRecord, secondary?: PlanoAcaoRecord | null): PlanoAcaoRecord => {
+  if (!secondary) return primary;
+
+  const pick = (first: string, second: string) => (first.trim() ? first : second);
+  const commentsById = new Map<string, ComentarioPlano>();
+
+  [...(primary.comentarios || []), ...(secondary.comentarios || [])].forEach((comment) => {
+    const key = comment.id || `${comment.created_at}-${comment.texto}`;
+    if (!commentsById.has(key)) {
+      commentsById.set(key, comment);
+    }
+  });
+
+  return {
+    ...primary,
+    ...secondary,
+    data_ocorrencia: pick(primary.data_ocorrencia, secondary.data_ocorrencia),
+    origem: pick(primary.origem, secondary.origem),
+    descricao_ocorrencia: pick(primary.descricao_ocorrencia, secondary.descricao_ocorrencia),
+    descricao_resumida_acao: pick(primary.descricao_resumida_acao, secondary.descricao_resumida_acao),
+    responsavel_execucao: pick(primary.responsavel_execucao, secondary.responsavel_execucao),
+    inicio_planejado: pick(primary.inicio_planejado, secondary.inicio_planejado),
+    termino_planejado: pick(primary.termino_planejado, secondary.termino_planejado),
+    acao_iniciada: pick(primary.acao_iniciada, secondary.acao_iniciada),
+    acao_finalizada: pick(primary.acao_finalizada, secondary.acao_finalizada),
+    descricao_acao: pick(primary.descricao_acao, secondary.descricao_acao),
+    observacoes_conclusao: pick(primary.observacoes_conclusao, secondary.observacoes_conclusao),
+    data_eficacia: pick(primary.data_eficacia, secondary.data_eficacia),
+    observacao_eficacia: pick(primary.observacao_eficacia, secondary.observacao_eficacia),
+    comentarios: Array.from(commentsById.values()),
+  };
+};
+
 const calculateEficaciaDueDate = (finishedAt?: string) => {
   if (!finishedAt) return "";
   const baseDate = new Date(`${finishedAt}T00:00:00`);
@@ -441,9 +474,9 @@ const PlanoAcaoAcidente = () => {
 
         const currentTimestamp = new Date(current.updated_at || current.created_at).getTime();
         const incomingTimestamp = new Date(item.updated_at || item.created_at).getTime();
-        if (incomingTimestamp >= currentTimestamp) {
-          mergedMap.set(key, item);
-        }
+        const preferred = incomingTimestamp >= currentTimestamp ? item : current;
+        const fallback = incomingTimestamp >= currentTimestamp ? current : item;
+        mergedMap.set(key, mergePlanoRecords(preferred, fallback));
       });
       const mergedPlans = Array.from(mergedMap.values()).sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at).getTime();

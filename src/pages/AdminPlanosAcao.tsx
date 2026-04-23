@@ -131,6 +131,31 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
   }
 };
 
+const mergePlanoRecords = (primary: PlanoAcaoRecord, secondary?: PlanoAcaoRecord | null): PlanoAcaoRecord => {
+  if (!secondary) return primary;
+
+  const pick = (first: string, second: string) => (first.trim() ? first : second);
+  const commentsById = new Map<string, any>();
+  [...(primary.comentarios || []), ...(secondary.comentarios || [])].forEach((comment) => {
+    const key = comment.id || `${comment.created_at}-${comment.texto}`;
+    if (!commentsById.has(key)) {
+      commentsById.set(key, comment);
+    }
+  });
+
+  return {
+    ...primary,
+    ...secondary,
+    descricao_resumida_acao: pick(primary.descricao_resumida_acao, secondary.descricao_resumida_acao),
+    responsavel_execucao: pick(primary.responsavel_execucao, secondary.responsavel_execucao),
+    termino_planejado: pick(primary.termino_planejado, secondary.termino_planejado),
+    acao_finalizada: pick(primary.acao_finalizada, secondary.acao_finalizada),
+    data_eficacia: pick(primary.data_eficacia, secondary.data_eficacia),
+    observacao_eficacia: pick(primary.observacao_eficacia, secondary.observacao_eficacia),
+    comentarios: Array.from(commentsById.values()),
+  };
+};
+
 const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
   if (!item || typeof item !== "object") return null;
   return {
@@ -245,9 +270,17 @@ const AdminPlanosAcao = () => {
       const mergedMap = new Map<string, PlanoAcaoRecord>();
       [...remoteRecords, ...localRecords].forEach((item) => {
         const key = item.id || `n-${item.numero_plano}-${item.numero_ocorrencia}`;
-        if (!mergedMap.has(key)) {
+        const current = mergedMap.get(key);
+        if (!current) {
           mergedMap.set(key, item);
+          return;
         }
+
+        const currentTimestamp = new Date(current.updated_at || current.created_at).getTime();
+        const incomingTimestamp = new Date(item.updated_at || item.created_at).getTime();
+        const preferred = incomingTimestamp >= currentTimestamp ? item : current;
+        const fallback = incomingTimestamp >= currentTimestamp ? current : item;
+        mergedMap.set(key, mergePlanoRecords(preferred, fallback));
       });
       const mergedRecords = Array.from(mergedMap.values()).sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at).getTime();
