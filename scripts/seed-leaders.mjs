@@ -3,13 +3,40 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
+const envCandidates = [
+  path.resolve(process.cwd(), ".env"),
+  path.resolve(process.cwd(), "supabase", ".env"),
+  path.resolve(process.cwd(), "..", "supabase", ".env"),
+];
+
+for (const envFile of envCandidates) {
+  if (!fs.existsSync(envFile)) continue;
+  const envLines = fs
+    .readFileSync(envFile, "utf-8")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+
+  for (const line of envLines) {
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex <= 0) continue;
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    if (!process.env[key]) {
+      process.env[key] = value;
+    }
+  }
+}
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY =
-  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  process.env.SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
-    "Defina VITE_SUPABASE_URL e VITE_SUPABASE_SERVICE_ROLE_KEY no .env para executar o seeding.",
+    "Defina SUPABASE_URL/VITE_SUPABASE_URL e SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY para executar o seeding.",
   );
   process.exit(1);
 }
