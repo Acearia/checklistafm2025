@@ -1,9 +1,16 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { Eye, RefreshCw, Trash2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -34,15 +41,24 @@ interface PlanoAcaoRecord {
   numero_plano: number;
   numero_ocorrencia: number;
   data_ocorrencia: string;
+  prioridade_ocorrencia: PrioridadeAcao;
+  descricao_ocorrencia: string;
   origem: string;
   descricao_resumida_acao: string;
+  severidade: string;
+  probabilidade: string;
   prioridade: PrioridadeAcao;
   status: StatusAcao;
   responsavel_execucao: string;
+  inicio_planejado: string;
   termino_planejado: string;
+  acao_iniciada: string;
   acao_finalizada: string;
+  descricao_acao: string;
+  observacoes_conclusao: string;
   data_eficacia: string;
   observacao_eficacia: string;
+  comentarios?: any[];
 }
 
 interface InvestigacaoResumo {
@@ -69,6 +85,12 @@ const formatDate = (value?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleDateString("pt-BR");
+};
+
+const formatText = (value?: string) => {
+  if (!value) return "N/A";
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "N/A";
 };
 
 const calculateEficaciaDueDate = (finishedAt?: string) => {
@@ -108,13 +130,21 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
           numero_plano: Number(item.numero_plano) || 0,
           numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
           data_ocorrencia: String(item.data_ocorrencia || ""),
+          prioridade_ocorrencia: (String(item.prioridade_ocorrencia || "Baixa") as PrioridadeAcao) || "Baixa",
+          descricao_ocorrencia: String(item.descricao_ocorrencia || ""),
           origem: String(item.origem || "Acidente"),
           descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
+          severidade: String(item.severidade || ""),
+          probabilidade: String(item.probabilidade || ""),
           prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
           status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
           responsavel_execucao: String(item.responsavel_execucao || ""),
+          inicio_planejado: String(item.inicio_planejado || ""),
           termino_planejado: String(item.termino_planejado || ""),
+          acao_iniciada: String(item.acao_iniciada || ""),
           acao_finalizada: String(item.acao_finalizada || ""),
+          descricao_acao: String(item.descricao_acao || ""),
+          observacoes_conclusao: String(item.observacoes_conclusao || ""),
           data_eficacia: String(item.data_eficacia || ""),
           observacao_eficacia: String(item.observacao_eficacia || ""),
         };
@@ -146,10 +176,17 @@ const mergePlanoRecords = (primary: PlanoAcaoRecord, secondary?: PlanoAcaoRecord
   return {
     ...primary,
     ...secondary,
+    descricao_ocorrencia: pick(primary.descricao_ocorrencia, secondary.descricao_ocorrencia),
     descricao_resumida_acao: pick(primary.descricao_resumida_acao, secondary.descricao_resumida_acao),
+    severidade: pick(primary.severidade, secondary.severidade),
+    probabilidade: pick(primary.probabilidade, secondary.probabilidade),
     responsavel_execucao: pick(primary.responsavel_execucao, secondary.responsavel_execucao),
+    inicio_planejado: pick(primary.inicio_planejado, secondary.inicio_planejado),
     termino_planejado: pick(primary.termino_planejado, secondary.termino_planejado),
+    acao_iniciada: pick(primary.acao_iniciada, secondary.acao_iniciada),
     acao_finalizada: pick(primary.acao_finalizada, secondary.acao_finalizada),
+    descricao_acao: pick(primary.descricao_acao, secondary.descricao_acao),
+    observacoes_conclusao: pick(primary.observacoes_conclusao, secondary.observacoes_conclusao),
     data_eficacia: pick(primary.data_eficacia, secondary.data_eficacia),
     observacao_eficacia: pick(primary.observacao_eficacia, secondary.observacao_eficacia),
     comentarios: Array.from(commentsById.values()),
@@ -165,13 +202,21 @@ const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
     numero_plano: Number(item.numero_plano) || 0,
     numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
     data_ocorrencia: String(item.data_ocorrencia || ""),
+    prioridade_ocorrencia: (String(item.prioridade_ocorrencia || "Baixa") as PrioridadeAcao) || "Baixa",
+    descricao_ocorrencia: String(item.descricao_ocorrencia || ""),
     origem: String(item.origem || "Acidente"),
     descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
+    severidade: String(item.severidade || ""),
+    probabilidade: String(item.probabilidade || ""),
     prioridade: (String(item.prioridade || "Baixa") as PrioridadeAcao) || "Baixa",
     status: (String(item.status || "Aberta") as StatusAcao) || "Aberta",
     responsavel_execucao: String(item.responsavel_execucao || ""),
+    inicio_planejado: String(item.inicio_planejado || ""),
     termino_planejado: String(item.termino_planejado || ""),
+    acao_iniciada: String(item.acao_iniciada || ""),
     acao_finalizada: String(item.acao_finalizada || ""),
+    descricao_acao: String(item.descricao_acao || ""),
+    observacoes_conclusao: String(item.observacoes_conclusao || ""),
     data_eficacia: String(item.data_eficacia || ""),
     observacao_eficacia: String(item.observacao_eficacia || ""),
   };
@@ -217,6 +262,7 @@ const AdminPlanosAcao = () => {
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [viewPlano, setViewPlano] = useState<PlanoAcaoRecord | null>(null);
 
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
@@ -329,6 +375,11 @@ const AdminPlanosAcao = () => {
     return map;
   }, [investigacoes]);
 
+  const selectedInvestigacao = useMemo(() => {
+    if (!viewPlano) return null;
+    return investigacaoByOcorrencia.get(viewPlano.numero_ocorrencia) || null;
+  }, [viewPlano, investigacaoByOcorrencia]);
+
   const filteredRecords = useMemo(() => {
     return records.filter((item) => {
       const linked = investigacaoByOcorrencia.get(item.numero_ocorrencia);
@@ -338,7 +389,9 @@ const AdminPlanosAcao = () => {
         normalizedSearch.length === 0 ||
         String(item.numero_plano).includes(normalizedSearch) ||
         String(item.numero_ocorrencia).includes(normalizedSearch) ||
+        item.descricao_ocorrencia.toLowerCase().includes(normalizedSearch) ||
         item.descricao_resumida_acao.toLowerCase().includes(normalizedSearch) ||
+        item.descricao_acao.toLowerCase().includes(normalizedSearch) ||
         item.responsavel_execucao.toLowerCase().includes(normalizedSearch) ||
         String(linked?.nome_acidentado || "").toLowerCase().includes(normalizedSearch) ||
         String(linked?.setor || "").toLowerCase().includes(normalizedSearch);
@@ -629,6 +682,10 @@ const AdminPlanosAcao = () => {
                         <TableCell>{formatDate(item.termino_planejado)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => setViewPlano(item)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver plano
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -669,6 +726,152 @@ const AdminPlanosAcao = () => {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={Boolean(viewPlano)} onOpenChange={(open) => !open && setViewPlano(null)}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Resumo do plano {viewPlano ? formatNumero(viewPlano.numero_plano) : ""}
+            </DialogTitle>
+            <DialogDescription>
+              Visualização simplificada com as informações principais do plano de ação.
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewPlano ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Plano</CardDescription>
+                    <CardTitle>{formatNumero(viewPlano.numero_plano)}</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Ocorrência</CardDescription>
+                    <CardTitle>{formatNumero(viewPlano.numero_ocorrencia)}</CardTitle>
+                  </CardHeader>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Origem</CardDescription>
+                    <CardTitle>{formatText(viewPlano.origem)}</CardTitle>
+                  </CardHeader>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3 rounded-lg border p-4">
+                  <h3 className="text-sm font-semibold">Dados principais</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Status</div>
+                      <div className="mt-1">
+                        <Badge variant={viewPlano.status === "Concluida" ? "default" : "secondary"}>
+                          {viewPlano.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Prioridade</div>
+                      <div className="mt-1">
+                        <Badge variant={viewPlano.prioridade === "Critica" ? "destructive" : "secondary"}>
+                          {viewPlano.prioridade}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Responsável</div>
+                      <div className="mt-1 text-sm">{formatText(viewPlano.responsavel_execucao)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Prazo</div>
+                      <div className="mt-1 text-sm">{formatDate(viewPlano.termino_planejado)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Início planejado</div>
+                      <div className="mt-1 text-sm">{formatDate(viewPlano.inicio_planejado)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Ação iniciada</div>
+                      <div className="mt-1 text-sm">{formatDate(viewPlano.acao_iniciada)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-4">
+                  <h3 className="text-sm font-semibold">Ocorrência vinculada</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Acidentado</div>
+                      <div className="mt-1 text-sm">{formatText(selectedInvestigacao?.nome_acidentado)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Setor</div>
+                      <div className="mt-1 text-sm">{formatText(selectedInvestigacao?.setor)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Data da ocorrência</div>
+                      <div className="mt-1 text-sm">
+                        {formatDate(viewPlano.data_ocorrencia || selectedInvestigacao?.data_ocorrencia)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">
+                        Prioridade da ocorrência
+                      </div>
+                      <div className="mt-1 text-sm">{viewPlano.prioridade_ocorrencia}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-3 rounded-lg border p-4">
+                  <h3 className="text-sm font-semibold">Resumo e descrição</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Resumo da ação</div>
+                      <p className="mt-1 text-sm leading-relaxed">{formatText(viewPlano.descricao_resumida_acao)}</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Descrição da ocorrência</div>
+                      <p className="mt-1 text-sm leading-relaxed">{formatText(viewPlano.descricao_ocorrencia)}</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Descrição da ação</div>
+                      <p className="mt-1 text-sm leading-relaxed">{formatText(viewPlano.descricao_acao)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-lg border p-4">
+                  <h3 className="text-sm font-semibold">Conclusão e eficácia</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Ação finalizada</div>
+                      <div className="mt-1 text-sm">{formatDate(viewPlano.acao_finalizada)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Observações de conclusão</div>
+                      <p className="mt-1 text-sm leading-relaxed">{formatText(viewPlano.observacoes_conclusao)}</p>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Data de eficácia</div>
+                      <div className="mt-1 text-sm">{formatDate(viewPlano.data_eficacia)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium uppercase text-muted-foreground">Observação de eficácia</div>
+                      <p className="mt-1 text-sm leading-relaxed">{formatText(viewPlano.observacao_eficacia)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
