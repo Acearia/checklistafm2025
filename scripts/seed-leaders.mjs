@@ -92,6 +92,35 @@ async function getExistingAssignments() {
   return (await fetchJson(`${API_BASE}/sector_leader_assignments`, { headers: HEADERS })) ?? [];
 }
 
+async function ensureSectorsExist(sectorNames) {
+  const sectors = (await fetchJson(`${API_BASE}/sectors`, { headers: HEADERS })) ?? [];
+  const knownNames = new Set(sectors.map((sector) => normalize(sector.name)));
+  const uniqueSectorNames = Array.from(
+    new Set(
+      sectorNames
+        .map((name) => String(name || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  for (const sectorName of uniqueSectorNames) {
+    if (knownNames.has(normalize(sectorName))) {
+      continue;
+    }
+
+    await fetchJson(`${API_BASE}/sectors`, {
+      method: "POST",
+      headers: HEADERS,
+      body: JSON.stringify({
+        name: sectorName,
+        description: "Setor cadastrado automaticamente a partir da lista de líderes.",
+      }),
+    });
+
+    knownNames.add(normalize(sectorName));
+  }
+}
+
 async function getSectorsMap() {
   const sectors = (await fetchJson(`${API_BASE}/sectors`, { headers: HEADERS })) ?? [];
   const map = new Map();
@@ -166,6 +195,19 @@ async function assignLeaderToSector(sectorName, leaderId, shift, sectorMap, assi
 async function main() {
   const existingLeaders = await getExistingLeaders();
   const existingAssignments = await getExistingAssignments();
+  const desiredSectorNames = Array.from(
+    new Set(
+      rawData.flatMap((leader) =>
+        Array.isArray(leader.sectors)
+          ? leader.sectors
+          : typeof leader.sector === "string"
+            ? leader.sector.split(",").map((item) => item.trim()).filter(Boolean)
+            : [],
+      ),
+    ),
+  );
+
+  await ensureSectorsExist(desiredSectorNames);
   const sectorsMap = await getSectorsMap();
   const assignmentKeys = new Set(
     existingAssignments.map((assignment) =>
