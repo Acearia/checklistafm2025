@@ -28,7 +28,7 @@ for (const envFile of envCandidates) {
   }
 }
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY =
   process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ??
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
@@ -37,6 +37,23 @@ const SERVICE_ROLE_KEY =
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
     "Defina SUPABASE_URL/VITE_SUPABASE_URL e SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY para executar o seeding.",
+  );
+  process.exit(1);
+}
+
+const isLocalSupabaseUrl = (value) =>
+  /^(https?:\/\/)?(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d+)?(?:\/|$)/i.test(
+    String(value || "").trim(),
+  );
+
+if (isLocalSupabaseUrl(SUPABASE_URL) && process.env.ALLOW_LOCAL_SUPABASE !== "1") {
+  console.error(
+    [
+      `Recusei executar o seed contra ${SUPABASE_URL}.`,
+      "Esse comando precisa apontar para o Supabase do CT/producao para não quebrar o frontend.",
+      "Use SUPABASE_URL=https://checklist.afm.com.br (ou carregue /opt/app/.env corretamente) e rode de novo.",
+      "Se você realmente quiser usar uma instância local, defina ALLOW_LOCAL_SUPABASE=1 explicitamente.",
+    ].join(" "),
   );
   process.exit(1);
 }
