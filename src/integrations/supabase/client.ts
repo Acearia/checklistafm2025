@@ -21,6 +21,8 @@ const resolveSupabaseUrlForClient = (rawUrl?: string) => {
 
     // On mobile devices, "localhost" points to the phone itself. Reuse the current host.
     parsedUrl.hostname = browserHost;
+    parsedUrl.protocol = window.location.protocol;
+    parsedUrl.port = "";
     return parsedUrl.toString();
   } catch {
     return rawUrl;
