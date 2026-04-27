@@ -542,7 +542,13 @@ const LeaderDashboard = () => {
         titulo: String(item.titulo || ""),
         setor: String(item.setor || ""),
         irregularities: getLeaderIrregularityCount(item),
-      }));
+      }))
+        .filter((rule) => {
+          const normalizedSector = normalizeSector(rule.setor);
+          if (!normalizedSector) return false;
+          if (hasGlobalSectorAccess) return true;
+          return normalizedSector === primaryLeaderSector;
+        });
 
       const rulesByOccurrence = new Map<number, LeaderRulePreview>();
       normalizedRules.forEach((rule) => {
