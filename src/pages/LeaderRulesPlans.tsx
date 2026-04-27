@@ -456,44 +456,6 @@ const LeaderRulesPlans = () => {
     }
   }, [supabaseLoading, currentLeader, loadRecords]);
 
-  useEffect(() => {
-    if (!currentLeader || loadingAuth || loadingData) return;
-
-    const params = new URLSearchParams(location.search);
-    const kind = params.get("kind");
-    const id = params.get("id");
-    if (!kind || !id) return;
-
-    const token = `${kind}:${id}`;
-    if (openedFromQueryRef.current === token) return;
-
-    if (kind === "rule") {
-      const rule = goldenRules.find((item) => item.id === id);
-      if (rule) {
-        openedFromQueryRef.current = token;
-        void handleOpenRule(rule);
-      }
-      return;
-    }
-
-    if (kind === "plan") {
-      const plan = actionPlans.find((item) => item.id === id);
-      if (plan) {
-        openedFromQueryRef.current = token;
-        void handleOpenPlan(plan);
-      }
-    }
-  }, [
-    actionPlans,
-    currentLeader,
-    handleOpenPlan,
-    handleOpenRule,
-    loadingAuth,
-    loadingData,
-    location.search,
-    goldenRules,
-  ]);
-
   const investigationsByOccurrence = useMemo(() => {
     const map = new Map<number, InvestigationSummary>();
     investigacoes.forEach((item) => {
@@ -651,6 +613,44 @@ const LeaderRulesPlans = () => {
     },
     [goldenRuleByOccurrence],
   );
+
+  useEffect(() => {
+    if (!currentLeader || loadingAuth || loadingData) return;
+
+    const params = new URLSearchParams(location.search);
+    const kind = params.get("kind");
+    const id = params.get("id");
+    if (!kind || !id) return;
+
+    const token = `${kind}:${id}`;
+    if (openedFromQueryRef.current === token) return;
+
+    if (kind === "rule") {
+      const rule = goldenRules.find((item) => item.id === id);
+      if (rule) {
+        openedFromQueryRef.current = token;
+        void handleOpenRule(rule);
+      }
+      return;
+    }
+
+    if (kind === "plan") {
+      const plan = actionPlans.find((item) => item.id === id);
+      if (plan) {
+        openedFromQueryRef.current = token;
+        void handleOpenPlan(plan);
+      }
+    }
+  }, [
+    actionPlans,
+    currentLeader,
+    handleOpenPlan,
+    handleOpenRule,
+    loadingAuth,
+    loadingData,
+    location.search,
+    goldenRules,
+  ]);
 
   const selectedPlanSector = useMemo(() => {
     if (!selectedPlan) return "";
