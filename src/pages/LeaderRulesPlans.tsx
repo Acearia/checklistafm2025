@@ -736,12 +736,12 @@ const LeaderRulesPlans = () => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              onClick={() => navigate("/leader/dashboard")}
+              onClick={() => navigate("/leader/login")}
               variant="outline"
               className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
             >
               <ArrowLeft className="h-4 w-4" />
-              Voltar ao Dashboard
+              Voltar
             </Button>
             <Button
               onClick={handleRefresh}

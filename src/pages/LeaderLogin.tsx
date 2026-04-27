@@ -52,7 +52,7 @@ const LeaderLogin = () => {
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
     if (isAuthenticated) {
-      navigate("/leader/dashboard");
+      navigate("/leader/registros");
     }
   }, [navigate]);
 
@@ -98,7 +98,7 @@ const LeaderLogin = () => {
           description: "Acesso local liberado com permissão total.",
         });
         setErrorMessage(null);
-        navigate("/leader/dashboard");
+        navigate("/leader/registros");
         return;
       }
 
@@ -144,7 +144,7 @@ const LeaderLogin = () => {
           description: `Bem-vindo(a), ${leader.name}`,
         });
         setErrorMessage(null);
-        navigate("/leader/dashboard");
+        navigate("/leader/registros");
       } else {
         const adminAccess = await verifyAdminCredentials(normalizedMatricula, password);
         if (adminAccess?.role === "seguranca") {
@@ -167,7 +167,7 @@ const LeaderLogin = () => {
             description: "Acesso de supervisor liberado.",
           });
           setErrorMessage(null);
-          navigate("/leader/dashboard");
+          navigate("/leader/registros");
           return;
         }
 
@@ -233,7 +233,7 @@ const LeaderLogin = () => {
         title: "Senha definida",
         description: "Senha atualizada com sucesso. Entrando...",
       });
-      navigate("/leader/dashboard");
+      navigate("/leader/registros");
     } catch (error) {
       console.error("Erro ao atualizar senha do líder:", error);
       toast({
