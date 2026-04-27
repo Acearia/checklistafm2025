@@ -1639,7 +1639,7 @@ const LeaderDashboard = () => {
             <div>
               <CardTitle>Regras de Ouro e Plano de Ação</CardTitle>
               <CardDescription>
-                Visualização somente leitura para líderes. Nenhuma exclusão está disponível aqui.
+                Acesse a tela completa para ver regras e planos do seu setor.
               </CardDescription>
             </div>
             <Button
@@ -1648,100 +1648,9 @@ const LeaderDashboard = () => {
               className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
             >
               <FileText className="h-4 w-4" />
-              Abrir visão completa
+              Abrir tela completa
             </Button>
           </CardHeader>
-          <CardContent className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Regras de Ouro recentes</h3>
-                  <p className="text-xs text-slate-600">Itens do seu setor, sem ações de exclusão.</p>
-                </div>
-                <Badge variant="secondary">{leaderRulesPreview.length} visíveis</Badge>
-              </div>
-              {leaderRecordsLoading ? (
-                <p className="text-sm text-slate-600">Carregando regras...</p>
-              ) : leaderRulesPreview.length === 0 ? (
-                <p className="text-sm text-slate-600">
-                  Nenhuma regra de ouro encontrada para os seus setores.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {leaderRulesPreview.map((rule) => (
-                    <button
-                      key={rule.id}
-                      type="button"
-                      onClick={() => navigate(`/leader/registros?kind=rule&id=${encodeURIComponent(rule.id)}`)}
-                      className="w-full rounded-md border border-slate-200 bg-white p-3 text-left transition hover:border-red-200 hover:bg-red-50"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            #{String(rule.numero_inspecao).padStart(3, "0")} - {rule.titulo || "Sem título"}
-                          </p>
-                          <p className="text-xs text-slate-600">{rule.setor || "N/A"}</p>
-                        </div>
-                        <Badge variant={rule.irregularities > 0 ? "destructive" : "secondary"}>
-                          {rule.irregularities > 0
-                            ? `${rule.irregularities} irregularidade(s)`
-                          : "Sem irregularidade"}
-                        </Badge>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Planos de Ação recentes</h3>
-                  <p className="text-xs text-slate-600">Somente leitura para acompanhar andamento.</p>
-                </div>
-                <Badge variant="secondary">{leaderPlansPreview.length} visíveis</Badge>
-              </div>
-              {leaderRecordsLoading ? (
-                <p className="text-sm text-slate-600">Carregando planos...</p>
-              ) : leaderPlansPreview.length === 0 ? (
-                <p className="text-sm text-slate-600">
-                  Nenhum plano de ação encontrado para os seus setores.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {leaderPlansPreview.map((plan) => (
-                    <button
-                      key={plan.id}
-                      type="button"
-                      onClick={() => navigate(`/leader/registros?kind=plan&id=${encodeURIComponent(plan.id)}`)}
-                      className="w-full rounded-md border border-slate-200 bg-white p-3 text-left transition hover:border-red-200 hover:bg-red-50"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-slate-900">
-                            Plano #{String(plan.numero_plano).padStart(3, "0")}
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            Ocorrência #{String(plan.numero_ocorrencia).padStart(3, "0")} • {plan.setor || "N/A"}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-700">
-                            {plan.descricao_resumida_acao || "Sem descrição"}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge variant={normalizeLeaderText(plan.status) === "concluida" ? "default" : "secondary"}>
-                            {plan.status || "Aberta"}
-                          </Badge>
-                          <Badge variant="outline">{plan.prioridade || "Baixa"}</Badge>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
         </Card>
       ) : null}
 
