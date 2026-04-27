@@ -308,6 +308,11 @@ const LeaderDashboard = () => {
           .toLowerCase()
       : "";
 
+  const primaryLeaderSector = useMemo(() => {
+    if (!currentLeader?.sector) return "";
+    return normalizeSector(currentLeader.sector.split(/[,;/]/)[0]);
+  }, [currentLeader]);
+
   const leaderSectorKeys = useMemo(() => {
     if (!currentLeader?.sector) return [] as string[];
     return currentLeader.sector
@@ -336,9 +341,11 @@ const LeaderDashboard = () => {
 
   const allowedSectorNames = useMemo(() => {
     const names = new Set<string>();
-    leaderSectorKeys.forEach((name) => names.add(name));
+    if (primaryLeaderSector) {
+      names.add(primaryLeaderSector);
+    }
     return names;
-  }, [leaderSectorKeys]);
+  }, [primaryLeaderSector]);
 
   const hasGlobalSectorAccess = useMemo(
     () => allowedSectorNames.has("todos"),
@@ -558,7 +565,7 @@ const LeaderDashboard = () => {
           const normalizedSector = normalizeSector(plan.setor);
           if (!normalizedSector) return false;
           if (hasGlobalSectorAccess) return true;
-          return allowedSectorNames.has(normalizedSector);
+          return normalizedSector === primaryLeaderSector;
         });
 
       setLeaderRulesRaw(normalizedRules);
@@ -570,7 +577,7 @@ const LeaderDashboard = () => {
     } finally {
       setLeaderRecordsLoading(false);
     }
-  }, [currentLeader, allowedSectorNames, hasGlobalSectorAccess]);
+  }, [currentLeader, hasGlobalSectorAccess, primaryLeaderSector]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
@@ -1634,7 +1641,12 @@ const LeaderDashboard = () => {
             ) : (
               <div className="space-y-3">
                 {leaderRulesPreview.map((rule) => (
-                  <div key={rule.id} className="rounded-md border border-slate-200 bg-white p-3">
+                  <button
+                    key={rule.id}
+                    type="button"
+                    onClick={() => navigate(`/leader/registros?kind=rule&id=${encodeURIComponent(rule.id)}`)}
+                    className="w-full rounded-md border border-slate-200 bg-white p-3 text-left transition hover:border-red-200 hover:bg-red-50"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-slate-900">
@@ -1645,10 +1657,10 @@ const LeaderDashboard = () => {
                       <Badge variant={rule.irregularities > 0 ? "destructive" : "secondary"}>
                         {rule.irregularities > 0
                           ? `${rule.irregularities} irregularidade(s)`
-                          : "Sem irregularidade"}
+                        : "Sem irregularidade"}
                       </Badge>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -1671,7 +1683,12 @@ const LeaderDashboard = () => {
             ) : (
               <div className="space-y-3">
                 {leaderPlansPreview.map((plan) => (
-                  <div key={plan.id} className="rounded-md border border-slate-200 bg-white p-3">
+                  <button
+                    key={plan.id}
+                    type="button"
+                    onClick={() => navigate(`/leader/registros?kind=plan&id=${encodeURIComponent(plan.id)}`)}
+                    className="w-full rounded-md border border-slate-200 bg-white p-3 text-left transition hover:border-red-200 hover:bg-red-50"
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-slate-900">
@@ -1691,7 +1708,7 @@ const LeaderDashboard = () => {
                         <Badge variant="outline">{plan.prioridade || "Baixa"}</Badge>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

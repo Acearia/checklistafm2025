@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -295,14 +295,13 @@ const getPlanSourceLabel = (plan: ActionPlanRecord) => {
 
 const LeaderRulesPlans = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const {
     leaders: supabaseLeaders,
-    sectors: supabaseSectors,
-    sectorLeaderAssignments: supabaseSectorLeaderAssignments,
     loading: supabaseLoading,
     refresh,
-  } = useSupabaseData(["leaders", "sectors", "sectorLeaderAssignments"]);
+  } = useSupabaseData(["leaders"]);
 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
@@ -318,52 +317,22 @@ const LeaderRulesPlans = () => {
   const [selectedRuleDetail, setSelectedRuleDetail] = useState<GoldenRuleRecord | null>(null);
   const [selectedPlanRelatedRule, setSelectedPlanRelatedRule] = useState<GoldenRuleRecord | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const openedFromQueryRef = useRef("");
 
   const normalizeLeaderSector = useCallback((value?: string | null) => normalizeSector(value), []);
 
-  const leaderSectorKeys = useMemo(() => {
-    if (!currentLeader?.sector) return [] as string[];
-    return currentLeader.sector
-      .split(/[,;/]/)
-      .map((value) => normalizeLeaderSector(value))
-      .filter((value): value is string => Boolean(value));
+  const primaryLeaderSector = useMemo(() => {
+    if (!currentLeader?.sector) return "";
+    return normalizeLeaderSector(currentLeader.sector.split(/[,;/]/)[0]);
   }, [currentLeader, normalizeLeaderSector]);
-
-  const leaderAssignmentSectorIds = useMemo<string[]>(() => {
-    if (!currentLeader || !Array.isArray(supabaseSectorLeaderAssignments)) {
-      return [];
-    }
-    return supabaseSectorLeaderAssignments
-      .filter((assignment) => assignment.leader_id === currentLeader.id)
-      .map((assignment) => assignment.sector_id)
-      .filter((id): id is string => Boolean(id));
-  }, [supabaseSectorLeaderAssignments, currentLeader]);
-
-  const sectorIdToNormalizedName = useMemo(() => {
-    const map = new Map<string, string>();
-    supabaseSectors.forEach((sector) => {
-      map.set(sector.id, normalizeLeaderSector(sector.name));
-    });
-    return map;
-  }, [supabaseSectors, normalizeLeaderSector]);
-
-  const assignmentSectorNameSet = useMemo(() => {
-    const set = new Set<string>();
-    leaderAssignmentSectorIds.forEach((id) => {
-      const normalized = sectorIdToNormalizedName.get(id);
-      if (normalized) {
-        set.add(normalized);
-      }
-    });
-    return set;
-  }, [leaderAssignmentSectorIds, sectorIdToNormalizedName]);
 
   const allowedSectorNames = useMemo(() => {
     const names = new Set<string>();
-    leaderSectorKeys.forEach((name) => names.add(name));
-    assignmentSectorNameSet.forEach((name) => names.add(name));
+    if (primaryLeaderSector) {
+      names.add(primaryLeaderSector);
+    }
     return names;
-  }, [leaderSectorKeys, assignmentSectorNameSet]);
+  }, [primaryLeaderSector]);
 
   const hasGlobalSectorAccess = useMemo(() => allowedSectorNames.has("todos"), [allowedSectorNames]);
 
@@ -486,6 +455,44 @@ const LeaderRulesPlans = () => {
       void loadRecords();
     }
   }, [supabaseLoading, currentLeader, loadRecords]);
+
+  useEffect(() => {
+    if (!currentLeader || loadingAuth || loadingData) return;
+
+    const params = new URLSearchParams(location.search);
+    const kind = params.get("kind");
+    const id = params.get("id");
+    if (!kind || !id) return;
+
+    const token = `${kind}:${id}`;
+    if (openedFromQueryRef.current === token) return;
+
+    if (kind === "rule") {
+      const rule = goldenRules.find((item) => item.id === id);
+      if (rule) {
+        openedFromQueryRef.current = token;
+        void handleOpenRule(rule);
+      }
+      return;
+    }
+
+    if (kind === "plan") {
+      const plan = actionPlans.find((item) => item.id === id);
+      if (plan) {
+        openedFromQueryRef.current = token;
+        void handleOpenPlan(plan);
+      }
+    }
+  }, [
+    actionPlans,
+    currentLeader,
+    handleOpenPlan,
+    handleOpenRule,
+    loadingAuth,
+    loadingData,
+    location.search,
+    goldenRules,
+  ]);
 
   const investigationsByOccurrence = useMemo(() => {
     const map = new Map<number, InvestigationSummary>();
