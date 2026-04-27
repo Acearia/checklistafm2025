@@ -334,23 +334,11 @@ const LeaderDashboard = () => {
     return map;
   }, [supabaseSectors]);
 
-  const assignmentSectorNameSet = useMemo(() => {
-    const set = new Set<string>();
-    leaderAssignmentSectorIds.forEach((id) => {
-      const normalized = sectorIdToNormalizedName.get(id);
-      if (normalized) {
-        set.add(normalized);
-      }
-    });
-    return set;
-  }, [leaderAssignmentSectorIds, sectorIdToNormalizedName]);
-
   const allowedSectorNames = useMemo(() => {
     const names = new Set<string>();
     leaderSectorKeys.forEach((name) => names.add(name));
-    assignmentSectorNameSet.forEach((name) => names.add(name));
     return names;
-  }, [leaderSectorKeys, assignmentSectorNameSet]);
+  }, [leaderSectorKeys]);
 
   const hasGlobalSectorAccess = useMemo(
     () => allowedSectorNames.has("todos"),
