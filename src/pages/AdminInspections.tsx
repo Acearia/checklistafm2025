@@ -33,11 +33,13 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { Badge } from "@/components/ui/badge";
 import InspectionBoardPanel from "@/components/inspection/InspectionBoardPanel";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
-import {
+import { 
   buildInspectionBoard,
   calculateInspectionBoardStats,
   getLocalDateKey,
   type InspectionBoardInspectionEntry,
+  type InspectionBoardSectorEntry,
+  type InspectionBoardStats,
 } from "@/lib/inspectionBoard";
 import { deleteMaintenanceOrdersByInspection, loadMaintenanceOrders } from "@/lib/maintenanceOrders";
 import type { MaintenanceOrder } from "@/lib/types";
@@ -79,6 +81,14 @@ const AdminInspections = () => {
   const [dateTo, setDateTo] = useState("");
   const [viewMode, setViewMode] = useState<"lista" | "painel">("lista");
   const [shouldPrepareBoard, setShouldPrepareBoard] = useState(false);
+  const [isBoardCalculating, setIsBoardCalculating] = useState(false);
+  const [boardBySector, setBoardBySector] = useState<InspectionBoardSectorEntry<any>[]>([]);
+  const [boardStats, setBoardStats] = useState<InspectionBoardStats>({
+    sectorCount: 0,
+    equipmentCount: 0,
+    inspectionsToday: 0,
+    inspectionsWithProblemsToday: 0,
+  });
   const [boardDateFrom, setBoardDateFrom] = useState(() =>
     format(new Date(), "yyyy-MM-dd"),
   );
@@ -400,54 +410,64 @@ const AdminInspections = () => {
     );
   });
 
-  const boardProcessedInspections = useMemo(() => {
-    if (!shouldPrepareBoard) return [];
+  useEffect(() => {
+    if (!shouldPrepareBoard || viewMode !== "painel") {
+      return;
+    }
 
-    return processedInspections.filter((inspection) => {
-      const dateValue =
-        inspection?.submission_date ||
-        inspection?.created_at ||
-        inspection?.inspection_date ||
-        null;
-      const inspectionDateKey = getLocalDateKey(dateValue);
-      if (!inspectionDateKey) return false;
+    let cancelled = false;
+    setIsBoardCalculating(true);
 
-      const matchesFrom = !boardDateFrom || inspectionDateKey >= boardDateFrom;
-      const matchesTo = !boardDateTo || inspectionDateKey <= boardDateTo;
-      return matchesFrom && matchesTo;
-    });
-  }, [processedInspections, boardDateFrom, boardDateTo]);
+    const timerId = window.setTimeout(() => {
+      if (cancelled) return;
 
-  const boardBySector = useMemo(() => {
-    if (!shouldPrepareBoard) return [];
+      const boardProcessedInspections = processedInspections.filter((inspection) => {
+        const dateValue =
+          inspection?.submission_date ||
+          inspection?.created_at ||
+          inspection?.inspection_date ||
+          null;
+        const inspectionDateKey = getLocalDateKey(dateValue);
+        if (!inspectionDateKey) return false;
 
-    return buildInspectionBoard({
-      equipments: equipment || [],
-      inspections: boardProcessedInspections,
-      getInspectionEquipmentId: (inspection) =>
-        String(inspection?.equipment_id || inspection?.equipment?.id || ""),
-      getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
-      getInspectionDate: (inspection) =>
-        inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
-      getInspectionHasProblems: (inspection) =>
-        Number(inspection?.problemCount || 0) > 0,
-      getInspectionHasOpenOrder: (inspection) =>
-        Boolean(inspection?.hasOpenOrder),
-    });
-  }, [equipment, boardProcessedInspections, shouldPrepareBoard]);
+        const matchesFrom = !boardDateFrom || inspectionDateKey >= boardDateFrom;
+        const matchesTo = !boardDateTo || inspectionDateKey <= boardDateTo;
+        return matchesFrom && matchesTo;
+      });
 
-  const boardStats = useMemo(
-    () =>
-      shouldPrepareBoard
-        ? calculateInspectionBoardStats(boardBySector)
-        : {
-            totalSectors: 0,
-            totalEquipments: 0,
-            totalToday: 0,
-            totalTodayWithProblems: 0,
-          },
-    [boardBySector, shouldPrepareBoard],
-  );
+      const nextBoardBySector = buildInspectionBoard({
+        equipments: equipment || [],
+        inspections: boardProcessedInspections,
+        getInspectionEquipmentId: (inspection) =>
+          String(inspection?.equipment_id || inspection?.equipment?.id || ""),
+        getInspectionEquipmentMeta: (inspection) => inspection?.equipment,
+        getInspectionDate: (inspection) =>
+          inspection?.submission_date || inspection?.created_at || inspection?.inspection_date || null,
+        getInspectionHasProblems: (inspection) =>
+          Number(inspection?.problemCount || 0) > 0,
+        getInspectionHasOpenOrder: (inspection) =>
+          Boolean(inspection?.hasOpenOrder),
+      });
+
+      if (cancelled) return;
+
+      setBoardBySector(nextBoardBySector);
+      setBoardStats(calculateInspectionBoardStats(nextBoardBySector));
+      setIsBoardCalculating(false);
+    }, 0);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timerId);
+    };
+  }, [
+    shouldPrepareBoard,
+    viewMode,
+    processedInspections,
+    equipment,
+    boardDateFrom,
+    boardDateTo,
+  ]);
 
   const sectorSummary = useMemo(() => {
     if (!processedInspections || processedInspections.length === 0) {
@@ -917,50 +937,66 @@ const AdminInspections = () => {
         </TabsContent>
 
         <TabsContent value="painel" className="space-y-4">
-          <InspectionBoardPanel
-            title="Painel geral de inspeções (encarregados e líderes)"
-            description="Visão consolidada de todos os setores e equipamentos. Clique em uma linha para abrir os detalhes da inspeção."
-            emptyMessage="Nenhuma inspeção encontrada para montar o painel geral."
-            boardBySector={boardBySector}
-            boardStats={boardStats}
-            getRowClass={getAdminBoardRowClass}
-            getDotClass={getAdminBoardDotClass}
-            dateFrom={boardDateFrom}
-            dateTo={boardDateTo}
-            onDateFromChange={setBoardDateFrom}
-            onDateToChange={setBoardDateTo}
-            onApplyToday={() => {
-              const today = format(new Date(), "yyyy-MM-dd");
-              setBoardDateFrom(today);
-              setBoardDateTo(today);
-            }}
-            onApplyLast7Days={() => {
-              setBoardDateFrom(format(subDays(new Date(), 6), "yyyy-MM-dd"));
-              setBoardDateTo(format(new Date(), "yyyy-MM-dd"));
-            }}
-            onClearDateFilter={() => {
-              setBoardDateFrom("");
-              setBoardDateTo("");
-            }}
-            onInspectionClick={(inspection) => {
-              const inspectionData = inspection as {
-                id?: string | number | null;
-                inspection_id?: string | number | null;
-              };
-              const inspectionId = inspectionData?.id ?? inspectionData?.inspection_id;
+          {!shouldPrepareBoard || isBoardCalculating ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Painel geral de inspeções</CardTitle>
+                <CardDescription>
+                  Preparando o painel somente quando você abrir essa aba.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-center rounded border border-dashed py-12 text-sm text-muted-foreground">
+                  Carregando painel geral...
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <InspectionBoardPanel
+              title="Painel geral de inspeções (encarregados e líderes)"
+              description="Visão consolidada de todos os setores e equipamentos. Clique em uma linha para abrir os detalhes da inspeção."
+              emptyMessage="Nenhuma inspeção encontrada para montar o painel geral."
+              boardBySector={boardBySector}
+              boardStats={boardStats}
+              getRowClass={getAdminBoardRowClass}
+              getDotClass={getAdminBoardDotClass}
+              dateFrom={boardDateFrom}
+              dateTo={boardDateTo}
+              onDateFromChange={setBoardDateFrom}
+              onDateToChange={setBoardDateTo}
+              onApplyToday={() => {
+                const today = format(new Date(), "yyyy-MM-dd");
+                setBoardDateFrom(today);
+                setBoardDateTo(today);
+              }}
+              onApplyLast7Days={() => {
+                setBoardDateFrom(format(subDays(new Date(), 6), "yyyy-MM-dd"));
+                setBoardDateTo(format(new Date(), "yyyy-MM-dd"));
+              }}
+              onClearDateFilter={() => {
+                setBoardDateFrom("");
+                setBoardDateTo("");
+              }}
+              onInspectionClick={(inspection) => {
+                const inspectionData = inspection as {
+                  id?: string | number | null;
+                  inspection_id?: string | number | null;
+                };
+                const inspectionId = inspectionData?.id ?? inspectionData?.inspection_id;
 
-              if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
-                navigate(`/admin/checklists/${String(inspectionId)}`);
-                return;
-              }
+                if (inspectionId !== undefined && inspectionId !== null && String(inspectionId).trim() !== "") {
+                  navigate(`/admin/checklists/${String(inspectionId)}`);
+                  return;
+                }
 
-              toast({
-                title: "Inspeção sem ID",
-                description: "Não foi possível abrir os detalhes desta inspeção.",
-                variant: "destructive",
-              });
-            }}
-          />
+                toast({
+                  title: "Inspeção sem ID",
+                  description: "Não foi possível abrir os detalhes desta inspeção.",
+                  variant: "destructive",
+                });
+              }}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
