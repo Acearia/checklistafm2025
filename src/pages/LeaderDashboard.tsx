@@ -566,7 +566,12 @@ const LeaderDashboard = () => {
           created_at: String(item.created_at || ""),
           setor: getLeaderPlanSector(item, rulesByOccurrence),
         }))
-        .filter((plan) => plan.setor && isSectorVisible(plan.setor));
+        .filter((plan) => {
+          const normalizedSector = normalizeSector(plan.setor);
+          if (!normalizedSector) return false;
+          if (hasGlobalSectorAccess) return true;
+          return allowedSectorNames.has(normalizedSector);
+        });
 
       setLeaderRulesRaw(normalizedRules);
       setLeaderPlansRaw(normalizedPlans);
@@ -577,7 +582,7 @@ const LeaderDashboard = () => {
     } finally {
       setLeaderRecordsLoading(false);
     }
-  }, [currentLeader, isSectorVisible]);
+  }, [currentLeader, allowedSectorNames, hasGlobalSectorAccess]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
