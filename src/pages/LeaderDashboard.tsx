@@ -1633,27 +1633,6 @@ const LeaderDashboard = () => {
         </CardContent>
       </Card>
 
-      {canSeeRulesPlansSection ? (
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>Regras de Ouro e Plano de Ação</CardTitle>
-              <CardDescription>
-                Acesse a tela completa para ver regras e planos do seu setor.
-              </CardDescription>
-            </div>
-            <Button
-              onClick={() => navigate("/leader/registros")}
-              variant="outline"
-              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
-            >
-              <FileText className="h-4 w-4" />
-              Abrir tela completa
-            </Button>
-          </CardHeader>
-        </Card>
-      ) : null}
-
       <InspectionBoardPanel
         title="Painel por setor"
         description="Visão consolidada por setor e equipamento. Clique em uma linha para abrir a inspeção."
