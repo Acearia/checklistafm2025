@@ -152,39 +152,6 @@ const AdminInspections = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const prepareBoard = () => setShouldPrepareBoard(true);
-    const idleCallback = (window as Window & {
-      requestIdleCallback?: (callback: () => void) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    }).requestIdleCallback;
-    const cancelIdleCallback = (window as Window & {
-      cancelIdleCallback?: (handle: number) => void;
-    }).cancelIdleCallback;
-
-    if (viewMode === "painel") {
-      prepareBoard();
-      return;
-    }
-
-    if (idleCallback) {
-      const idleId = idleCallback(prepareBoard);
-      return () => {
-        if (cancelIdleCallback) {
-          cancelIdleCallback(idleId);
-        }
-      };
-    }
-
-    const timeoutId = window.setTimeout(prepareBoard, 250);
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [viewMode]);
-
-
   const handleViewDetails = (inspection: any) => {
     setSelectedInspection(inspection);
     setIsDialogOpen(true);
@@ -598,7 +565,12 @@ const AdminInspections = () => {
 
       <Tabs
         value={viewMode}
-        onValueChange={(value) => setViewMode(value as "lista" | "painel")}
+        onValueChange={(value) => {
+          setViewMode(value as "lista" | "painel");
+          if (value === "painel") {
+            setShouldPrepareBoard(true);
+          }
+        }}
         className="space-y-4"
       >
         <TabsList>
