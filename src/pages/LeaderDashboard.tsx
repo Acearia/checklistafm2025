@@ -67,7 +67,12 @@ import {
 } from "@/lib/inspectionBoard";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
-import { operatorService, type Operator as SupabaseOperator } from "@/lib/supabase-service";
+import {
+  accidentActionPlanService,
+  goldenRuleService,
+  operatorService,
+  type Operator as SupabaseOperator,
+} from "@/lib/supabase-service";
 import type { DateRange } from "react-day-picker";
 
 // Types
@@ -111,6 +116,27 @@ interface ProblemEntry {
   answer?: string;
 }
 
+interface LeaderRulePreview {
+  id: string;
+  numero_inspecao: number;
+  created_at: string;
+  titulo: string;
+  setor: string;
+  irregularities: number;
+}
+
+interface LeaderPlanPreview {
+  id: string;
+  numero_plano: number;
+  numero_ocorrencia: number;
+  origem: string;
+  setor: string;
+  status: string;
+  prioridade: string;
+  descricao_resumida_acao: string;
+  created_at: string;
+}
+
 const LOCAL_PROFILE_KEY = "checklistafm-leader-local-profile";
 const FILTER_ALL = "all" as const;
 
@@ -147,6 +173,68 @@ const formatChecklistAnswerLabel = (rawValue?: string) => {
   return rawAnswer || "N/A";
 };
 
+const normalizeLeaderText = (value?: string | null) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+const normalizeLeaderQuestionCode = (value?: string | number | null) => {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const parsed = Number.parseInt(digits, 10);
+  return Number.isNaN(parsed) ? digits : String(parsed);
+};
+
+const getLeaderIrregularityCount = (rule: any) => {
+  const responses = Array.isArray(rule?.responses) ? rule.responses : [];
+  const noResponseKeys = new Set([
+    "1n5",
+    "1n6",
+    "1n8",
+    "1n9",
+    "1n10",
+    "1n11",
+    "1n12",
+    "1n13",
+    "1n21",
+    "05",
+    "06",
+    "08",
+    "09",
+    "10",
+    "11",
+    "12",
+    "13",
+    "21",
+    "5",
+    "6",
+    "8",
+    "9",
+  ]);
+
+  return responses.filter((response: any) => {
+    const answer = normalizeLeaderText(response?.resposta);
+    if (!answer || answer === "n/a" || answer === "nao se aplica") return false;
+
+    const expected = normalizeLeaderQuestionCode(response?.codigo || response?.numero);
+    if (!expected) return false;
+
+    const expectedAnswer = noResponseKeys.has(expected) ? "não" : "sim";
+    return answer !== expectedAnswer;
+  }).length;
+};
+
+const getLeaderPlanSector = (plan: any, rulesByOccurrence: Map<number, any>) => {
+  const origin = normalizeLeaderText(plan?.origem);
+  if (origin.includes("regra de ouro")) {
+    return String(rulesByOccurrence.get(Number(plan?.numero_ocorrencia))?.setor || "");
+  }
+  return "";
+};
+
 const LeaderDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -176,6 +264,9 @@ const LeaderDashboard = () => {
   const [currentLeader, setCurrentLeader] = useState<Leader | null>(null);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [problemsList, setProblemsList] = useState<ProblemEntry[]>([]);
+  const [leaderRulesRaw, setLeaderRulesRaw] = useState<LeaderRulePreview[]>([]);
+  const [leaderPlansRaw, setLeaderPlansRaw] = useState<LeaderPlanPreview[]>([]);
+  const [leaderRecordsLoading, setLeaderRecordsLoading] = useState(true);
   const [operatorFilter, setOperatorFilter] = useState<string>(FILTER_ALL);
   const [timeRangeFilter, setTimeRangeFilter] = useState<string>("week");
   const [operators, setOperators] = useState<{id: string, name: string}[]>([]);
@@ -438,6 +529,55 @@ const LeaderDashboard = () => {
     saveChecklistAlerts(sortedAlerts);
     setChecklistAlerts(sortedAlerts);
   }, [currentLeader, inspections, allowedSectorNames, hasGlobalSectorAccess]);
+
+  const loadLeaderRecordsPreview = useCallback(async () => {
+    if (!currentLeader) return;
+
+    setLeaderRecordsLoading(true);
+    try {
+      const [rules, plans] = await Promise.all([
+        goldenRuleService.safeGetAllWithFallback(),
+        accidentActionPlanService.safeGetAllWithFallback(),
+      ]);
+
+      const normalizedRules = (Array.isArray(rules) ? rules : []).map((item: any) => ({
+        id: String(item.id || ""),
+        numero_inspecao: Number(item.numero_inspecao) || 0,
+        created_at: String(item.created_at || ""),
+        titulo: String(item.titulo || ""),
+        setor: String(item.setor || ""),
+        irregularities: getLeaderIrregularityCount(item),
+      }));
+
+      const rulesByOccurrence = new Map<number, LeaderRulePreview>();
+      normalizedRules.forEach((rule) => {
+        rulesByOccurrence.set(Number(rule.numero_inspecao), rule);
+      });
+
+      const normalizedPlans = (Array.isArray(plans) ? plans : [])
+        .map((item: any) => ({
+          id: String(item.id || ""),
+          numero_plano: Number(item.numero_plano) || 0,
+          numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
+          origem: String(item.origem || "Acidente"),
+          status: String(item.status || "Aberta"),
+          prioridade: String(item.prioridade || "Baixa"),
+          descricao_resumida_acao: String(item.descricao_resumida_acao || ""),
+          created_at: String(item.created_at || ""),
+          setor: getLeaderPlanSector(item, rulesByOccurrence),
+        }))
+        .filter((plan) => plan.setor && isSectorVisible(plan.setor));
+
+      setLeaderRulesRaw(normalizedRules);
+      setLeaderPlansRaw(normalizedPlans);
+    } catch (error) {
+      console.error("[LeaderDashboard] Erro ao carregar regras e planos:", error);
+      setLeaderRulesRaw([]);
+      setLeaderPlansRaw([]);
+    } finally {
+      setLeaderRecordsLoading(false);
+    }
+  }, [currentLeader, isSectorVisible]);
   
   const loadDashboardData = useCallback(() => {
     if (!currentLeader) return;
@@ -647,6 +787,12 @@ const LeaderDashboard = () => {
   }, [supabaseLoading, currentLeader, loadDashboardData]);
 
   useEffect(() => {
+    if (!supabaseLoading && currentLeader) {
+      void loadLeaderRecordsPreview();
+    }
+  }, [supabaseLoading, currentLeader, loadLeaderRecordsPreview]);
+
+  useEffect(() => {
     if (currentLeader) {
       refreshChecklistAlerts();
     }
@@ -673,6 +819,8 @@ const LeaderDashboard = () => {
     refresh(); // Refresh Supabase data
     refreshChecklistAlerts();
     setMaintenanceOrders(loadMaintenanceOrders());
+    void loadDashboardData();
+    void loadLeaderRecordsPreview();
     toast({
       title: "Dados atualizados",
       description: "Dashboard atualizado com sucesso",
@@ -696,6 +844,22 @@ const LeaderDashboard = () => {
     setInspectionToView(inspection);
     setInspectionDialogOpen(true);
   };
+
+  const leaderRulesPreview = useMemo(
+    () =>
+      [...leaderRulesRaw]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3),
+    [leaderRulesRaw],
+  );
+
+  const leaderPlansPreview = useMemo(
+    () =>
+      [...leaderPlansRaw]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3),
+    [leaderPlansRaw],
+  );
 
   const handleOpenMaintenanceDialog = (options?: {
     equipmentId?: string;
@@ -1438,6 +1602,106 @@ const LeaderDashboard = () => {
               <LogOut className="h-4 w-4" />
               Sair
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Regras de Ouro e Plano de Ação</CardTitle>
+            <CardDescription>
+              Visualização somente leitura para líderes. Nenhuma exclusão está disponível aqui.
+            </CardDescription>
+          </div>
+          <Button
+            onClick={() => navigate("/leader/registros")}
+            variant="outline"
+            className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+          >
+            <FileText className="h-4 w-4" />
+            Abrir visão completa
+          </Button>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Regras de Ouro recentes</h3>
+                <p className="text-xs text-slate-600">Itens do seu setor, sem ações de exclusão.</p>
+              </div>
+              <Badge variant="secondary">{leaderRulesPreview.length} visíveis</Badge>
+            </div>
+            {leaderRecordsLoading ? (
+              <p className="text-sm text-slate-600">Carregando regras...</p>
+            ) : leaderRulesPreview.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Nenhuma regra de ouro encontrada para os seus setores.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {leaderRulesPreview.map((rule) => (
+                  <div key={rule.id} className="rounded-md border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          #{String(rule.numero_inspecao).padStart(3, "0")} - {rule.titulo || "Sem título"}
+                        </p>
+                        <p className="text-xs text-slate-600">{rule.setor || "N/A"}</p>
+                      </div>
+                      <Badge variant={rule.irregularities > 0 ? "destructive" : "secondary"}>
+                        {rule.irregularities > 0
+                          ? `${rule.irregularities} irregularidade(s)`
+                          : "Sem irregularidade"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900">Planos de Ação recentes</h3>
+                <p className="text-xs text-slate-600">Somente leitura para acompanhar andamento.</p>
+              </div>
+              <Badge variant="secondary">{leaderPlansPreview.length} visíveis</Badge>
+            </div>
+            {leaderRecordsLoading ? (
+              <p className="text-sm text-slate-600">Carregando planos...</p>
+            ) : leaderPlansPreview.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Nenhum plano de ação encontrado para os seus setores.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {leaderPlansPreview.map((plan) => (
+                  <div key={plan.id} className="rounded-md border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-900">
+                          Plano #{String(plan.numero_plano).padStart(3, "0")}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Ocorrência #{String(plan.numero_ocorrencia).padStart(3, "0")} • {plan.setor || "N/A"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {plan.descricao_resumida_acao || "Sem descrição"}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge variant={normalizeLeaderText(plan.status) === "concluida" ? "default" : "secondary"}>
+                          {plan.status || "Aberta"}
+                        </Badge>
+                        <Badge variant="outline">{plan.prioridade || "Baixa"}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -2503,4 +2767,3 @@ const LeaderDashboard = () => {
 };
 
 export default LeaderDashboard;
-
