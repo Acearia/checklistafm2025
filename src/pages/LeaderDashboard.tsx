@@ -69,7 +69,6 @@ import {
 } from "@/lib/inspectionBoard";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
-import { isRulesOnlyLeaderSector } from "@/lib/leaderRouting";
 import {
   accidentActionPlanService,
   goldenRuleService,
@@ -835,7 +834,6 @@ const LeaderDashboard = () => {
     if (
       !supabaseLoading &&
       currentLeader &&
-      isRulesOnlyLeaderSector(currentLeader.sector) &&
       canSeeRulesPlansSection &&
       allowedEquipmentIds.length === 0
     ) {
