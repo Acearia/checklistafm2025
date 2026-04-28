@@ -125,9 +125,6 @@ const DEFAULT_NO_RESPONSE_KEYS = new Set([
 ]);
 
 const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
-const DEFAULT_GOLDEN_RULE_QUESTION_IDS = new Set(DEFAULT_GOLDEN_RULE_QUESTION_ITEMS.map((item) => item.id));
-
-
 
 const isMissingGoldenRulesTableError = (error: unknown) => {
   const message = String((error as any)?.message || "").toLowerCase();
@@ -694,13 +691,6 @@ const AdminRegrasOuro = () => {
   const questionItems = useMemo(
     () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
     [goldenRuleQuestions],
-  );
-  const customQuestionItems = useMemo(
-    () =>
-      questionItems.filter(
-        (item) => !DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(item.id),
-      ),
-    [questionItems],
   );
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
@@ -1389,52 +1379,6 @@ const AdminRegrasOuro = () => {
           </CardHeader>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Perguntas da Regra de Ouro</CardTitle>
-          <CardDescription>
-            Adicione perguntas novas com alerta no SIM ou no NÃO. As perguntas padrão permanecem como base do checklist.
-            {customQuestionItems.length > 0
-              ? ` Há ${customQuestionItems.length} pergunta(s) personalizada(s) cadastrada(s).`
-              : " Nenhuma pergunta personalizada cadastrada ainda."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <div className="space-y-3">
-              {questionItems.length === 0 ? (
-                <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-500">
-                  Nenhuma pergunta disponível.
-                </div>
-              ) : (
-                questionItems.map((item) => {
-                  const builtIn = DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(item.id);
-                  return (
-                    <div key={item.id} className="rounded-md border p-3">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="font-medium text-gray-800">
-                            {item.numero}. {item.texto}
-                          </p>
-                          <p className="text-xs text-gray-500">Ordem: {item.order_number ?? 0}</p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {item.alert_on_yes && <Badge variant="destructive">Alerta no SIM</Badge>}
-                          {item.alert_on_no && <Badge variant="secondary">Alerta no NÃO</Badge>}
-                          <Badge variant={builtIn ? "outline" : "default"}>
-                            {builtIn ? "Padrão" : "Personalizada"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
