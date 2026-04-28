@@ -846,10 +846,22 @@ const LeaderDashboard = () => {
   }, [currentLeader, refreshChecklistAlerts]);
 
   useEffect(() => {
-    if (currentLeader && isRulesOnlyLeaderSector(currentLeader.sector)) {
+    if (
+      !supabaseLoading &&
+      currentLeader &&
+      isRulesOnlyLeaderSector(currentLeader.sector) &&
+      canSeeRulesPlansSection &&
+      allowedEquipmentIds.length === 0
+    ) {
       navigate("/leader/registros", { replace: true });
     }
-  }, [currentLeader, navigate]);
+  }, [
+    allowedEquipmentIds.length,
+    canSeeRulesPlansSection,
+    currentLeader,
+    navigate,
+    supabaseLoading,
+  ]);
 
   useEffect(() => {
     const updateOrders = () => {
