@@ -67,6 +67,7 @@ import {
 } from "@/lib/inspectionBoard";
 import type { ChecklistAlert, MaintenanceOrder } from "@/lib/types";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import { isRulesOnlyLeaderSector } from "@/lib/leaderRouting";
 import {
   accidentActionPlanService,
   goldenRuleService,
@@ -843,6 +844,12 @@ const LeaderDashboard = () => {
       refreshChecklistAlerts();
     }
   }, [currentLeader, refreshChecklistAlerts]);
+
+  useEffect(() => {
+    if (currentLeader && isRulesOnlyLeaderSector(currentLeader.sector)) {
+      navigate("/leader/registros", { replace: true });
+    }
+  }, [currentLeader, navigate]);
 
   useEffect(() => {
     const updateOrders = () => {

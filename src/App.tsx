@@ -52,7 +52,8 @@ function App() {
         <Route path="/checklist-steps/submit" element={<ChecklistSubmit />} />
         
         <Route path="/leader/login" element={<LeaderLogin />} />
-        <Route path="/leader/dashboard" element={<LeaderHomeRoute />} />
+        <Route path="/leader" element={<LeaderHomeRoute />} />
+        <Route path="/leader/dashboard" element={<LeaderDashboard />} />
         <Route path="/leader/registros" element={<LeaderRulesPlans />} />
         <Route path="/leader/checklists/:id" element={<ChecklistDetail />} />
         
