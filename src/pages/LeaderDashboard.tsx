@@ -353,13 +353,32 @@ const LeaderDashboard = () => {
     return map;
   }, [supabaseSectors]);
 
+  const leaderAssignmentSectorNames = useMemo(() => {
+    if (leaderAssignmentSectorIds.length === 0) return [] as string[];
+
+    const names = new Set<string>();
+    leaderAssignmentSectorIds.forEach((sectorId) => {
+      const normalizedName = sectorIdToNormalizedName.get(sectorId);
+      if (normalizedName) {
+        names.add(normalizedName);
+      }
+    });
+    return Array.from(names);
+  }, [leaderAssignmentSectorIds, sectorIdToNormalizedName]);
+
   const allowedSectorNames = useMemo(() => {
     const names = new Set<string>();
+    leaderSectorKeys.forEach((sectorKey) => {
+      names.add(sectorKey);
+    });
     if (primaryLeaderSector) {
       names.add(primaryLeaderSector);
     }
+    leaderAssignmentSectorNames.forEach((sectorName) => {
+      names.add(sectorName);
+    });
     return names;
-  }, [primaryLeaderSector]);
+  }, [leaderAssignmentSectorNames, leaderSectorKeys, primaryLeaderSector]);
 
   const hasGlobalSectorAccess = useMemo(
     () => allowedSectorNames.has("todos"),
@@ -367,8 +386,10 @@ const LeaderDashboard = () => {
   );
 
   const canSeeRulesPlansSection = useMemo(
-    () => hasGlobalSectorAccess || rulesPlansAllowedSectors.has(primaryLeaderSector),
-    [hasGlobalSectorAccess, primaryLeaderSector, rulesPlansAllowedSectors],
+    () =>
+      hasGlobalSectorAccess ||
+      Array.from(allowedSectorNames).some((sector) => rulesPlansAllowedSectors.has(sector)),
+    [allowedSectorNames, hasGlobalSectorAccess, rulesPlansAllowedSectors],
   );
 
   const allowedEquipmentIds = useMemo<string[]>(() => {
