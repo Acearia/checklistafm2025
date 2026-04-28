@@ -631,7 +631,7 @@ const buildQuestionPlanoAcaoContext = (
     tecnico: currentTecnico || "",
     descricao_ocorrencia: [
       `Pergunta ${item.numero}: ${item.texto}`,
-      `Resposta registrada: ${response.answer}`,
+      `Resposta registrada: ${normalizeText(response.answer).trim()}`,
       response.evidences.length > 0 ? `Evidencias anexadas: ${response.evidences.length}` : "",
       "Irregularidade identificada. Abrir plano de acao para definir responsavel, prazo e tratativa.",
     ]
@@ -643,7 +643,7 @@ const buildQuestionPlanoAcaoContext = (
     question_id: item.id,
     question_numero: item.numero,
     question_texto: item.texto,
-    question_resposta: response.answer,
+    question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
   };
 };
 
@@ -723,7 +723,7 @@ const buildActionPlanPayloadForQuestion = (
         texto: [
           `Plano iniciado a partir da Regra de Ouro ${formatInspectionNumber(finalInspectionNumber)}.`,
           `Pergunta ${item.numero}: ${item.texto}`,
-          `Resposta registrada: ${response.answer}`,
+          `Resposta registrada: ${normalizeText(response.answer).trim()}`,
         ].join("\n"),
         autor: savedRecord.tecnico_seg || "Sistema",
         created_at: now,
@@ -771,7 +771,7 @@ const persistActionPlansForInspection = async (
       question_id: item.id,
       question_numero: item.numero,
       question_texto: item.texto,
-      question_resposta: response.answer,
+      question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
     });
 
     try {
@@ -906,7 +906,7 @@ const InvestigacaoAcidente2 = () => {
       questionItems.forEach((item) => {
         const response = responses[item.id];
         if (!response) return;
-        if (isResponseOutOfPattern(item.id, response.answer, questionItems) && !next[item.id]) {
+        if (isResponseOutOfPattern(item.id, normalizeText(response.answer).trim() as QuestionAnswer, questionItems) && !next[item.id]) {
           next[item.id] = createActionPlanDraft(item, response);
           changed = true;
         }
@@ -1322,7 +1322,7 @@ const InvestigacaoAcidente2 = () => {
 
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
-      const requiresEvidence = isResponseOutOfPattern(item.id, response.answer, questionItems);
+      const requiresEvidence = isResponseOutOfPattern(item.id, normalizeText(response.answer).trim() as QuestionAnswer, questionItems);
       const completedEvidenceCount = response.evidences.filter(
         (evidence) => evidence.comment.trim().length > 0 && Boolean(evidence.photo),
       ).length;
@@ -1382,7 +1382,7 @@ const InvestigacaoAcidente2 = () => {
         questionItems.map(async (item) => {
           const current = responses[item.id];
           const isLockedQuestion = isPeriodicQuestionLocked(item.id);
-          const effectiveAnswer = isLockedQuestion ? "N/A" : current.answer;
+          const effectiveAnswer = isLockedQuestion ? "N/A" : (normalizeText(current.answer).trim() as QuestionAnswer);
           const effectiveEvidences = isLockedQuestion ? [] : current.evidences;
           const evidencias = await Promise.all(
             effectiveEvidences.map(async (evidence) => ({
@@ -1529,7 +1529,7 @@ const InvestigacaoAcidente2 = () => {
       toast({
         title: "Regra de Ouro registrada",
         description: hasNonConformity
-          ? `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo. O plano de a\u00e7\u00e3o foi gerado no prÃ³prio item irregular.`
+          ? `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo. O plano de ação foi gerado no próprio item irregular.`
           : `Registro ${formatInspectionNumber(finalInspectionNumber)} salvo com sucesso.`,
       });
 
@@ -1726,7 +1726,8 @@ const InvestigacaoAcidente2 = () => {
                   evidences: [],
                 };
               const isLockedQuestion = isPeriodicQuestionLocked(item.id);
-              const requiresEvidence = isResponseOutOfPattern(item.id, response.answer, questionItems);
+              const displayAnswer = normalizeText(response.answer).trim() as QuestionAnswer;
+              const requiresEvidence = isResponseOutOfPattern(item.id, displayAnswer, questionItems);
               const showExtra = !isLockedQuestion && (requiresEvidence || response.evidences.length > 0);
 
               return (
@@ -1783,7 +1784,7 @@ const InvestigacaoAcidente2 = () => {
                           isLockedQuestion ? "text-amber-600" : getAnswerTone(response.answer),
                         )}
                       >
-                        {isLockedQuestion ? "BLOQUEADA" : response.answer.toUpperCase()}
+                        {isLockedQuestion ? "BLOQUEADA" : displayAnswer.toUpperCase()}
                       </span>
                       <div className="grid w-full grid-cols-3 gap-2">
                         {(["Sim", "Não", "N/A"] as QuestionAnswer[]).map((answerOption) => (
@@ -1793,7 +1794,7 @@ const InvestigacaoAcidente2 = () => {
                             variant={
                               isLockedQuestion
                                 ? "outline"
-                                : response.answer === answerOption
+                                : displayAnswer === answerOption
                                   ? "default"
                                   : "outline"
                             }

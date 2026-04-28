@@ -1,6 +1,6 @@
 import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
 
-export type GoldenRuleAnswer = "Sim" | "NÃ£o" | "N/A";
+export type GoldenRuleAnswer = "Sim" | "Não" | "N/A";
 
 export interface GoldenRuleQuestionTemplate {
   id: string;
@@ -224,18 +224,18 @@ export const resolveGoldenRuleQuestionExpectedAnswer = (
 ) => {
   if (!question) return "Sim" as GoldenRuleAnswer;
 
-  if (question.alert_on_yes && !question.alert_on_no) return "NÃ£o" as GoldenRuleAnswer;
+  if (question.alert_on_yes && !question.alert_on_no) return "Não" as GoldenRuleAnswer;
   if (question.alert_on_no && !question.alert_on_yes) return "Sim" as GoldenRuleAnswer;
 
   const explicitQuestion = String(question.texto || "").trim();
   const inferredRule = explicitQuestion ? getAlertRule(explicitQuestion) : { onYes: false, onNo: false };
-  if (inferredRule.onYes) return "NÃ£o" as GoldenRuleAnswer;
+  if (inferredRule.onYes) return "Não" as GoldenRuleAnswer;
   if (inferredRule.onNo) return "Sim" as GoldenRuleAnswer;
 
   const questionId = String(question.id || "").trim();
   const questionNumero = String(question.numero || "").trim();
   if (DEFAULT_NO_RESPONSE_KEYS.has(questionId) || DEFAULT_NO_RESPONSE_KEYS.has(questionNumero)) {
-    return "NÃ£o" as GoldenRuleAnswer;
+    return "Não" as GoldenRuleAnswer;
   }
 
   return "Sim" as GoldenRuleAnswer;
@@ -256,7 +256,7 @@ export const resolveGoldenRuleResponseExpectedAnswer = (
 ) => {
   if (!response) return "Sim" as GoldenRuleAnswer;
 
-  if (Boolean(response.alert_on_yes) && !Boolean(response.alert_on_no)) return "NÃ£o" as GoldenRuleAnswer;
+  if (Boolean(response.alert_on_yes) && !Boolean(response.alert_on_no)) return "Não" as GoldenRuleAnswer;
   if (Boolean(response.alert_on_no) && !Boolean(response.alert_on_yes)) return "Sim" as GoldenRuleAnswer;
 
   const lookup = buildGoldenRuleQuestionLookup(questions);
@@ -276,12 +276,12 @@ export const resolveGoldenRuleResponseExpectedAnswer = (
 
   if (String(response.pergunta || "").trim()) {
     const inferredRule = getAlertRule(String(response.pergunta));
-    if (inferredRule.onYes) return "NÃ£o" as GoldenRuleAnswer;
+    if (inferredRule.onYes) return "Não" as GoldenRuleAnswer;
     if (inferredRule.onNo) return "Sim" as GoldenRuleAnswer;
   }
 
   if (DEFAULT_NO_RESPONSE_KEYS.has(codigo) || DEFAULT_NO_RESPONSE_KEYS.has(numeroRaw) || DEFAULT_NO_RESPONSE_KEYS.has(numeroKey)) {
-    return "NÃ£o" as GoldenRuleAnswer;
+    return "Não" as GoldenRuleAnswer;
   }
 
   return "Sim" as GoldenRuleAnswer;
