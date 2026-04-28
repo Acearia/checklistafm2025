@@ -1720,7 +1720,11 @@ const InvestigacaoAcidente2 = () => {
               </div>
             )}
             {questionItems.map((item) => {
-              const response = responses[item.id];
+              const response =
+                responses[item.id] ?? {
+                  answer: resolveGoldenRuleQuestionExpectedAnswer(item as any),
+                  evidences: [],
+                };
               const isLockedQuestion = isPeriodicQuestionLocked(item.id);
               const requiresEvidence = isResponseOutOfPattern(item.id, response.answer, questionItems);
               const showExtra = !isLockedQuestion && (requiresEvidence || response.evidences.length > 0);
