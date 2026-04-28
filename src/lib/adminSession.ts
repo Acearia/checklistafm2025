@@ -11,6 +11,8 @@ const normalizeAdminSessionValue = (value: unknown) =>
     .trim()
     .toLowerCase();
 
+const ROOT_ADMIN_USERNAMES = new Set(["adm", "administrador"]);
+
 export const getStoredAdminSession = (): AdminSessionRecord | null => {
   if (typeof window === "undefined") return null;
 
@@ -36,7 +38,15 @@ export const isRootAdminUser = (session: AdminSessionRecord | null = getStoredAd
 
   const username = normalizeAdminSessionValue(session.username);
   const role = normalizeAdminSessionValue(session.role);
-  return username === "adm" || role === "admin";
+  return ROOT_ADMIN_USERNAMES.has(username) || role === "admin" && ROOT_ADMIN_USERNAMES.has(username);
+};
+
+export const canManageGoldenRuleQuestions = (
+  session: AdminSessionRecord | null = getStoredAdminSession(),
+) => {
+  if (!session) return false;
+
+  return ROOT_ADMIN_USERNAMES.has(normalizeAdminSessionValue(session.username));
 };
 
 export const isCoordinatorAdminUser = (

@@ -32,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { isRootAdminUser } from "@/lib/adminSession";
+import { canManageGoldenRuleQuestions, isRootAdminUser } from "@/lib/adminSession";
 import { goldenRuleService, goldenRuleQuestionService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -708,6 +708,7 @@ const AdminRegrasOuro = () => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [isRootAdmin, setIsRootAdmin] = useState<boolean>(isRootAdminUser());
+  const [canManageQuestions, setCanManageQuestions] = useState<boolean>(canManageGoldenRuleQuestions());
   const [isSavingQuestion, setIsSavingQuestion] = useState(false);
   const [questionForm, setQuestionForm] = useState({
     question: "",
@@ -882,6 +883,7 @@ const AdminRegrasOuro = () => {
 
     const syncAdminSession = () => {
       setIsRootAdmin(isRootAdminUser());
+      setCanManageQuestions(canManageGoldenRuleQuestions());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -1523,7 +1525,7 @@ const AdminRegrasOuro = () => {
               )}
             </div>
 
-            {isRootAdmin && (
+            {canManageQuestions && (
               <div className="space-y-3 rounded-md border p-4">
                 <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
                 <Textarea
