@@ -282,6 +282,36 @@ export type Database = {
           },
         ]
       }
+      golden_rule_questions: {
+        Row: {
+          alert_on_no: boolean
+          alert_on_yes: boolean
+          created_at: string
+          id: string
+          order_number: number
+          question: string
+          updated_at: string
+        }
+        Insert: {
+          alert_on_no?: boolean
+          alert_on_yes?: boolean
+          created_at?: string
+          id?: string
+          order_number?: number
+          question: string
+          updated_at?: string
+        }
+        Update: {
+          alert_on_no?: boolean
+          alert_on_yes?: boolean
+          created_at?: string
+          id?: string
+          order_number?: number
+          question?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       accident_action_plans: {
         Row: {
           acao_finalizada: string | null

@@ -2,6 +2,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
 import { normalizeQuestion } from "@/lib/alertRules";
+import {
+  buildGoldenRuleQuestionItems,
+  buildGoldenRuleQuestionLookup,
+} from "@/lib/goldenRuleQuestions";
 
 // Types
 export type Operator = Tables<"operators">;
@@ -10,6 +14,7 @@ export type Inspection = Tables<"inspections">;
 export type GoldenRule = Tables<"golden_rules">;
 export type GoldenRuleResponse = Tables<"golden_rule_responses">;
 export type GoldenRuleAttachment = Tables<"golden_rule_attachments">;
+export type GoldenRuleQuestion = Tables<"golden_rule_questions">;
 export type AccidentActionPlan = Tables<"accident_action_plans">;
 export type AccidentActionPlanComment = Tables<"accident_action_plan_comments">;
 export type ChecklistItem = Tables<"checklist_items">;
@@ -47,6 +52,8 @@ export type OperatorInsert = TablesInsert<"operators">;
 export type EquipmentInsert = TablesInsert<"equipment">;
 export type InspectionInsert = TablesInsert<"inspections">;
 export type GoldenRuleInsert = TablesInsert<"golden_rules">;
+export type GoldenRuleQuestionInsert = TablesInsert<"golden_rule_questions">;
+export type GoldenRuleQuestionUpdate = TablesUpdate<"golden_rule_questions">;
 export type AccidentActionPlanInsert = TablesInsert<"accident_action_plans">;
 
 const SUPABASE_PAGE_SIZE = 1000;
@@ -990,6 +997,50 @@ export const groupProcedureService = {
   },
 };
 
+export const goldenRuleQuestionService = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("golden_rule_questions")
+      .select("*")
+      .order("order_number", { ascending: true })
+      .order("question", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+  async create(question: GoldenRuleQuestionInsert) {
+    const { data, error } = await supabase
+      .from("golden_rule_questions")
+      .insert(question)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: GoldenRuleQuestionUpdate) {
+    const { data, error } = await supabase
+      .from("golden_rule_questions")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase.from("golden_rule_questions").delete().eq("id", id);
+    if (error) throw error;
+  },
+  async safeGetAllWithFallback() {
+    try {
+      return await this.getAll();
+    } catch (error) {
+      if (relationMissingError(error, "golden_rule_questions")) return [];
+      throw error;
+    }
+  },
+};
+
 export const equipmentGroupService = {
   async getAll() {
     const { data, error } = await supabase.from("equipment_groups").select("*");
@@ -1102,6 +1153,10 @@ export const goldenRuleService = {
     const ruleIds = rows.map((rule: any) => rule?.id).filter(Boolean);
     const responseMap = new Map<string, any[]>();
     const attachmentMap = new Map<string, any[]>();
+    const questionTemplates = buildGoldenRuleQuestionItems(
+      await goldenRuleQuestionService.safeGetAllWithFallback(),
+    );
+    const questionLookup = buildGoldenRuleQuestionLookup(questionTemplates);
 
     try {
       for (const batchIds of chunkArray(ruleIds, 5)) {
@@ -1123,8 +1178,20 @@ export const goldenRuleService = {
         }
 
         (responseRows || []).forEach((response: any) => {
+          const codigo = String(response?.codigo || "").trim().toLowerCase();
+          const numero = String(response?.numero || "").trim().replace(/^0+/, "") || String(response?.numero || "").trim();
+          const pergunta = String(response?.pergunta || "").trim();
+          const matchedQuestion =
+            (codigo ? questionLookup.byId.get(codigo) : undefined) ||
+            (numero ? questionLookup.byNumero.get(numero) : undefined) ||
+            (pergunta ? questionLookup.byTexto.get(normalizeQuestion(pergunta)) : undefined);
+
           const current = responseMap.get(response.regra_id) || [];
-          current.push(response);
+          current.push({
+            ...response,
+            alert_on_yes: matchedQuestion?.alert_on_yes ?? null,
+            alert_on_no: matchedQuestion?.alert_on_no ?? null,
+          });
           responseMap.set(response.regra_id, current);
         });
       }

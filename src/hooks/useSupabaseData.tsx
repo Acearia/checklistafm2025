@@ -8,6 +8,7 @@ import {
   leaderService,
   sectorLeaderAssignmentService,
   checklistGroupService,
+  goldenRuleQuestionService,
   groupQuestionService,
   groupProcedureService,
   equipmentGroupService,
@@ -26,6 +27,7 @@ const RESOURCE_LIST = [
   "groups",
   "groupQuestions",
   "groupProcedures",
+  "goldenRuleQuestions",
   "equipmentGroups",
 ] as const;
 
@@ -42,7 +44,8 @@ const RESOURCE_INDEX: Record<SupabaseDataResource, number> = {
   groups: 7,
   groupQuestions: 8,
   groupProcedures: 9,
-  equipmentGroups: 10,
+  goldenRuleQuestions: 10,
+  equipmentGroups: 11,
 };
 
 const normalizeResources = (resources?: readonly SupabaseDataResource[]) => {
@@ -118,6 +121,12 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
         enabled: enabledResources.has("groupProcedures"),
       },
       {
+        queryKey: ["golden-rule-questions"],
+        queryFn: () => goldenRuleQuestionService.safeGetAllWithFallback(),
+        staleTime: STALE_TIME_MS * 5,
+        enabled: enabledResources.has("goldenRuleQuestions"),
+      },
+      {
         queryKey: ["equipment-groups"],
         queryFn: () => equipmentGroupService.getAll(),
         staleTime: STALE_TIME_MS,
@@ -163,6 +172,7 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
     groups: getQueryResult("groups").data ?? [],
     groupQuestions: getQueryResult("groupQuestions").data ?? [],
     groupProcedures: getQueryResult("groupProcedures").data ?? [],
+    goldenRuleQuestions: getQueryResult("goldenRuleQuestions").data ?? [],
     equipmentGroups: getQueryResult("equipmentGroups").data ?? [],
     loading,
     error,

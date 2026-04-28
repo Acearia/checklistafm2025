@@ -22,6 +22,10 @@ import SearchableStringSelect, {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import {
+  buildGoldenRuleQuestionItems,
+  resolveGoldenRuleQuestionExpectedAnswer,
+} from "@/lib/goldenRuleQuestions";
 import { FIXED_FORM_SECTORS, resolveFixedSectorName } from "@/lib/fixed-sectors";
 import { buildStoredPassword } from "@/lib/password-utils";
 import {
@@ -41,6 +45,9 @@ interface QuestionItem {
   id: string;
   numero: string;
   texto: string;
+  alert_on_yes?: boolean;
+  alert_on_no?: boolean;
+  order_number?: number;
 }
 
 interface AttachmentMeta {
@@ -497,12 +504,23 @@ const DEFAULT_NAO_QUESTION_IDS = new Set([
 const getDefaultAnswer = (questionId: string): QuestionAnswer =>
   DEFAULT_NAO_QUESTION_IDS.has(questionId) ? "Não" : "Sim";
 
-const isResponseOutOfPattern = (questionId: string, answer: QuestionAnswer) =>
-  answer !== "N/A" && answer !== getDefaultAnswer(questionId);
+const isResponseOutOfPattern = (
+  questionId: string,
+  answer: QuestionAnswer,
+  questions: QuestionItem[] = QUESTION_ITEMS,
+) => {
+  const question =
+    questions.find((item) => item.id === questionId || item.numero === questionId) || null;
+  const expectedAnswer = resolveGoldenRuleQuestionExpectedAnswer(question as any);
+  return answer !== "N/A" && answer !== expectedAnswer;
+};
 
-const buildNonConformitySummary = (responses: QuestionResponse[]) => {
+const buildNonConformitySummary = (
+  responses: QuestionResponse[],
+  questions: QuestionItem[] = QUESTION_ITEMS,
+) => {
   const nonConformingResponses = responses.filter((response) =>
-    isResponseOutOfPattern(response.codigo, response.resposta),
+    isResponseOutOfPattern(response.codigo, response.resposta, questions),
   );
 
   if (nonConformingResponses.length === 0) {
@@ -514,7 +532,10 @@ const buildNonConformitySummary = (responses: QuestionResponse[]) => {
     .join("\n");
 };
 
-const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoContext => ({
+const buildPlanoAcaoContext = (
+  record: InvestigacaoChecklistRecord,
+  questions: QuestionItem[] = QUESTION_ITEMS,
+): PlanoAcaoContext => ({
   fonte: "regra-ouro",
   registro_id: record.id,
   numero_referencia: Number(record.numero_inspecao) || 0,
@@ -522,7 +543,7 @@ const buildPlanoAcaoContext = (record: InvestigacaoChecklistRecord): PlanoAcaoCo
   titulo: record.titulo || `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)}`,
   setor: record.setor || "",
   tecnico: record.tecnico_seg || "",
-  descricao_ocorrencia: buildNonConformitySummary(record.respostas),
+  descricao_ocorrencia: buildNonConformitySummary(record.respostas, questions),
   origem: "Regra de Ouro",
   descricao_resumida_acao: "Tratar irregularidades identificadas na Regra de Ouro",
 });
@@ -716,9 +737,10 @@ const persistActionPlansForInspection = async (
   finalInspectionNumber: number,
   responses: Record<string, QuestionState>,
   actionPlanDrafts: Record<string, ActionPlanDraft>,
+  questions: QuestionItem[] = QUESTION_ITEMS,
 ) => {
-  const nonConformingItems = QUESTION_ITEMS.filter((item) =>
-    isResponseOutOfPattern(item.id, responses[item.id]?.answer || "N/A"),
+  const nonConformingItems = questions.filter((item) =>
+    isResponseOutOfPattern(item.id, responses[item.id]?.answer || "N/A", questions),
   );
 
   if (nonConformingItems.length === 0) {
@@ -789,15 +811,21 @@ const createEmptyEvidence = () => ({
   photo: null as File | null,
 });
 
-const createInitialResponses = (): Record<string, QuestionState> =>
+const createInitialResponses = (
+  items: QuestionItem[] = QUESTION_ITEMS,
+  previous?: Record<string, QuestionState>,
+): Record<string, QuestionState> =>
   Object.fromEntries(
-    QUESTION_ITEMS.map((question) => [
-      question.id,
-      {
-        answer: getDefaultAnswer(question.id),
-        evidences: [],
-      },
-    ]),
+    items.map((question) => {
+      const existing = previous?.[question.id];
+      return [
+        question.id,
+        existing || {
+          answer: resolveGoldenRuleQuestionExpectedAnswer(question as any),
+          evidences: [],
+        },
+      ];
+    }),
   ) as Record<string, QuestionState>;
 
 const createInitialSignatures = () => ({
@@ -820,7 +848,15 @@ const isMissingGoldenRulesTableError = (error: unknown) => {
 const InvestigacaoAcidente2 = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { leaders, operators, refresh } = useSupabaseData(["leaders", "operators"]);
+  const { leaders, operators, goldenRuleQuestions, refresh } = useSupabaseData([
+    "leaders",
+    "operators",
+    "goldenRuleQuestions",
+  ]);
+  const questionItems = useMemo(
+    () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
+    [goldenRuleQuestions],
+  );
 
   const [titulo, setTitulo] = useState("");
   const [setor, setSetor] = useState("");
@@ -848,6 +884,10 @@ const InvestigacaoAcidente2 = () => {
   );
   const [openActionPlanQuestionId, setOpenActionPlanQuestionId] = useState<string | null>(null);
   const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft>>({});
+  useEffect(() => {
+    setResponses((previous) => createInitialResponses(questionItems, previous));
+  }, [questionItems]);
+
   const planoAcaoCurrentState = useMemo(
     () => ({
       previewNumber,
@@ -863,10 +903,10 @@ const InvestigacaoAcidente2 = () => {
       let changed = false;
       const next = { ...previous };
 
-      QUESTION_ITEMS.forEach((item) => {
+      questionItems.forEach((item) => {
         const response = responses[item.id];
         if (!response) return;
-        if (isResponseOutOfPattern(item.id, response.answer) && !next[item.id]) {
+        if (isResponseOutOfPattern(item.id, response.answer, questionItems) && !next[item.id]) {
           next[item.id] = createActionPlanDraft(item, response);
           changed = true;
         }
@@ -874,7 +914,7 @@ const InvestigacaoAcidente2 = () => {
 
       return changed ? next : previous;
     });
-  }, [responses]);
+  }, [questionItems, responses]);
 
   useEffect(() => {
     let active = true;
@@ -1136,7 +1176,7 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const completionPercent = useMemo(() => {
-    const total = QUESTION_ITEMS.length + 8;
+    const total = questionItems.length + 8;
     let filled = 0;
 
     if (titulo.trim()) filled += 1;
@@ -1148,12 +1188,12 @@ const InvestigacaoAcidente2 = () => {
     if (signatures.ass_gestor) filled += 1;
     if (signatures.ass_acomp) filled += 1;
 
-    QUESTION_ITEMS.forEach((item) => {
+    questionItems.forEach((item) => {
       if (responses[item.id]) filled += 1;
     });
 
     return Math.round((filled / total) * 100);
-  }, [acompanhante, gestor, responses, setor, signatures.ass_acomp, signatures.ass_gestor, signatures.ass_tst, tecnicoSeg, titulo]);
+  }, [acompanhante, gestor, questionItems.length, responses, setor, signatures.ass_acomp, signatures.ass_gestor, signatures.ass_tst, tecnicoSeg, titulo]);
 
   const updateQuestion = (id: string, patch: Partial<QuestionState>) => {
     setResponses((previous) => ({
@@ -1233,7 +1273,7 @@ const InvestigacaoAcidente2 = () => {
       }
 
       const nextEvidences =
-        isResponseOutOfPattern(questionId, answer) && current.evidences.length === 0
+        isResponseOutOfPattern(questionId, answer, questionItems) && current.evidences.length === 0
           ? [createEmptyEvidence()]
           : current.evidences;
 
@@ -1249,7 +1289,7 @@ const InvestigacaoAcidente2 = () => {
   };
 
   const updateActionPlanDraft = (questionId: string, patch: Partial<ActionPlanDraft>) => {
-    const question = QUESTION_ITEMS.find((item) => item.id === questionId);
+    const question = questionItems.find((item) => item.id === questionId);
     if (!question) return;
 
     setActionPlanDrafts((previous) => {
@@ -1275,14 +1315,14 @@ const InvestigacaoAcidente2 = () => {
     if (!signatures.ass_gestor) return "Registre a assinatura do Gestor.";
     if (!signatures.ass_acomp) return "Registre a assinatura do Acompanhante.";
 
-    for (const item of QUESTION_ITEMS) {
+    for (const item of questionItems) {
       if (isPeriodicQuestionLocked(item.id)) {
         continue;
       }
 
       const response = responses[item.id];
       if (!response) return `Resposta ausente em ${item.id}.`;
-      const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
+      const requiresEvidence = isResponseOutOfPattern(item.id, response.answer, questionItems);
       const completedEvidenceCount = response.evidences.filter(
         (evidence) => evidence.comment.trim().length > 0 && Boolean(evidence.photo),
       ).length;
@@ -1297,10 +1337,10 @@ const InvestigacaoAcidente2 = () => {
       }
 
     if (requiresEvidence) {
-      const draft = actionPlanDrafts[item.id];
-      if (!draft) {
-        return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
-      }
+        const draft = actionPlanDrafts[item.id];
+        if (!draft) {
+          return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
+        }
         if (!draft.descricao_acao.trim()) {
           return `Preencha a descrição da ação do item ${item.numero}.`;
         }
@@ -1339,7 +1379,7 @@ const InvestigacaoAcidente2 = () => {
       ) + 1;
 
       const serializedRespostas = await Promise.all(
-        QUESTION_ITEMS.map(async (item) => {
+        questionItems.map(async (item) => {
           const current = responses[item.id];
           const isLockedQuestion = isPeriodicQuestionLocked(item.id);
           const effectiveAnswer = isLockedQuestion ? "N/A" : current.answer;
@@ -1468,7 +1508,7 @@ const InvestigacaoAcidente2 = () => {
 
       const savedRecord: InvestigacaoChecklistRecord = payload;
       const hasNonConformity = savedRecord.respostas.some((response) =>
-        isResponseOutOfPattern(response.codigo, response.resposta),
+        isResponseOutOfPattern(response.codigo, response.resposta, questionItems),
       );
       let nextSuccessMessage = "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.";
 
@@ -1478,6 +1518,7 @@ const InvestigacaoAcidente2 = () => {
           finalInspectionNumber,
           responses,
           actionPlanDrafts,
+          questionItems,
         );
         nextSuccessMessage =
           savedActionPlans > 0
@@ -1497,7 +1538,7 @@ const InvestigacaoAcidente2 = () => {
       setGestor("");
       setTecnicoSeg("");
       setAcompanhante("");
-      setResponses(createInitialResponses());
+      setResponses(createInitialResponses(questionItems));
       setSignatures(createInitialSignatures());
       setAttachments([]);
       setActionPlanDrafts({});
@@ -1678,10 +1719,10 @@ const InvestigacaoAcidente2 = () => {
                 {format(periodicQuestionLock.unlockAt, "dd/MM/yyyy")}.
               </div>
             )}
-            {QUESTION_ITEMS.map((item) => {
+            {questionItems.map((item) => {
               const response = responses[item.id];
               const isLockedQuestion = isPeriodicQuestionLocked(item.id);
-              const requiresEvidence = isResponseOutOfPattern(item.id, response.answer);
+              const requiresEvidence = isResponseOutOfPattern(item.id, response.answer, questionItems);
               const showExtra = !isLockedQuestion && (requiresEvidence || response.evidences.length > 0);
 
               return (

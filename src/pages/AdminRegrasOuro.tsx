@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -32,9 +33,15 @@ import {
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
-import { goldenRuleService } from "@/lib/supabase-service";
+import { goldenRuleService, goldenRuleQuestionService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import {
+  buildGoldenRuleQuestionItems,
+  DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+  resolveGoldenRuleQuestionExpectedAnswer,
+} from "@/lib/goldenRuleQuestions";
+import { normalizeQuestion } from "@/lib/alertRules";
 import { useNavigate } from "react-router-dom";
 
 interface AttachmentMeta {
@@ -118,6 +125,7 @@ const DEFAULT_NO_RESPONSE_KEYS = new Set([
 ]);
 
 const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
+const DEFAULT_GOLDEN_RULE_QUESTION_IDS = new Set(DEFAULT_GOLDEN_RULE_QUESTION_ITEMS.map((item) => item.id));
 
 
 
@@ -322,28 +330,63 @@ const normalizeGoldenRuleResponseKey = (response: Pick<QuestionResponse, "codigo
   return String(numericValue);
 };
 
-const getExpectedGoldenRuleAnswer = (response: Pick<QuestionResponse, "codigo" | "numero">) =>
-  DEFAULT_NO_RESPONSE_KEYS.has(normalizeGoldenRuleResponseKey(response)) ? ANSWER_NO : ANSWER_YES;
+const findQuestionTemplateForResponse = (
+  response: Pick<QuestionResponse, "codigo" | "numero" | "pergunta">,
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => {
+  const codigoKey = normalizeGoldenRuleResponseKey(response);
+  const numeroRaw = String(response.numero || "").trim();
+  const numeroKey = numeroRaw.replace(/^0+/, "") || numeroRaw;
+  const perguntaKey = normalizeQuestion(String(response.pergunta || ""));
+
+  return (
+    questions.find((question) => normalizeQuestion(question.id) === normalizeQuestion(codigoKey)) ||
+    questions.find((question) => String(question.numero || "").trim().replace(/^0+/, "") === numeroKey) ||
+    questions.find((question) => normalizeQuestion(question.texto) === perguntaKey) ||
+    null
+  );
+};
+
+const getExpectedGoldenRuleAnswer = (
+  response: Pick<QuestionResponse, "codigo" | "numero" | "pergunta">,
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => {
+  const question = findQuestionTemplateForResponse(response, questions);
+  if (question) {
+    return resolveGoldenRuleQuestionExpectedAnswer(question);
+  }
+
+  const normalizedKey = normalizeGoldenRuleResponseKey(response);
+  return DEFAULT_NO_RESPONSE_KEYS.has(normalizedKey) ? ANSWER_NO : ANSWER_YES;
+};
 
 const responseRequiresNonConformityEvidence = (
-  response: Pick<QuestionResponse, "codigo" | "numero" | "resposta">,
+  response: Pick<QuestionResponse, "codigo" | "numero" | "resposta" | "pergunta">,
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
 ) => {
   const answer = normalizeAnswer(response.resposta);
   if (answer === ANSWER_NA) return false;
-  return answer !== getExpectedGoldenRuleAnswer(response);
+  return answer !== getExpectedGoldenRuleAnswer(response, questions);
 };
 
 const countResponseEvidences = (responses: QuestionResponse[]) =>
   responses.reduce((acc, response) => acc + getResponseEvidences(response).length, 0);
 
-const responseHasNonConformityEvidence = (response: QuestionResponse) =>
-  responseRequiresNonConformityEvidence(response);
+const responseHasNonConformityEvidence = (
+  response: QuestionResponse,
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => responseRequiresNonConformityEvidence(response, questions);
 
-const countNonConformityResponses = (responses: QuestionResponse[]) =>
-  responses.filter(responseHasNonConformityEvidence).length;
+const countNonConformityResponses = (
+  responses: QuestionResponse[],
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => responses.filter((response) => responseHasNonConformityEvidence(response, questions)).length;
 
-const buildNonConformitySummary = (record: RegraOuroRecord) => {
-  const responses = record.respostas.filter(responseHasNonConformityEvidence);
+const buildNonConformitySummary = (
+  record: RegraOuroRecord,
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => {
+  const responses = record.respostas.filter((response) => responseHasNonConformityEvidence(response, questions));
   if (responses.length === 0) {
     return `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)} sem nao conformidades detalhadas.`;
   }
@@ -353,7 +396,7 @@ const buildNonConformitySummary = (record: RegraOuroRecord) => {
     .join("\n");
 };
 
-const buildPlanoAcaoContext = (record: RegraOuroRecord) => ({
+const buildPlanoAcaoContext = (record: RegraOuroRecord, questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS) => ({
   fonte: "regra-ouro" as const,
   registro_id: record.id,
   numero_referencia: Number(record.numero_inspecao) || 0,
@@ -361,7 +404,7 @@ const buildPlanoAcaoContext = (record: RegraOuroRecord) => ({
   titulo: record.titulo || `Regra de Ouro ${formatInspectionNumber(record.numero_inspecao)}`,
   setor: record.setor || "",
   tecnico: record.tecnico_seg || "",
-  descricao_ocorrencia: buildNonConformitySummary(record),
+  descricao_ocorrencia: buildNonConformitySummary(record, questions),
   origem: "Regra de Ouro",
 });
 
@@ -647,13 +690,31 @@ const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
 const AdminRegrasOuro = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { sectors } = useSupabaseData(["sectors"]);
+  const { sectors, goldenRuleQuestions, refresh } = useSupabaseData(["sectors", "goldenRuleQuestions"]);
+  const questionItems = useMemo(
+    () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
+    [goldenRuleQuestions],
+  );
+  const customQuestionItems = useMemo(
+    () =>
+      questionItems.filter(
+        (item) => !DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(item.id),
+      ),
+    [questionItems],
+  );
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [isAdmUser, setIsAdmUser] = useState<boolean>(canDeleteAdminRecords);
+  const [isSavingQuestion, setIsSavingQuestion] = useState(false);
+  const [questionForm, setQuestionForm] = useState({
+    question: "",
+    alertOnYes: false,
+    alertOnNo: false,
+    order: 0,
+  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [setorFilter, setSetorFilter] = useState(FILTER_ALL);
@@ -723,6 +784,78 @@ const AdminRegrasOuro = () => {
         console.error("Erro ao carregar regras de ouro no Supabase:", error);
       }
       setRecords(localRecords);
+    }
+  };
+
+  const handleAddQuestion = async () => {
+    const question = questionForm.question.trim();
+    if (!question) {
+      toast({
+        title: "Pergunta vazia",
+        description: "Digite a pergunta antes de adicionar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSavingQuestion(true);
+      const existingOrder = questionItems.reduce((max, item) => Math.max(max, Number(item.order_number) || 0), 0);
+      await goldenRuleQuestionService.create({
+        question,
+        alert_on_yes: questionForm.alertOnYes,
+        alert_on_no: questionForm.alertOnNo,
+        order_number: questionForm.order > 0 ? questionForm.order : existingOrder + 1,
+      });
+
+      setQuestionForm({
+        question: "",
+        alertOnYes: false,
+        alertOnNo: false,
+        order: 0,
+      });
+
+      toast({
+        title: "Pergunta adicionada",
+        description: "A nova pergunta da Regra de Ouro foi salva com sucesso.",
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Erro ao adicionar pergunta da Regra de Ouro:", error);
+      toast({
+        title: "Erro ao salvar pergunta",
+        description: "Não foi possível salvar a nova pergunta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingQuestion(false);
+    }
+  };
+
+  const handleDeleteQuestion = async (questionId: string) => {
+    if (DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(questionId)) {
+      toast({
+        title: "Pergunta padrão",
+        description: "As perguntas padrão não podem ser excluídas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await goldenRuleQuestionService.delete(questionId);
+      toast({
+        title: "Pergunta removida",
+        description: "A pergunta personalizada foi excluída.",
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Erro ao remover pergunta da Regra de Ouro:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível remover a pergunta.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -842,11 +975,11 @@ const AdminRegrasOuro = () => {
   const summary = useMemo(() => {
     const total = recordsWithCanonicalSector.length;
     const inspecoesComNaoConformidade = recordsWithCanonicalSector.filter((item) =>
-      item.respostas.some(responseHasNonConformityEvidence),
+      item.respostas.some((response) => responseHasNonConformityEvidence(response, questionItems)),
     ).length;
 
     return { total, inspecoesComNaoConformidade };
-  }, [recordsWithCanonicalSector]);
+  }, [questionItems, recordsWithCanonicalSector]);
 
   const loadFullRecord = async (recordId: string) => {
     const remoteRow = await goldenRuleService.getById(recordId);
@@ -959,7 +1092,9 @@ const AdminRegrasOuro = () => {
     const escape = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
     const rows = filteredRecords.map((item) => {
-      const temNaoConformidade = item.respostas.some(responseHasNonConformityEvidence);
+      const temNaoConformidade = item.respostas.some((response) =>
+        responseHasNonConformityEvidence(response, questionItems),
+      );
 
       return [
         formatInspectionNumber(item.numero_inspecao),
@@ -994,7 +1129,9 @@ const AdminRegrasOuro = () => {
   };
 
   const handleStartPlanoAcao = (record: RegraOuroRecord) => {
-    const hasNonConformity = record.respostas.some(responseHasNonConformityEvidence);
+    const hasNonConformity = record.respostas.some((response) =>
+      responseHasNonConformityEvidence(response, questionItems),
+    );
     if (!hasNonConformity) {
       toast({
         title: "Sem nao conformidade",
@@ -1007,7 +1144,7 @@ const AdminRegrasOuro = () => {
     try {
       sessionStorage.setItem(
         PLANO_ACAO_CONTEXT_KEY,
-        JSON.stringify(buildPlanoAcaoContext(record)),
+        JSON.stringify(buildPlanoAcaoContext(record, questionItems)),
       );
       navigate(
         `/plano-acao-acidente?origem=admin&fonte=regra-ouro&registro=${encodeURIComponent(record.id)}&ocorrencia=${record.numero_inspecao}`,
@@ -1334,6 +1471,131 @@ const AdminRegrasOuro = () => {
 
       <Card>
         <CardHeader>
+          <CardTitle>Perguntas da Regra de Ouro</CardTitle>
+          <CardDescription>
+            Adicione perguntas novas com alerta no SIM ou no NÃO. As perguntas padrão permanecem como base do checklist.
+            {customQuestionItems.length > 0
+              ? ` Há ${customQuestionItems.length} pergunta(s) personalizada(s) cadastrada(s).`
+              : " Nenhuma pergunta personalizada cadastrada ainda."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="space-y-3">
+              {questionItems.length === 0 ? (
+                <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-500">
+                  Nenhuma pergunta disponível.
+                </div>
+              ) : (
+                questionItems.map((item) => {
+                  const builtIn = DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(item.id);
+                  return (
+                    <div key={item.id} className="rounded-md border p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="font-medium text-gray-800">
+                            {item.numero}. {item.texto}
+                          </p>
+                          <p className="text-xs text-gray-500">Ordem: {item.order_number ?? 0}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.alert_on_yes && <Badge variant="destructive">Alerta no SIM</Badge>}
+                          {item.alert_on_no && <Badge variant="secondary">Alerta no NÃO</Badge>}
+                          <Badge variant={builtIn ? "outline" : "default"}>
+                            {builtIn ? "Padrão" : "Personalizada"}
+                          </Badge>
+                          {!builtIn && isAdmUser && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => void handleDeleteQuestion(item.id)}
+                            >
+                              Remover
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-md border p-4">
+              <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
+              <Textarea
+                value={questionForm.question}
+                onChange={(event) =>
+                  setQuestionForm((previous) => ({ ...previous, question: event.target.value }))
+                }
+                placeholder="Digite a pergunta da Regra de Ouro"
+                rows={4}
+              />
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={questionForm.alertOnYes}
+                    onChange={(event) =>
+                      setQuestionForm((previous) => ({ ...previous, alertOnYes: event.target.checked }))
+                    }
+                  />
+                  Alerta no SIM
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={questionForm.alertOnNo}
+                    onChange={(event) =>
+                      setQuestionForm((previous) => ({ ...previous, alertOnNo: event.target.checked }))
+                    }
+                  />
+                  Alerta no NÃO
+                </label>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-600">Ordem</label>
+                <Input
+                  type="number"
+                  min={0}
+                  value={questionForm.order}
+                  onChange={(event) =>
+                    setQuestionForm((previous) => ({
+                      ...previous,
+                      order: Number(event.target.value) || 0,
+                    }))
+                  }
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => void handleAddQuestion()} disabled={isSavingQuestion}>
+                  {isSavingQuestion ? "Salvando..." : "Adicionar pergunta"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setQuestionForm({
+                      question: "",
+                      alertOnYes: false,
+                      alertOnNo: false,
+                      order: 0,
+                    })
+                  }
+                  disabled={isSavingQuestion}
+                >
+                  Limpar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Filtros</CardTitle>
           <CardDescription>Refine por setor, técnico, data e busca rápida.</CardDescription>
         </CardHeader>
@@ -1427,7 +1689,9 @@ const AdminRegrasOuro = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredRecords.map((item) => {
-                    const temNaoConformidade = item.respostas.some(responseHasNonConformityEvidence);
+                    const temNaoConformidade = item.respostas.some((response) =>
+                      responseHasNonConformityEvidence(response, questionItems),
+                    );
                     const sectorLock = sectorQuestionLocks.get(getSectorComparisonKey(item.setor));
                     const isQuestionLocked = Boolean(sectorLock?.locked);
 
@@ -1768,12 +2032,13 @@ const AdminRegrasOuro = () => {
           )}
 
           <DialogFooter>
-            {selected && selected.respostas.some(responseHasNonConformityEvidence) && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleStartPlanoAcao(selected)}
-              >
+            {selected &&
+              selected.respostas.some((response) => responseHasNonConformityEvidence(response, questionItems)) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleStartPlanoAcao(selected)}
+                >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Plano de acao
               </Button>
