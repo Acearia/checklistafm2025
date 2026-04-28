@@ -32,8 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { canManageGoldenRuleQuestions, isRootAdminUser } from "@/lib/adminSession";
-import { goldenRuleService, goldenRuleQuestionService } from "@/lib/supabase-service";
+import { isRootAdminUser } from "@/lib/adminSession";
+import { goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import {
@@ -708,14 +708,6 @@ const AdminRegrasOuro = () => {
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
   const [isRootAdmin, setIsRootAdmin] = useState<boolean>(isRootAdminUser());
-  const [canManageQuestions, setCanManageQuestions] = useState<boolean>(canManageGoldenRuleQuestions());
-  const [isSavingQuestion, setIsSavingQuestion] = useState(false);
-  const [questionForm, setQuestionForm] = useState({
-    question: "",
-    alertOnYes: false,
-    alertOnNo: false,
-    order: 0,
-  });
 
   const [searchTerm, setSearchTerm] = useState("");
   const [setorFilter, setSetorFilter] = useState(FILTER_ALL);
@@ -788,78 +780,6 @@ const AdminRegrasOuro = () => {
     }
   };
 
-  const handleAddQuestion = async () => {
-    const question = questionForm.question.trim();
-    if (!question) {
-      toast({
-        title: "Pergunta vazia",
-        description: "Digite a pergunta antes de adicionar.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setIsSavingQuestion(true);
-      const existingOrder = questionItems.reduce((max, item) => Math.max(max, Number(item.order_number) || 0), 0);
-      await goldenRuleQuestionService.create({
-        question,
-        alert_on_yes: questionForm.alertOnYes,
-        alert_on_no: questionForm.alertOnNo,
-        order_number: questionForm.order > 0 ? questionForm.order : existingOrder + 1,
-      });
-
-      setQuestionForm({
-        question: "",
-        alertOnYes: false,
-        alertOnNo: false,
-        order: 0,
-      });
-
-      toast({
-        title: "Pergunta adicionada",
-        description: "A nova pergunta da Regra de Ouro foi salva com sucesso.",
-      });
-      await refresh();
-    } catch (error) {
-      console.error("Erro ao adicionar pergunta da Regra de Ouro:", error);
-      toast({
-        title: "Erro ao salvar pergunta",
-        description: "Não foi possível salvar a nova pergunta.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingQuestion(false);
-    }
-  };
-
-  const handleDeleteQuestion = async (questionId: string) => {
-    if (DEFAULT_GOLDEN_RULE_QUESTION_IDS.has(questionId)) {
-      toast({
-        title: "Pergunta padrão",
-        description: "As perguntas padrão não podem ser excluídas.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      await goldenRuleQuestionService.delete(questionId);
-      toast({
-        title: "Pergunta removida",
-        description: "A pergunta personalizada foi excluída.",
-      });
-      await refresh();
-    } catch (error) {
-      console.error("Erro ao remover pergunta da Regra de Ouro:", error);
-      toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível remover a pergunta.",
-        variant: "destructive",
-      });
-    }
-  };
-
   useEffect(() => {
     void loadData();
 
@@ -883,7 +803,6 @@ const AdminRegrasOuro = () => {
 
     const syncAdminSession = () => {
       setIsRootAdmin(isRootAdminUser());
-      setCanManageQuestions(canManageGoldenRuleQuestions());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -1506,17 +1425,6 @@ const AdminRegrasOuro = () => {
                           <Badge variant={builtIn ? "outline" : "default"}>
                             {builtIn ? "Padrão" : "Personalizada"}
                           </Badge>
-                          {!builtIn && isRootAdmin && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => void handleDeleteQuestion(item.id)}
-                            >
-                              Remover
-                            </Button>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -1524,76 +1432,6 @@ const AdminRegrasOuro = () => {
                 })
               )}
             </div>
-
-            {canManageQuestions && (
-              <div className="space-y-3 rounded-md border p-4">
-                <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
-                <Textarea
-                  value={questionForm.question}
-                  onChange={(event) =>
-                    setQuestionForm((previous) => ({ ...previous, question: event.target.value }))
-                  }
-                  placeholder="Digite a pergunta da Regra de Ouro"
-                  rows={4}
-                />
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={questionForm.alertOnYes}
-                      onChange={(event) =>
-                        setQuestionForm((previous) => ({ ...previous, alertOnYes: event.target.checked }))
-                      }
-                    />
-                    Alerta no SIM
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={questionForm.alertOnNo}
-                      onChange={(event) =>
-                        setQuestionForm((previous) => ({ ...previous, alertOnNo: event.target.checked }))
-                      }
-                    />
-                    Alerta no NÃO
-                  </label>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-gray-600">Ordem</label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={questionForm.order}
-                    onChange={(event) =>
-                      setQuestionForm((previous) => ({
-                        ...previous,
-                        order: Number(event.target.value) || 0,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => void handleAddQuestion()} disabled={isSavingQuestion}>
-                    {isSavingQuestion ? "Salvando..." : "Adicionar pergunta"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      setQuestionForm({
-                        question: "",
-                        alertOnYes: false,
-                        alertOnNo: false,
-                        order: 0,
-                      })
-                    }
-                    disabled={isSavingQuestion}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>

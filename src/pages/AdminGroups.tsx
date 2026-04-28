@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   checklistGroupService,
   equipmentGroupService,
+  goldenRuleQuestionService,
   groupQuestionService,
 } from "@/lib/supabase-service";
 import {
@@ -24,7 +25,11 @@ import {
   isEquipmentTypeMatch,
 } from "@/lib/equipmentType";
 import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
-import { canDeleteAdminRecords } from "@/lib/adminSession";
+import { canDeleteAdminRecords, isRootAdminUser } from "@/lib/adminSession";
+import {
+  buildGoldenRuleQuestionItems,
+  DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+} from "@/lib/goldenRuleQuestions";
 
 const MANUAL_GROUP_TYPE = "manual";
 
@@ -76,9 +81,10 @@ const GROUP_QUESTION_TEMPLATES: Record<string, string[]> = {
 };
 
 const AdminGroups = () => {
-  const { groups, groupQuestions, equipment, equipmentGroups, refresh } = useSupabaseData([
+  const { groups, groupQuestions, goldenRuleQuestions, equipment, equipmentGroups, refresh } = useSupabaseData([
     "groups",
     "groupQuestions",
+    "goldenRuleQuestions",
     "equipment",
     "equipmentGroups",
   ]);
@@ -100,10 +106,29 @@ const AdminGroups = () => {
     alertOnNo: false,
     order: 0,
   });
+  const [goldenRuleQuestionForm, setGoldenRuleQuestionForm] = useState({
+    question: "",
+    alertOnYes: false,
+    alertOnNo: false,
+    order: 0,
+  });
+  const [isSavingGoldenRuleQuestion, setIsSavingGoldenRuleQuestion] = useState(false);
   const [selectedEquipments, setSelectedEquipments] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
   const canDeleteGroupRecords = canDeleteAdminRecords();
+  const isRootAdmin = isRootAdminUser();
+  const goldenRuleQuestionItems = useMemo(
+    () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
+    [goldenRuleQuestions],
+  );
+  const customGoldenRuleQuestionItems = useMemo(
+    () =>
+      goldenRuleQuestionItems.filter(
+        (item) => !DEFAULT_GOLDEN_RULE_QUESTION_ITEMS.some((defaultItem) => defaultItem.id === item.id),
+      ),
+    [goldenRuleQuestionItems],
+  );
 
   const getEquipmentIdsForType = (equipmentType?: string | null) => {
     if (!equipmentType) return [];
@@ -484,6 +509,92 @@ const AdminGroups = () => {
     }
   };
 
+  const handleAddGoldenRuleQuestion = async () => {
+    const question = goldenRuleQuestionForm.question.trim();
+    if (!question) {
+      toast({
+        title: "Pergunta obrigatória",
+        description: "Informe o texto da pergunta.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSavingGoldenRuleQuestion(true);
+      const existingOrder = goldenRuleQuestionItems.reduce(
+        (max, item) => Math.max(max, Number(item.order_number) || 0),
+        0,
+      );
+
+      await goldenRuleQuestionService.create({
+        question,
+        alert_on_yes: goldenRuleQuestionForm.alertOnYes,
+        alert_on_no: goldenRuleQuestionForm.alertOnNo,
+        order_number: goldenRuleQuestionForm.order > 0 ? goldenRuleQuestionForm.order : existingOrder + 1,
+      });
+
+      setGoldenRuleQuestionForm({
+        question: "",
+        alertOnYes: false,
+        alertOnNo: false,
+        order: 0,
+      });
+
+      toast({
+        title: "Pergunta adicionada",
+        description: "A nova pergunta da Regra de Ouro foi salva com sucesso.",
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Erro ao adicionar pergunta da Regra de Ouro:", error);
+      toast({
+        title: "Erro ao salvar pergunta",
+        description: "Não foi possível salvar a nova pergunta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingGoldenRuleQuestion(false);
+    }
+  };
+
+  const handleDeleteGoldenRuleQuestion = async (questionId: string) => {
+    const isDefaultQuestion = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS.some((item) => item.id === questionId);
+    if (isDefaultQuestion) {
+      toast({
+        title: "Pergunta padrão",
+        description: "As perguntas padrão não podem ser excluídas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isRootAdmin) {
+      toast({
+        title: "Acesso restrito",
+        description: "Somente ADM pode excluir perguntas da Regra de Ouro.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await goldenRuleQuestionService.delete(questionId);
+      toast({
+        title: "Pergunta removida",
+        description: "A pergunta personalizada foi excluída.",
+      });
+      await refresh();
+    } catch (error) {
+      console.error("Erro ao remover pergunta da Regra de Ouro:", error);
+      toast({
+        title: "Erro ao excluir",
+        description: "Não foi possível remover a pergunta.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaveEquipments = async () => {
     if (!selectedGroupId) return;
 
@@ -802,6 +913,130 @@ const AdminGroups = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {isRootAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Perguntas da Regra de Ouro</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+              <div className="space-y-3">
+                {customGoldenRuleQuestionItems.length === 0 ? (
+                  <div className="rounded-md border bg-gray-50 p-4 text-sm text-gray-500">
+                    Nenhuma pergunta personalizada cadastrada ainda.
+                  </div>
+                ) : (
+                  customGoldenRuleQuestionItems.map((item) => (
+                    <div key={item.id} className="rounded-md border p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="font-medium text-gray-800">
+                            {item.numero}. {item.texto}
+                          </p>
+                          <p className="text-xs text-gray-500">Ordem: {item.order_number ?? 0}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {item.alert_on_yes && <Badge variant="destructive">Alerta no SIM</Badge>}
+                          {item.alert_on_no && <Badge variant="secondary">Alerta no NÃO</Badge>}
+                          <Badge variant="default">Personalizada</Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700"
+                            onClick={() => void handleDeleteGoldenRuleQuestion(item.id)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-md border p-4">
+                <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
+                <Textarea
+                  value={goldenRuleQuestionForm.question}
+                  onChange={(event) =>
+                    setGoldenRuleQuestionForm((previous) => ({ ...previous, question: event.target.value }))
+                  }
+                  placeholder="Digite a pergunta da Regra de Ouro"
+                  rows={4}
+                />
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={goldenRuleQuestionForm.alertOnYes}
+                      onChange={(event) =>
+                        setGoldenRuleQuestionForm((previous) => ({
+                          ...previous,
+                          alertOnYes: event.target.checked,
+                        }))
+                      }
+                    />
+                    Alerta no SIM
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={goldenRuleQuestionForm.alertOnNo}
+                      onChange={(event) =>
+                        setGoldenRuleQuestionForm((previous) => ({
+                          ...previous,
+                          alertOnNo: event.target.checked,
+                        }))
+                      }
+                    />
+                    Alerta no NÃO
+                  </label>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Ordem</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={goldenRuleQuestionForm.order}
+                    onChange={(event) =>
+                      setGoldenRuleQuestionForm((previous) => ({
+                        ...previous,
+                        order: Number(event.target.value) || 0,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    onClick={() => void handleAddGoldenRuleQuestion()}
+                    disabled={isSavingGoldenRuleQuestion}
+                  >
+                    {isSavingGoldenRuleQuestion ? "Salvando..." : "Adicionar pergunta"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setGoldenRuleQuestionForm({
+                        question: "",
+                        alertOnYes: false,
+                        alertOnNo: false,
+                        order: 0,
+                      })
+                    }
+                    disabled={isSavingGoldenRuleQuestion}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
