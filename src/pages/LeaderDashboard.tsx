@@ -314,20 +314,6 @@ const LeaderDashboard = () => {
     return normalizeSector(currentLeader.sector.split(/[,;/]/)[0]);
   }, [currentLeader]);
 
-  const rulesPlansAllowedSectors = useMemo(
-    () =>
-      new Set([
-        "rh",
-        "comercial",
-        "pcp",
-        "ambulatorio",
-        "facilites",
-        "dt",
-        "qualidade laboratorio",
-      ]),
-    [],
-  );
-
   const leaderSectorKeys = useMemo(() => {
     if (!currentLeader?.sector) return [] as string[];
     return currentLeader.sector
@@ -387,10 +373,8 @@ const LeaderDashboard = () => {
   );
 
   const canSeeRulesPlansSection = useMemo(
-    () =>
-      hasGlobalSectorAccess ||
-      Array.from(allowedSectorNames).some((sector) => rulesPlansAllowedSectors.has(sector)),
-    [allowedSectorNames, hasGlobalSectorAccess, rulesPlansAllowedSectors],
+    () => hasGlobalSectorAccess || allowedSectorNames.size > 0,
+    [allowedSectorNames, hasGlobalSectorAccess],
   );
 
   const allowedEquipmentIds = useMemo<string[]>(() => {
