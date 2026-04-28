@@ -33,6 +33,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { accidentActionPlanService, goldenRuleService, type AccidentActionPlan } from "@/lib/supabase-service";
+import {
+  buildGoldenRuleQuestionItems,
+  resolveGoldenRuleResponseExpectedAnswer,
+  type GoldenRuleQuestionTemplate,
+} from "@/lib/goldenRuleQuestions";
 
 interface Leader {
   id: string;
@@ -266,14 +271,20 @@ const normalizeRuleAnswer = (value?: string | null) => {
   return "Sim";
 };
 
-const responseHasIrregularity = (response: Pick<RuleResponse, "codigo" | "numero" | "resposta">) => {
+const responseHasIrregularity = (
+  response: Pick<RuleResponse, "codigo" | "numero" | "pergunta" | "resposta">,
+  questions: GoldenRuleQuestionTemplate[],
+) => {
   const answer = normalizeRuleAnswer(response.resposta);
   if (answer === "N/A") return false;
-  return answer !== getExpectedAnswer(response);
+  const expected = normalizeRuleAnswer(resolveGoldenRuleResponseExpectedAnswer(response, questions));
+  return answer !== expected;
 };
 
-const getRuleNonConformityCount = (rule: GoldenRuleRecord) =>
-  (rule.responses || []).filter(responseHasIrregularity).length;
+const getRuleNonConformityCount = (
+  rule: GoldenRuleRecord,
+  questions: GoldenRuleQuestionTemplate[],
+) => (rule.responses || []).filter((response) => responseHasIrregularity(response, questions)).length;
 
 const getPlanSector = (
   plan: ActionPlanRecord,
@@ -299,9 +310,15 @@ const LeaderRulesPlans = () => {
   const { toast } = useToast();
   const {
     leaders: supabaseLeaders,
+    goldenRuleQuestions,
     loading: supabaseLoading,
     refresh,
-  } = useSupabaseData(["leaders"]);
+  } = useSupabaseData(["leaders", "goldenRuleQuestions"]);
+
+  const questionItems = useMemo(
+    () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
+    [goldenRuleQuestions],
+  );
 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [loadingData, setLoadingData] = useState(true);
@@ -321,18 +338,15 @@ const LeaderRulesPlans = () => {
 
   const normalizeLeaderSector = useCallback((value?: string | null) => normalizeSector(value), []);
 
-  const primaryLeaderSector = useMemo(() => {
-    if (!currentLeader?.sector) return "";
-    return normalizeLeaderSector(currentLeader.sector.split(/[,;/]/)[0]);
-  }, [currentLeader, normalizeLeaderSector]);
-
   const allowedSectorNames = useMemo(() => {
     const names = new Set<string>();
-    if (primaryLeaderSector) {
-      names.add(primaryLeaderSector);
-    }
+    String(currentLeader?.sector || "")
+      .split(/[,;]/)
+      .map((sector) => normalizeLeaderSector(sector))
+      .filter(Boolean)
+      .forEach((sector) => names.add(sector));
     return names;
-  }, [primaryLeaderSector]);
+  }, [currentLeader, normalizeLeaderSector]);
 
   const hasGlobalSectorAccess = useMemo(() => allowedSectorNames.has("todos"), [allowedSectorNames]);
 
@@ -520,10 +534,10 @@ const LeaderRulesPlans = () => {
   const summary = useMemo(() => {
     const totalRules = filteredRules.length;
     const totalPlans = visiblePlans.length;
-    const irregularRules = filteredRules.filter((rule) => getRuleNonConformityCount(rule) > 0).length;
+    const irregularRules = filteredRules.filter((rule) => getRuleNonConformityCount(rule, questionItems) > 0).length;
     const openPlans = visiblePlans.filter((plan) => normalizeText(plan.status) === "aberta").length;
     return { totalRules, totalPlans, irregularRules, openPlans };
-  }, [filteredRules, visiblePlans]);
+  }, [filteredRules, questionItems, visiblePlans]);
 
   const handleRefresh = useCallback(async () => {
     try {
@@ -862,15 +876,17 @@ const LeaderRulesPlans = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredRules.map((rule) => (
+                      {filteredRules.map((rule) => {
+                        const nonConformityCount = getRuleNonConformityCount(rule, questionItems);
+                        return (
                         <TableRow key={rule.id}>
                           <TableCell>{formatNumber(rule.numero_inspecao)}</TableCell>
                           <TableCell>{formatDateTime(rule.created_at)}</TableCell>
                           <TableCell>{rule.setor || "N/A"}</TableCell>
                           <TableCell className="max-w-[280px] truncate">{rule.titulo || "N/A"}</TableCell>
                           <TableCell>
-                            <Badge variant={getRuleNonConformityCount(rule) > 0 ? "destructive" : "secondary"}>
-                              {getRuleNonConformityCount(rule) > 0 ? "Com irregularidade" : "Conforme"}
+                            <Badge variant={nonConformityCount > 0 ? "destructive" : "secondary"}>
+                              {nonConformityCount > 0 ? "Com irregularidade" : "Conforme"}
                             </Badge>
                           </TableCell>
                           <TableCell>{rule.tecnico_seg || "N/A"}</TableCell>
@@ -881,7 +897,8 @@ const LeaderRulesPlans = () => {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))}
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1007,7 +1024,7 @@ const LeaderRulesPlans = () => {
                     <p><strong>Assinatura técnico:</strong> {selectedRuleDetail.ass_tst ? "Sim" : "Não"}</p>
                     <p><strong>Assinatura gestor:</strong> {selectedRuleDetail.ass_gestor ? "Sim" : "Não"}</p>
                     <p><strong>Assinatura acompanhante:</strong> {selectedRuleDetail.ass_acomp ? "Sim" : "Não"}</p>
-                    <p><strong>Não conformidades:</strong> {getRuleNonConformityCount(selectedRuleDetail)}</p>
+                    <p><strong>Não conformidades:</strong> {getRuleNonConformityCount(selectedRuleDetail, questionItems)}</p>
                     <p><strong>Anexos:</strong> {selectedRuleDetail.attachments?.length || 0}</p>
                   </CardContent>
                 </Card>

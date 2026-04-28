@@ -50,7 +50,9 @@ import {
   FileText,
   RefreshCw,
   AlertTriangle,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  ClipboardList,
+  ShieldAlert,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -1656,6 +1658,31 @@ const LeaderDashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      {canSeeRulesPlansSection ? (
+        <Card className="border-2 border-red-200 bg-red-50 shadow-sm">
+          <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-red-700 p-3 text-white">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Regras de Ouro e Planos de Ação</h2>
+                <p className="text-sm text-slate-600">
+                  Acesse as regras e os planos vinculados aos seus setores.
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={() => navigate("/leader/registros")}
+              className="h-12 bg-red-700 px-6 text-base font-semibold text-white hover:bg-red-800"
+            >
+              <ClipboardList className="mr-2 h-5 w-5" />
+              Abrir Regras e Planos
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <InspectionBoardPanel
         title="Painel por setor"
