@@ -1,4 +1,4 @@
-﻿import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
+import { getAlertRule, normalizeQuestion } from "@/lib/alertRules";
 
 export type GoldenRuleAnswer = "Sim" | "NÃ£o" | "N/A";
 
@@ -37,44 +37,44 @@ const DEFAULT_NO_RESPONSE_KEYS = new Set([
 ]);
 
 const DEFAULT_GOLDEN_RULE_QUESTION_SOURCES = [
-  { id: "1n1", texto: "O(s) operador(es) tem treinamento para a(s) mÃ¡quina(s) ou equipamento(s) que estÃ¡(Ã£o) operando?" },
-  { id: "1n2", texto: "O(s) operador(es) estÃ¡(Ã£o) usando corretamente todos os EPIs obrigatÃ³rios?" },
-  { id: "1n3", texto: "O(s) operador(es) estÃ¡(Ã£o) autorizado(s) para a(s) mÃ¡quina(s) ou equipamento(s) que estÃ¡(Ã£o) operando?" },
-  { id: "1n4", texto: "Os dispositivos de seguranÃ§a das mÃ¡quinas estÃ£o funcionando corretamente?" },
-  { id: "1n5", texto: "Ã‰ possÃ­vel identificar algum comportamento que possa causar acidentes de trabalho? Exemplos: correr, brincar, desrespeitar procedimentos etc." },
-  { id: "1n6", texto: "Ã‰ possÃ­vel identificar alguma condiÃ§Ã£o insegura no local?" },
-  { id: "1n7", texto: "O(s) check list(s) do(s) equipamento(s) do setor estÃ¡(Ã£o) sendo aplicado(s) corretamente?" },
-  { id: "1n8", texto: "Ã‰ possÃ­vel identificar alguÃ©m no setor utilizando adorno(s)? Exemplos: alianÃ§a, corrente, relÃ³gio etc." },
-  { id: "1n9", texto: "Ã‰ possÃ­vel identificar alguÃ©m de cabelos longos e soltos no setor?" },
-  { id: "1n10", texto: "Ã‰ possÃ­vel identificar alguÃ©m com roupas de materiais sintÃ©ticos no setor? Exemplos: lÃ£, viscose etc." },
-  { id: "1n11", texto: "Existe no setor alguma atividade sendo executada por pessoa nÃ£o habilitada?" },
-  { id: "1n12", texto: "Ã‰ possÃ­vel identificar alguma ferramenta improvisada, defeituosa ou desgastada, sendo usada ou armazenada no setor?" },
-  { id: "1n13", texto: "Ã‰ possÃ­vel identificar alguÃ©m no setor utilizando ou em posse de celular?" },
-  { id: "1n14", texto: "Os chuveiros e lava olhos estÃ£o funcionando corretamente e estÃ£o desobstruÃ­dos?" },
-  { id: "1n15", texto: "Os extintores do local estÃ£o pressurizados, com a recarga em dia e estÃ£o desobstruÃ­dos?" },
-  { id: "1n16", texto: "Alarme de incÃªndio estÃ¡ funcionando?" },
-  { id: "1n17", texto: "Detector de fumaÃ§a estÃ¡ funcionando?" },
-  { id: "1n18", texto: "Checklist da empilhadeira estÃ¡ sendo realizado?" },
-  { id: "1n19", texto: "Checklist da transpaleteira estÃ¡ sendo realizado?" },
-  { id: "1n20", texto: "Checklist da mini carregadeira estÃ¡ sendo realizado?" },
+  { id: "1n1", texto: "O(s) operador(es) tem treinamento para a(s) máquina(s) ou equipamento(s) que está(ão) operando?" },
+  { id: "1n2", texto: "O(s) operador(es) está(ão) usando corretamente todos os EPIs obrigatórios?" },
+  { id: "1n3", texto: "O(s) operador(es) está(ão) autorizado(s) para a(s) máquina(s) ou equipamento(s) que está(ão) operando?" },
+  { id: "1n4", texto: "Os dispositivos de segurança das máquinas estão funcionando corretamente?" },
+  { id: "1n5", texto: "É possível identificar algum comportamento que possa causar acidentes de trabalho? Exemplos: correr, brincar, desrespeitar procedimentos etc." },
+  { id: "1n6", texto: "É possível identificar alguma condição insegura no local?" },
+  { id: "1n7", texto: "O(s) check list(s) do(s) equipamento(s) do setor está(ão) sendo aplicado(s) corretamente?" },
+  { id: "1n8", texto: "É possível identificar alguém no setor utilizando adorno(s)? Exemplos: aliança, corrente, relógio etc." },
+  { id: "1n9", texto: "É possível identificar alguém de cabelos longos e soltos no setor?" },
+  { id: "1n10", texto: "É possível identificar alguém com roupas de materiais sintéticos no setor? Exemplos: lã, viscose etc." },
+  { id: "1n11", texto: "Existe no setor alguma atividade sendo executada por pessoa não habilitada?" },
+  { id: "1n12", texto: "É possível identificar alguma ferramenta improvisada, defeituosa ou desgastada, sendo usada ou armazenada no setor?" },
+  { id: "1n13", texto: "É possível identificar alguém no setor utilizando ou em posse de celular?" },
+  { id: "1n14", texto: "Os chuveiros e lava olhos estão funcionando corretamente e estão desobstruídos?" },
+  { id: "1n15", texto: "Os extintores do local estão pressurizados, com a recarga em dia e estão desobstruídos?" },
+  { id: "1n16", texto: "Alarme de incêndio está funcionando?" },
+  { id: "1n17", texto: "Detector de fumaça está funcionando?" },
+  { id: "1n18", texto: "Checklist da empilhadeira está sendo realizado?" },
+  { id: "1n19", texto: "Checklist da transpaleteira está sendo realizado?" },
+  { id: "1n20", texto: "Checklist da mini carregadeira está sendo realizado?" },
   { id: "1n21", texto: "Existe EPIs descartados dentro do setor?" },
-  { id: "1n22", texto: "Setor estÃ¡ limpo e organizado?" },
-  { id: "1n23", texto: "Rotas de fugas estÃ£o desobstruÃ­das?" },
-  { id: "1n24", texto: "Blocos autÃ´nomos e luminÃ¡rias de saÃ­da de emergÃªncia estÃ£o funcionando e ligadas na energia?" },
-  { id: "1n25", texto: "Extintores e hidrantes estÃ£o devidamente sinalizados?" },
-  { id: "1n26", texto: "Hidrantes foram testados e estÃ£o funcionando corretamente?" },
-  { id: "1n27", texto: "As caixas de hidrantes estÃ£o com conectores storz, chaves e mangueiras em quantidades corretas?" },
-  { id: "1n28", texto: "Mangueiras de hidrante estÃ£o com manutenÃ§Ã£o em dia?" },
+  { id: "1n22", texto: "Setor está limpo e organizado?" },
+  { id: "1n23", texto: "Rotas de fugas estão desobstruídas?" },
+  { id: "1n24", texto: "Blocos autônomos e luminárias de saída de emergência estão funcionando e ligadas na energia?" },
+  { id: "1n25", texto: "Extintores e hidrantes estão devidamente sinalizados?" },
+  { id: "1n26", texto: "Hidrantes foram testados e estão funcionando corretamente?" },
+  { id: "1n27", texto: "As caixas de hidrantes estão com conectores storz, chaves e mangueiras em quantidades corretas?" },
+  { id: "1n28", texto: "Mangueiras de hidrante estão com manutenção em dia?" },
   {
     id: "1n29",
-    texto: "As escadas portÃ¡teis existentes no setor estÃ£o em condiÃ§Ãµes seguras de uso?",
+    texto: "As escadas portáteis existentes no setor estão em condições seguras de uso?",
     alert_on_no: true,
   },
   {
     id: "1n30",
-    texto: "Existe algum mobiliÃ¡rio de trabalho que pode causar desconforto ergonÃ´mico ao colaborador?",
+    texto: "Existe algum mobiliário de trabalho que pode causar desconforto ergonômico ao colaborador?",
     alert_on_yes: true,
-  }
+  },
 ] as const;
 
 const formatQuestionNumber = (value: number) => String(value).padStart(2, "0");
