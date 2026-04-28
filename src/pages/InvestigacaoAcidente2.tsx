@@ -317,6 +317,37 @@ const dedupeSorted = (values: string[]) =>
     a.localeCompare(b, "pt-BR"),
   );
 
+const mergeSearchableStringOptions = (...groups: SearchableStringOption[][]) => {
+  const unique = new Map<string, SearchableStringOption>();
+
+  groups.flat().forEach((option) => {
+    const key = normalizeText(option.value).trim().toLocaleLowerCase("pt-BR");
+    if (!key || unique.has(key)) return;
+    unique.set(key, option);
+  });
+
+  return Array.from(unique.values()).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+};
+
+const withCurrentSearchableStringOption = (options: SearchableStringOption[], value: string) => {
+  const normalizedValue = normalizeText(value).trim();
+  if (!normalizedValue) return options;
+
+  const normalizedKey = normalizedValue.toLocaleLowerCase("pt-BR");
+  if (options.some((option) => normalizeText(option.value).trim().toLocaleLowerCase("pt-BR") === normalizedKey)) {
+    return options;
+  }
+
+  return [
+    {
+      value: normalizedValue,
+      label: normalizedValue,
+      searchText: normalizedValue,
+    },
+    ...options,
+  ];
+};
+
 const normalizeSectorKey = (value: string) =>
   value
     .normalize("NFD")
@@ -1074,6 +1105,11 @@ const InvestigacaoAcidente2 = () => {
     return [{ value: acompanhante, label: acompanhante }, ...acompanhanteOptions];
   }, [acompanhante, acompanhanteOptions]);
 
+  const responsavelExecucaoOptions = useMemo<SearchableStringOption[]>(
+    () => mergeSearchableStringOptions(acompanhanteOptions, tecnicoInvestigadorOptions, liderOptions),
+    [acompanhanteOptions, liderOptions, tecnicoInvestigadorOptions],
+  );
+
   const handleSaveManualPerson = async () => {
     const normalizedName = normalizeText(manualPersonName).trim();
     const normalizedMatricula = normalizeText(manualPersonMatricula).trim();
@@ -1259,9 +1295,23 @@ const InvestigacaoAcidente2 = () => {
   const updateAnswer = (questionId: string, answer: QuestionAnswer) => {
     if (isPeriodicQuestionLocked(questionId)) return;
 
+    const shouldRequireEvidence = isResponseOutOfPattern(questionId, answer, questionItems);
+
+    if (!shouldRequireEvidence) {
+      setActionPlanDrafts((previous) => {
+        if (!previous[questionId]) return previous;
+
+        const next = { ...previous };
+        delete next[questionId];
+        return next;
+      });
+
+      setOpenActionPlanQuestionId((previous) => (previous === questionId ? null : previous));
+    }
+
     setResponses((previous) => {
       const current = previous[questionId];
-      if (answer === "N/A") {
+      if (!shouldRequireEvidence) {
         return {
           ...previous,
           [questionId]: {
@@ -1273,7 +1323,7 @@ const InvestigacaoAcidente2 = () => {
       }
 
       const nextEvidences =
-        isResponseOutOfPattern(questionId, answer, questionItems) && current.evidences.length === 0
+        shouldRequireEvidence && current.evidences.length === 0
           ? [createEmptyEvidence()]
           : current.evidences;
 
@@ -1728,7 +1778,7 @@ const InvestigacaoAcidente2 = () => {
               const isLockedQuestion = isPeriodicQuestionLocked(item.id);
               const displayAnswer = normalizeText(response.answer).trim() as QuestionAnswer;
               const requiresEvidence = isResponseOutOfPattern(item.id, displayAnswer, questionItems);
-              const showExtra = !isLockedQuestion && (requiresEvidence || response.evidences.length > 0);
+              const showExtra = !isLockedQuestion && requiresEvidence;
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
@@ -1925,14 +1975,20 @@ const InvestigacaoAcidente2 = () => {
 
                               <div className="space-y-2">
                                 <Label htmlFor={`plano-responsavel-${item.id}`}>Responsável *</Label>
-                                <Input
-                                  id={`plano-responsavel-${item.id}`}
+                                <SearchableStringSelect
                                   value={draft.responsavel_execucao}
-                                  onChange={(event) =>
+                                  onValueChange={(value) =>
                                     updateActionPlanDraft(item.id, {
-                                      responsavel_execucao: event.target.value,
+                                      responsavel_execucao: value,
                                     })
                                   }
+                                  options={withCurrentSearchableStringOption(
+                                    responsavelExecucaoOptions,
+                                    draft.responsavel_execucao,
+                                  )}
+                                  placeholder="Selecionar responsável"
+                                  searchPlaceholder="Buscar responsável..."
+                                  emptyText="Nenhuma pessoa encontrada."
                                 />
                               </div>
 
