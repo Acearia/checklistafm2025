@@ -24,6 +24,7 @@ import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
 import PlanoAcaoAcidente from "./pages/PlanoAcaoAcidente";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
+import LeaderHomeRoute from "./pages/LeaderHomeRoute";
 import LeaderRulesPlans from "./pages/LeaderRulesPlans";
 import ChecklistDetail from "./pages/ChecklistDetail";
 import ChecklistOperator from "./pages/checklist/ChecklistOperator";
@@ -51,7 +52,7 @@ function App() {
         <Route path="/checklist-steps/submit" element={<ChecklistSubmit />} />
         
         <Route path="/leader/login" element={<LeaderLogin />} />
-        <Route path="/leader/dashboard" element={<Navigate to="/leader/registros" replace />} />
+        <Route path="/leader/dashboard" element={<LeaderHomeRoute />} />
         <Route path="/leader/registros" element={<LeaderRulesPlans />} />
         <Route path="/leader/checklists/:id" element={<ChecklistDetail />} />
         

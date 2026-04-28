@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { leaderService } from "@/lib/supabase-service";
 import { verifyAdminCredentials } from "@/lib/adminCredentials";
+import { getLeaderLandingRoute } from "@/lib/leaderRouting";
 import {
   Dialog,
   DialogContent,
@@ -52,7 +53,7 @@ const LeaderLogin = () => {
   useEffect(() => {
     const isAuthenticated = localStorage.getItem("checklistafm-leader-auth");
     if (isAuthenticated) {
-      navigate("/leader/registros");
+      navigate(getLeaderLandingRoute(localStorage.getItem("checklistafm-leader-sector")));
     }
   }, [navigate]);
 
@@ -98,7 +99,7 @@ const LeaderLogin = () => {
           description: "Acesso local liberado com permissão total.",
         });
         setErrorMessage(null);
-        navigate("/leader/registros");
+        navigate(getLeaderLandingRoute("TODOS"));
         return;
       }
 
@@ -144,7 +145,7 @@ const LeaderLogin = () => {
           description: `Bem-vindo(a), ${leader.name}`,
         });
         setErrorMessage(null);
-        navigate("/leader/registros");
+        navigate(getLeaderLandingRoute(leader.sector));
       } else {
         const adminAccess = await verifyAdminCredentials(normalizedMatricula, password);
         if (adminAccess?.role === "seguranca") {
@@ -167,7 +168,7 @@ const LeaderLogin = () => {
             description: "Acesso de supervisor liberado.",
           });
           setErrorMessage(null);
-          navigate("/leader/registros");
+          navigate(getLeaderLandingRoute("TODOS"));
           return;
         }
 
@@ -233,7 +234,7 @@ const LeaderLogin = () => {
         title: "Senha definida",
         description: "Senha atualizada com sucesso. Entrando...",
       });
-      navigate("/leader/registros");
+      navigate(getLeaderLandingRoute(pendingLeader?.sector));
     } catch (error) {
       console.error("Erro ao atualizar senha do líder:", error);
       toast({
