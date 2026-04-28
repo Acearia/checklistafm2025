@@ -32,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { canDeleteAdminRecords } from "@/lib/adminSession";
+import { isRootAdminUser } from "@/lib/adminSession";
 import { goldenRuleService, goldenRuleQuestionService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -707,7 +707,7 @@ const AdminRegrasOuro = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
-  const [isAdmUser, setIsAdmUser] = useState<boolean>(canDeleteAdminRecords);
+  const [isRootAdmin, setIsRootAdmin] = useState<boolean>(isRootAdminUser());
   const [isSavingQuestion, setIsSavingQuestion] = useState(false);
   const [questionForm, setQuestionForm] = useState({
     question: "",
@@ -881,7 +881,7 @@ const AdminRegrasOuro = () => {
     if (typeof window === "undefined") return;
 
     const syncAdminSession = () => {
-      setIsAdmUser(canDeleteAdminRecords());
+      setIsRootAdmin(isRootAdminUser());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -1015,7 +1015,7 @@ const AdminRegrasOuro = () => {
   };
 
   const handleDeleteRecord = async (record: RegraOuroRecord) => {
-    if (!isAdmUser) {
+    if (!isRootAdmin) {
       toast({
         title: "Acesso restrito",
         description: "Somente o usuário adm pode excluir registros.",
@@ -1504,7 +1504,7 @@ const AdminRegrasOuro = () => {
                           <Badge variant={builtIn ? "outline" : "default"}>
                             {builtIn ? "Padrão" : "Personalizada"}
                           </Badge>
-                          {!builtIn && isAdmUser && (
+                          {!builtIn && isRootAdmin && (
                             <Button
                               type="button"
                               variant="ghost"
@@ -1523,73 +1523,75 @@ const AdminRegrasOuro = () => {
               )}
             </div>
 
-            <div className="space-y-3 rounded-md border p-4">
-              <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
-              <Textarea
-                value={questionForm.question}
-                onChange={(event) =>
-                  setQuestionForm((previous) => ({ ...previous, question: event.target.value }))
-                }
-                placeholder="Digite a pergunta da Regra de Ouro"
-                rows={4}
-              />
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={questionForm.alertOnYes}
-                    onChange={(event) =>
-                      setQuestionForm((previous) => ({ ...previous, alertOnYes: event.target.checked }))
-                    }
-                  />
-                  Alerta no SIM
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={questionForm.alertOnNo}
-                    onChange={(event) =>
-                      setQuestionForm((previous) => ({ ...previous, alertOnNo: event.target.checked }))
-                    }
-                  />
-                  Alerta no NÃO
-                </label>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-600">Ordem</label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={questionForm.order}
+            {isRootAdmin && (
+              <div className="space-y-3 rounded-md border p-4">
+                <h4 className="text-sm font-semibold text-gray-800">Adicionar pergunta</h4>
+                <Textarea
+                  value={questionForm.question}
                   onChange={(event) =>
-                    setQuestionForm((previous) => ({
-                      ...previous,
-                      order: Number(event.target.value) || 0,
-                    }))
+                    setQuestionForm((previous) => ({ ...previous, question: event.target.value }))
                   }
+                  placeholder="Digite a pergunta da Regra de Ouro"
+                  rows={4}
                 />
+                <div className="flex flex-wrap gap-4 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={questionForm.alertOnYes}
+                      onChange={(event) =>
+                        setQuestionForm((previous) => ({ ...previous, alertOnYes: event.target.checked }))
+                      }
+                    />
+                    Alerta no SIM
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={questionForm.alertOnNo}
+                      onChange={(event) =>
+                        setQuestionForm((previous) => ({ ...previous, alertOnNo: event.target.checked }))
+                      }
+                    />
+                    Alerta no NÃO
+                  </label>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-gray-600">Ordem</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={questionForm.order}
+                    onChange={(event) =>
+                      setQuestionForm((previous) => ({
+                        ...previous,
+                        order: Number(event.target.value) || 0,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" onClick={() => void handleAddQuestion()} disabled={isSavingQuestion}>
+                    {isSavingQuestion ? "Salvando..." : "Adicionar pergunta"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setQuestionForm({
+                        question: "",
+                        alertOnYes: false,
+                        alertOnNo: false,
+                        order: 0,
+                      })
+                    }
+                    disabled={isSavingQuestion}
+                  >
+                    Limpar
+                  </Button>
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={() => void handleAddQuestion()} disabled={isSavingQuestion}>
-                  {isSavingQuestion ? "Salvando..." : "Adicionar pergunta"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() =>
-                    setQuestionForm({
-                      question: "",
-                      alertOnYes: false,
-                      alertOnNo: false,
-                      order: 0,
-                    })
-                  }
-                  disabled={isSavingQuestion}
-                >
-                  Limpar
-                </Button>
-              </div>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1751,7 +1753,7 @@ const AdminRegrasOuro = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               Detalhes
                             </Button>
-                            {isAdmUser && (
+            {isRootAdmin && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -2053,7 +2055,7 @@ const AdminRegrasOuro = () => {
                 Gerar PDF
               </Button>
             )}
-            {selected && isAdmUser && (
+            {selected && isRootAdmin && (
               <Button
                 type="button"
                 variant="destructive"
