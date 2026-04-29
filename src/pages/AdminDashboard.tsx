@@ -425,11 +425,15 @@ const AdminDashboard = () => {
   );
 
   const getDashboardBoardRowClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
-    if (!entry.hasProblems && entry.isToday) return "bg-green-100";
-    if (entry.hasProblems && entry.isToday) {
-      return entry.hasOpenOrder ? "bg-amber-100" : "bg-red-100";
+    if (!entry.hasProblems && entry.isToday) {
+      return "bg-green-100 dark:bg-emerald-950/70 dark:hover:bg-emerald-900/70";
     }
-    return "bg-white";
+    if (entry.hasProblems && entry.isToday) {
+      return entry.hasOpenOrder
+        ? "bg-amber-100 dark:bg-amber-950/70 dark:hover:bg-amber-900/70"
+        : "bg-red-100 dark:bg-red-950/70 dark:hover:bg-red-900/70";
+    }
+    return "bg-white dark:bg-slate-950/70 dark:hover:bg-slate-900";
   };
 
   const getDashboardBoardDotClass = (entry: InspectionBoardInspectionEntry<unknown>) => {
