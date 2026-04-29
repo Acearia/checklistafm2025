@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
-import { goldenRuleService } from "@/lib/supabase-service";
+import { accidentActionPlanService, goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import {
@@ -84,6 +84,14 @@ interface RegraOuroRecord {
   anexos: AttachmentMeta[];
 }
 
+interface PlanoAcaoSummary {
+  id: string;
+  numero_ocorrencia: number;
+  origem: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface SectorQuestionLock {
   setorKey: string;
   setor: string;
@@ -94,6 +102,7 @@ interface SectorQuestionLock {
 
 const STORAGE_KEY = "checklistafm-regras-de-ouro";
 const STORAGE_EVENT = "checklistafm-regras-de-ouro-updated";
+const PLANO_STORAGE_KEY = "checklistafm-planos-acao-acidente";
 const PLANO_ACAO_CONTEXT_KEY = "checklistafm-plano-acao-context";
 const FILTER_ALL = "all";
 const ANSWER_YES: QuestionResponse["resposta"] = "Sim";
@@ -129,6 +138,44 @@ const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
 const isMissingGoldenRulesTableError = (error: unknown) => {
   const message = String((error as any)?.message || "").toLowerCase();
   return message.includes("does not exist") && message.includes("golden_rules");
+};
+
+const isMissingActionPlansTableError = (error: unknown) => {
+  const message = String((error as any)?.message || "").toLowerCase();
+  return message.includes("does not exist") && message.includes("accident_action_plans");
+};
+
+const mapPlanoAcaoSummary = (item: any): PlanoAcaoSummary | null => {
+  if (!item || typeof item !== "object") return null;
+  const numeroOcorrencia = Number(item.numero_ocorrencia) || 0;
+  if (!numeroOcorrencia) return null;
+
+  return {
+    id: String(item.id || ""),
+    numero_ocorrencia: numeroOcorrencia,
+    origem: String(item.origem || ""),
+    created_at: String(item.created_at || ""),
+    updated_at: String(item.updated_at || ""),
+  };
+};
+
+const isGoldenRuleActionPlan = (plan: PlanoAcaoSummary) =>
+  plan.origem.trim().toLowerCase().includes("regra");
+
+const parsePlanosAcao = (): PlanoAcaoSummary[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PLANO_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(mapPlanoAcaoSummary)
+      .filter((item): item is PlanoAcaoSummary => Boolean(item));
+  } catch (error) {
+    console.warn("Falha ao ler cache local dos planos de acao:", error);
+    return [];
+  }
 };
 
 const decodePotentialMojibake = (value: string) => {
@@ -693,6 +740,7 @@ const AdminRegrasOuro = () => {
     [goldenRuleQuestions],
   );
   const [records, setRecords] = useState<RegraOuroRecord[]>([]);
+  const [actionPlans, setActionPlans] = useState<PlanoAcaoSummary[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -707,6 +755,28 @@ const AdminRegrasOuro = () => {
 
   const loadData = async () => {
     const localRecords = parseRegrasOuro();
+    const localPlans = parsePlanosAcao();
+
+    try {
+      const remotePlans = (await accidentActionPlanService.safeGetAllWithFallback())
+        .map(mapPlanoAcaoSummary)
+        .filter((item): item is PlanoAcaoSummary => Boolean(item));
+      const mergedPlans = new Map<number, PlanoAcaoSummary>();
+      [...localPlans, ...remotePlans].filter(isGoldenRuleActionPlan).forEach((plan) => {
+        const current = mergedPlans.get(plan.numero_ocorrencia);
+        const currentTime = new Date(current?.updated_at || current?.created_at || 0).getTime();
+        const nextTime = new Date(plan.updated_at || plan.created_at || 0).getTime();
+        if (!current || nextTime >= currentTime) {
+          mergedPlans.set(plan.numero_ocorrencia, plan);
+        }
+      });
+      setActionPlans(Array.from(mergedPlans.values()));
+    } catch (error) {
+      if (!isMissingActionPlansTableError(error)) {
+        console.warn("Falha ao carregar planos de acao vinculados:", error);
+      }
+      setActionPlans(localPlans.filter(isGoldenRuleActionPlan));
+    }
 
     try {
       let remoteRows = await goldenRuleService.safeGetAllWithFallback();
@@ -883,6 +953,14 @@ const AdminRegrasOuro = () => {
     });
   }, [recordsWithCanonicalSector, setorFilter, tecnicoFilter, searchTerm, dateFrom, dateTo]);
 
+  const actionPlanByOccurrence = useMemo(() => {
+    const map = new Map<number, PlanoAcaoSummary>();
+    actionPlans.forEach((plan) => {
+      map.set(plan.numero_ocorrencia, plan);
+    });
+    return map;
+  }, [actionPlans]);
+
   const summary = useMemo(() => {
     const total = recordsWithCanonicalSector.length;
     const inspecoesComNaoConformidade = recordsWithCanonicalSector.filter((item) =>
@@ -1040,6 +1118,12 @@ const AdminRegrasOuro = () => {
   };
 
   const handleStartPlanoAcao = (record: RegraOuroRecord) => {
+    const existingPlan = actionPlanByOccurrence.get(Number(record.numero_inspecao) || 0);
+    if (existingPlan) {
+      navigate(`/admin/planos-acao?ocorrencia=${record.numero_inspecao}`);
+      return;
+    }
+
     const hasNonConformity = record.respostas.some((response) =>
       responseHasNonConformityEvidence(response, questionItems),
     );
@@ -1480,6 +1564,7 @@ const AdminRegrasOuro = () => {
                     );
                     const sectorLock = sectorQuestionLocks.get(getSectorComparisonKey(item.setor));
                     const isQuestionLocked = Boolean(sectorLock?.locked);
+                    const planoVinculado = actionPlanByOccurrence.get(Number(item.numero_inspecao) || 0);
 
                     return (
                       <TableRow key={item.id}>
@@ -1525,8 +1610,12 @@ const AdminRegrasOuro = () => {
                                 size="sm"
                                 onClick={() => handleStartPlanoAcao(item)}
                               >
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Plano de acao
+                                {planoVinculado ? (
+                                  <Eye className="mr-2 h-4 w-4" />
+                                ) : (
+                                  <PlusCircle className="mr-2 h-4 w-4" />
+                                )}
+                                {planoVinculado ? "Ver plano de acao" : "Plano de acao"}
                               </Button>
                             )}
                             <Button variant="ghost" size="sm" onClick={() => void handleExportRecordPdf(item)}>
@@ -1825,8 +1914,14 @@ const AdminRegrasOuro = () => {
                   variant="outline"
                   onClick={() => handleStartPlanoAcao(selected)}
                 >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Plano de acao
+                {actionPlanByOccurrence.get(Number(selected.numero_inspecao) || 0) ? (
+                  <Eye className="mr-2 h-4 w-4" />
+                ) : (
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                )}
+                {actionPlanByOccurrence.get(Number(selected.numero_inspecao) || 0)
+                  ? "Ver plano de acao"
+                  : "Plano de acao"}
               </Button>
             )}
             {selected && (
