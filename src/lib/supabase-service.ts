@@ -190,6 +190,18 @@ const relationMissingError = (error: unknown, relationName: string) => {
   return message.includes("does not exist") && message.includes(relationName.toLowerCase());
 };
 
+const embeddedRelationError = (error: unknown, relationName: string) => {
+  const code = String((error as any)?.code || "").toUpperCase();
+  const message = String((error as any)?.message || "").toLowerCase();
+  const details = String((error as any)?.details || "").toLowerCase();
+  const relation = relationName.toLowerCase();
+
+  return (
+    (code === "PGRST200" || code === "PGRST201" || relationMissingError(error, relationName)) &&
+    (message.includes(relation) || details.includes(relation))
+  );
+};
+
 const isUniqueViolationError = (error: unknown) => {
   const code = String((error as any)?.code || "").toLowerCase();
   const message = String((error as any)?.message || "").toLowerCase();
@@ -1519,7 +1531,7 @@ export const goldenRuleService = {
 };
 export const accidentActionPlanService = {
   async getAll() {
-    const { data, error } = await supabase
+    const withComments = await supabase
       .from("accident_action_plans")
       .select(`
         *,
@@ -1527,17 +1539,45 @@ export const accidentActionPlanService = {
       `)
       .order("created_at", { ascending: false });
 
+    if (!withComments.error) return withComments.data || [];
+
+    if (!embeddedRelationError(withComments.error, "accident_action_plan_comments")) {
+      throw withComments.error;
+    }
+
+    console.warn(
+      "[accidentActionPlanService] Comentarios indisponiveis; carregando planos sem comentarios:",
+      withComments.error,
+    );
+
+    const { data, error } = await supabase
+      .from("accident_action_plans")
+      .select("*")
+      .order("created_at", { ascending: false });
+
     if (error) throw error;
     return data || [];
   },
 
   async getById(id: string) {
-    const { data, error } = await supabase
+    const withComments = await supabase
       .from("accident_action_plans")
       .select(`
         *,
         comments:accident_action_plan_comments(*)
       `)
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!withComments.error) return withComments.data;
+
+    if (!embeddedRelationError(withComments.error, "accident_action_plan_comments")) {
+      throw withComments.error;
+    }
+
+    const { data, error } = await supabase
+      .from("accident_action_plans")
+      .select("*")
       .eq("id", id)
       .maybeSingle();
 

@@ -237,6 +237,12 @@ const mergePlanoRecords = (primary: PlanoAcaoRecord, secondary?: PlanoAcaoRecord
 
 const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
   if (!item || typeof item !== "object") return null;
+  const rawComments = Array.isArray(item.comments)
+    ? item.comments
+    : Array.isArray(item.comentarios)
+      ? item.comentarios
+      : [];
+
   return {
     id: String(item.id || `${Date.now()}-${Math.random()}`),
     created_at: String(item.created_at || ""),
@@ -261,14 +267,13 @@ const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
     observacoes_conclusao: String(item.observacoes_conclusao || ""),
     data_eficacia: String(item.data_eficacia || ""),
     observacao_eficacia: String(item.observacao_eficacia || ""),
-    comentarios: Array.isArray(item.comentarios)
-      ? item.comentarios.map((comentario: any) => ({
+    comentarios: rawComments
+      .map((comentario: any) => ({
           id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
           texto: String(comentario?.texto || ""),
           autor: String(comentario?.autor || "Sistema"),
           created_at: String(comentario?.created_at || ""),
-        }))
-      : [],
+        })),
   };
 };
 
