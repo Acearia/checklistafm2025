@@ -32,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { isRootAdminUser } from "@/lib/adminSession";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
@@ -697,7 +697,7 @@ const AdminRegrasOuro = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; title: string } | null>(null);
-  const [isRootAdmin, setIsRootAdmin] = useState<boolean>(isRootAdminUser());
+  const [canDeleteRecords, setCanDeleteRecords] = useState<boolean>(canDeleteAdminRecords());
 
   const [searchTerm, setSearchTerm] = useState("");
   const [setorFilter, setSetorFilter] = useState(FILTER_ALL);
@@ -792,7 +792,7 @@ const AdminRegrasOuro = () => {
     if (typeof window === "undefined") return;
 
     const syncAdminSession = () => {
-      setIsRootAdmin(isRootAdminUser());
+      setCanDeleteRecords(canDeleteAdminRecords());
     };
 
     window.addEventListener("storage", syncAdminSession);
@@ -926,10 +926,10 @@ const AdminRegrasOuro = () => {
   };
 
   const handleDeleteRecord = async (record: RegraOuroRecord) => {
-    if (!isRootAdmin) {
+    if (!canDeleteRecords) {
       toast({
         title: "Acesso restrito",
-        description: "Somente o usuário adm pode excluir registros.",
+        description: "Somente administrador ou coordenador podem excluir registros.",
         variant: "destructive",
       });
       return;
@@ -1537,7 +1537,7 @@ const AdminRegrasOuro = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               Detalhes
                             </Button>
-            {isRootAdmin && (
+            {canDeleteRecords && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1839,7 +1839,7 @@ const AdminRegrasOuro = () => {
                 Gerar PDF
               </Button>
             )}
-            {selected && isRootAdmin && (
+            {selected && canDeleteRecords && (
               <Button
                 type="button"
                 variant="destructive"
