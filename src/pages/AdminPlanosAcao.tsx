@@ -146,6 +146,17 @@ const isEficaciaPendente = (item: PlanoAcaoRecord) => {
   return !Number.isNaN(compareDate.getTime()) && today >= compareDate;
 };
 
+const isPlanoAtrasado = (item: PlanoAcaoRecord) => {
+  if (item.status === "Concluida" || item.status === "Cancelada") return false;
+  if (!item.termino_planejado) return false;
+
+  const dueDate = new Date(`${item.termino_planejado}T23:59:59`);
+  if (Number.isNaN(dueDate.getTime())) return false;
+
+  const today = new Date();
+  return dueDate < today;
+};
+
 const parsePlanos = (): PlanoAcaoRecord[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -575,7 +586,9 @@ const AdminPlanosAcao = () => {
         !ocorrenciaFilter.trim() ||
         String(item.numero_ocorrencia).includes(ocorrenciaFilter.trim());
 
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "Atrasadas" ? isPlanoAtrasado(item) : item.status === statusFilter);
       const matchesPrioridade = prioridadeFilter === "all" || item.prioridade === prioridadeFilter;
       const matchesOrigem =
         origemFromQuery.length === 0 ||
@@ -660,8 +673,9 @@ const AdminPlanosAcao = () => {
     const abertas = records.filter((item) => item.status === "Aberta").length;
     const andamento = records.filter((item) => item.status === "Em andamento").length;
     const concluidas = records.filter((item) => item.status === "Concluida").length;
+    const atrasadas = records.filter(isPlanoAtrasado).length;
     const eficaciaPendente = records.filter(isEficaciaPendente).length;
-    return { total, abertas, andamento, concluidas, eficaciaPendente };
+    return { total, abertas, andamento, concluidas, atrasadas, eficaciaPendente };
   }, [records]);
 
   return (
@@ -682,7 +696,7 @@ const AdminPlanosAcao = () => {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-6">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total</CardDescription>
@@ -705,6 +719,14 @@ const AdminPlanosAcao = () => {
           <CardHeader className="pb-2">
             <CardDescription>Concluidas</CardDescription>
             <CardTitle>{summary.concluidas}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Atrasadas</CardDescription>
+            <CardTitle className={summary.atrasadas > 0 ? "text-red-600" : ""}>
+              {summary.atrasadas}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -756,6 +778,7 @@ const AdminPlanosAcao = () => {
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="Aberta">Aberta</SelectItem>
                   <SelectItem value="Em andamento">Em andamento</SelectItem>
+                  <SelectItem value="Atrasadas">Atrasadas</SelectItem>
                   <SelectItem value="Concluida">Concluida</SelectItem>
                   <SelectItem value="Cancelada">Cancelada</SelectItem>
                 </SelectContent>
@@ -844,6 +867,9 @@ const AdminPlanosAcao = () => {
                             <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
                               {item.status}
                             </Badge>
+                            {isPlanoAtrasado(item) && (
+                              <Badge variant="destructive">Atrasada</Badge>
+                            )}
                             {isEficaciaPendente(item) && (
                               <Badge variant="destructive">Avaliacao de eficacia pendente</Badge>
                             )}
