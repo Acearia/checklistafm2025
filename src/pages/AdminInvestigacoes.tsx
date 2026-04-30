@@ -1128,31 +1128,9 @@ const AdminInvestigacoes = () => {
           window.dispatchEvent(new Event(PDF_ASSINADO_STORAGE_EVENT));
         }
 
-        try {
-          try {
-            await accidentActionPlanService.deleteByOccurrence(occurrenceNumber);
-          } catch (error) {
-            if (!isMissingActionPlansTableError(error)) {
-              throw error;
-            }
-          }
-
-          const planosRaw = localStorage.getItem(PLANO_ACAO_STORAGE_KEY);
-          if (planosRaw) {
-            const parsedPlanos = JSON.parse(planosRaw);
-            if (Array.isArray(parsedPlanos)) {
-              const nextPlanos = parsedPlanos.filter(
-                (item: any) => Number(item?.numero_ocorrencia) !== occurrenceNumber,
-              );
-              if (nextPlanos.length !== parsedPlanos.length) {
-                localStorage.setItem(PLANO_ACAO_STORAGE_KEY, JSON.stringify(nextPlanos));
-                window.dispatchEvent(new Event(PLANO_ACAO_STORAGE_EVENT));
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Erro ao limpar planos de acao vinculados:", error);
-        }
+        // Planos de acao podem continuar existindo como historico/pendencia mesmo
+        // quando a investigacao original e removida. A exclusao deve ser feita
+        // somente pela tela de Planos de Acao para evitar perda acidental.
       }
 
       if (selected?.id === record.id) {
