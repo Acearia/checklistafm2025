@@ -109,11 +109,11 @@ const InspectionBoardPanel = <TInspection,>({
           </div>
         ) : (
           <div className="overflow-x-auto pb-2">
-            <div className="flex min-w-max gap-3">
+            <div className="flex min-w-max gap-2 2xl:gap-2.5">
               {boardBySector.map((sectorEntry) => (
                 <div
                   key={sectorEntry.sector}
-                  className="w-[260px] shrink-0 rounded-lg border border-slate-200 bg-white shadow-sm xl:w-[236px] 2xl:w-[228px] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
+                  className="w-[250px] shrink-0 rounded-lg border border-slate-200 bg-white shadow-sm xl:w-[222px] 2xl:w-[214px] dark:border-slate-800 dark:bg-slate-900 dark:shadow-none"
                 >
                   <div className="border-b border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/80">
                     <p className="text-[15px] font-semibold uppercase tracking-wide text-slate-800 dark:text-slate-100">

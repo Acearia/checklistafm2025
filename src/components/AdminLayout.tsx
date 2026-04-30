@@ -150,7 +150,7 @@ const AdminLayout = () => {
         </aside>
 
         {/* Main content */}
-        <main className="admin-layout-main flex-1 overflow-auto bg-white/80 p-4 backdrop-blur-md dark:bg-slate-900/65 sm:p-5 lg:p-6">
+        <main className="admin-layout-main flex-1 overflow-auto bg-white/80 p-3 backdrop-blur-md dark:bg-slate-900/65 sm:p-4 lg:p-3">
           <div className="mx-auto w-full max-w-[1880px] space-y-4">
             <Outlet />
           </div>
@@ -184,5 +184,4 @@ const SidebarLink = ({
 };
 
 export default AdminLayout;
-
 
