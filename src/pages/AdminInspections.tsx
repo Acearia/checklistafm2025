@@ -842,9 +842,9 @@ const AdminInspections = () => {
               <p className="text-gray-500">Nenhuma inspeção encontrada com os filtros selecionados.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+            <div className="max-h-[62vh] overflow-auto rounded-md border">
+              <Table className="min-w-[980px]">
+                <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Equipamento</TableHead>
