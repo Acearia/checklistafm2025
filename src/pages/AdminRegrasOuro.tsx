@@ -42,6 +42,7 @@ import {
   resolveGoldenRuleQuestionExpectedAnswer,
 } from "@/lib/goldenRuleQuestions";
 import { normalizeQuestion } from "@/lib/alertRules";
+import { getLocalDateKey } from "@/lib/dateHelpers";
 import { useNavigate } from "react-router-dom";
 
 interface AttachmentMeta {
@@ -940,14 +941,10 @@ const AdminRegrasOuro = () => {
         item.gestor.toLowerCase().includes(normalizedSearch) ||
         item.tecnico_seg.toLowerCase().includes(normalizedSearch);
 
-      const itemDate = item.created_at ? new Date(item.created_at) : null;
-      const from = dateFrom ? new Date(dateFrom) : null;
-      const to = dateTo ? new Date(dateTo) : null;
-      if (from) from.setHours(0, 0, 0, 0);
-      if (to) to.setHours(23, 59, 59, 999);
+      const itemDateKey = getLocalDateKey(item.created_at);
       const matchesDate =
-        (!from || (itemDate && itemDate >= from)) &&
-        (!to || (itemDate && itemDate <= to));
+        (!dateFrom || (itemDateKey && itemDateKey >= dateFrom)) &&
+        (!dateTo || (itemDateKey && itemDateKey <= dateTo));
 
       return matchesSetor && matchesTecnico && matchesSearch && matchesDate;
     });
