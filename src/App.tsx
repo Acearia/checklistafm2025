@@ -18,6 +18,7 @@ import AdminGroups from "./pages/AdminGroups";
 import AdminInvestigacoes from "./pages/AdminInvestigacoes";
 import AdminPlanosAcao from "./pages/AdminPlanosAcao";
 import AdminRegrasOuro from "./pages/AdminRegrasOuro";
+import AdminInspecoesAmbientais from "./pages/AdminInspecoesAmbientais";
 import AdminUsers from "./pages/AdminUsers";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
 import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
@@ -27,6 +28,7 @@ import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
 import LeaderHomeRoute from "./pages/LeaderHomeRoute";
 import LeaderRulesPlans from "./pages/LeaderRulesPlans";
+import LeaderEnvironmentalInspections from "./pages/LeaderEnvironmentalInspections";
 import ChecklistDetail from "./pages/ChecklistDetail";
 import ChecklistOperator from "./pages/checklist/ChecklistOperator";
 import ChecklistEquipment from "./pages/checklist/ChecklistEquipment";
@@ -57,6 +59,7 @@ function App() {
         <Route path="/leader" element={<LeaderHomeRoute />} />
         <Route path="/leader/dashboard" element={<LeaderDashboard />} />
         <Route path="/leader/registros" element={<LeaderRulesPlans />} />
+        <Route path="/leader/ambiental" element={<LeaderEnvironmentalInspections />} />
         <Route path="/leader/checklists/:id" element={<ChecklistDetail />} />
         
         <Route path="/admin/login" element={<AdminLogin />} />
@@ -70,6 +73,7 @@ function App() {
           <Route path="investigacoes" element={<AdminInvestigacoes />} />
           <Route path="planos-acao" element={<AdminPlanosAcao />} />
           <Route path="regras-ouro" element={<AdminRegrasOuro />} />
+          <Route path="inspecoes-ambientais" element={<AdminInspecoesAmbientais />} />
           <Route path="checklists" element={<AdminChecklistsOverview />} />
           <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
           <Route path="leaders" element={<AdminLeaders />} />

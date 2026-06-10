@@ -52,6 +52,7 @@ import {
   AlertTriangle,
   Calendar as CalendarIcon,
   ClipboardList,
+  Leaf,
   ShieldAlert,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -1644,6 +1645,14 @@ const LeaderDashboard = () => {
               </Button>
             ) : null}
             <Button
+              onClick={() => navigate("/leader/ambiental")}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <Leaf className="h-4 w-4" />
+              Ambiental
+            </Button>
+            <Button
               onClick={() => {
                 localStorage.removeItem("checklistafm-leader-auth");
                 localStorage.removeItem("checklistafm-leader-id");
@@ -1685,6 +1694,29 @@ const LeaderDashboard = () => {
           </CardContent>
         </Card>
       ) : null}
+
+      <Card className="border-2 border-emerald-200 bg-emerald-50 shadow-sm">
+        <CardContent className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-xl bg-emerald-700 p-3 text-white">
+              <Leaf className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Inspeções Ambientais</h2>
+              <p className="text-sm text-slate-600">
+                Acompanhe as inspeções ambientais registradas nos seus setores.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => navigate("/leader/ambiental")}
+            className="h-12 bg-emerald-700 px-6 text-base font-semibold text-white hover:bg-emerald-800"
+          >
+            <Leaf className="mr-2 h-5 w-5" />
+            Abrir Inspeções Ambientais
+          </Button>
+        </CardContent>
+      </Card>
 
       <InspectionBoardPanel
         title="Painel por setor"

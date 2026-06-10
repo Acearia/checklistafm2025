@@ -1554,7 +1554,46 @@ export const environmentalInspectionService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    const inspections = data || [];
+    const inspectionIds = inspections.map((item: any) => item.id).filter(Boolean);
+
+    if (inspectionIds.length === 0) {
+      return inspections;
+    }
+
+    const { data: responses, error: responsesError } = await (supabase as any)
+      .from("environmental_inspection_responses")
+      .select("*")
+      .in("environmental_inspection_id", inspectionIds)
+      .order("numero", { ascending: true });
+
+    if (responsesError) throw responsesError;
+
+    const responsesByInspection = new Map<string, any[]>();
+    (responses || []).forEach((response: any) => {
+      const key = String(response.environmental_inspection_id || "");
+      if (!key) return;
+      const current = responsesByInspection.get(key) || [];
+      current.push(response);
+      responsesByInspection.set(key, current);
+    });
+
+    return inspections.map((inspection: any) => ({
+      ...inspection,
+      responses: responsesByInspection.get(String(inspection.id)) || [],
+    }));
+  },
+
+  async safeGetAllWithFallback() {
+    try {
+      return await this.getAll();
+    } catch (error) {
+      if (relationMissingError(error, "environmental_inspections")) {
+        return [];
+      }
+      console.warn("[environmentalInspectionService] Falha ao carregar inspeções ambientais:", error);
+      return [];
+    }
   },
 
   async getById(id: string) {

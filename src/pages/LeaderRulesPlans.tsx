@@ -8,6 +8,7 @@ import {
   RefreshCw,
   ShieldAlert,
   ClipboardList,
+  Leaf,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -764,6 +765,14 @@ const LeaderRulesPlans = () => {
             >
               <RefreshCw className="h-4 w-4" />
               Atualizar
+            </Button>
+            <Button
+              onClick={() => navigate("/leader/ambiental")}
+              variant="outline"
+              className="flex items-center gap-2 border-red-200 bg-white text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <Leaf className="h-4 w-4" />
+              Ambiental
             </Button>
             <Button
               onClick={() => {
