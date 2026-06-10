@@ -32,6 +32,7 @@ interface EnvironmentalEvidence {
 interface EnvironmentalQuestion {
   id: string;
   number: number;
+  section: string;
   text: string;
   expected: "Sim" | "Não";
 }
@@ -40,57 +41,122 @@ const STORAGE_KEY = "checklistafm-inspecoes-ambientais";
 
 const ENVIRONMENTAL_QUESTIONS: EnvironmentalQuestion[] = [
   {
-    id: "residuos-segregados",
-    number: 1,
-    text: "Os resíduos estão separados e identificados corretamente?",
-    expected: "Sim",
-  },
-  {
-    id: "coletores-condicoes",
-    number: 2,
-    text: "Os coletores e tambores estão em boas condições de uso?",
-    expected: "Sim",
-  },
-  {
-    id: "sem-vazamentos",
-    number: 3,
-    text: "O setor está sem vazamentos de óleo, produtos químicos ou outros contaminantes?",
-    expected: "Sim",
-  },
-  {
-    id: "produtos-quimicos",
-    number: 4,
-    text: "Produtos químicos estão armazenados com identificação e contenção adequada?",
-    expected: "Sim",
-  },
-  {
-    id: "descarte-irregular",
+    id: "segregacao-residuos",
     number: 5,
-    text: "Existe descarte irregular de resíduos, panos, embalagens ou materiais no setor?",
-    expected: "Não",
-  },
-  {
-    id: "ralos-efluentes",
-    number: 6,
-    text: "Ralos, canaletas e pontos de efluentes estão sem obstrução ou contaminação aparente?",
+    section: "Resíduos",
+    text: "A segregação de resíduos está adequada?",
     expected: "Sim",
   },
   {
-    id: "kit-emergencia",
+    id: "lixeiras-identificadas",
     number: 7,
-    text: "Há kit de emergência ambiental disponível e em condição de uso quando aplicável?",
+    section: "Resíduos",
+    text: "As lixeiras estão identificadas conforme padrão?",
     expected: "Sim",
   },
   {
-    id: "emissoes-poeira",
-    number: 8,
-    text: "Há emissão anormal de fumaça, poeira, odor ou ruído no local?",
-    expected: "Não",
+    id: "placas-residuos-bom-estado",
+    number: 9,
+    section: "Resíduos",
+    text: "Todas as placas de identificação para resíduos estão em bom estado?",
+    expected: "Sim",
   },
   {
-    id: "organizacao-ambiental",
-    number: 9,
-    text: "O setor está limpo, organizado e sem risco ambiental evidente?",
+    id: "bacias-contencao-equipamentos",
+    number: 11,
+    section: "Resíduos",
+    text: "Máquinas/Equipamentos com possibilidade de vazamento possuem bacias de contenção?",
+    expected: "Sim",
+  },
+  {
+    id: "produtos-perigosos-identificados",
+    number: 13,
+    section: "Produtos Químicos",
+    text: "Todos os produtos perigosos estão identificados em embalagens adequadas? (Inclusive os fracionados)",
+    expected: "Sim",
+  },
+  {
+    id: "produtos-local-adequado",
+    number: 15,
+    section: "Produtos Químicos",
+    text: "Estão em um local adequado?",
+    expected: "Sim",
+  },
+  {
+    id: "fds-local-uso",
+    number: 17,
+    section: "Produtos Químicos",
+    text: "Todas as FDS estão no local de uso do produto?",
+    expected: "Sim",
+  },
+  {
+    id: "kits-emergencia-facil-acesso",
+    number: 19,
+    section: "Sistema de Contenção",
+    text: "Os kits de emergências estão em local de fácil acesso?",
+    expected: "Sim",
+  },
+  {
+    id: "kit-identificado",
+    number: 21,
+    section: "Sistema de Contenção",
+    text: "O kit está identificado?",
+    expected: "Sim",
+  },
+  {
+    id: "vazamentos-contidos-rede-pluvial-solo",
+    number: 23,
+    section: "Sistema de Contenção",
+    text: "Foram contidos vazamentos/derramamento para a rede pluvial e ou solo? (Produtos Químicos, Efluentes e etc)",
+    expected: "Sim",
+  },
+  {
+    id: "limpeza-derramamentos-residuos-solidos",
+    number: 25,
+    section: "Sistema de Contenção",
+    text: "Foram realizadas limpeza de derramamentos de Resíduos Sólidos? (ADF, Pó de Esmeril, Papel, Plástico e EPI)",
+    expected: "Sim",
+  },
+  {
+    id: "setor-livre-vazamentos",
+    number: 27,
+    section: "Vazamentos de Óleos / Produtos Químicos / Resíduos",
+    text: "O setor está livre de vazamentos ou derramamentos de resíduos?",
+    expected: "Sim",
+  },
+  {
+    id: "kits-emergencia-abastecidos",
+    number: 29,
+    section: "Vazamentos de Óleos / Produtos Químicos / Resíduos",
+    text: "Os kits de emergências estão abastecidos?",
+    expected: "Sim",
+  },
+  {
+    id: "sistema-exaustao-funcionando",
+    number: 31,
+    section: "Sistema de Controle Ambiental",
+    text: "O sistema de exaustão do setor está funcionando corretamente?",
+    expected: "Sim",
+  },
+  {
+    id: "lixeiras-bom-estado",
+    number: 33,
+    section: "Sistema de Controle Ambiental",
+    text: "As lixeiras estão em bom estado?",
+    expected: "Sim",
+  },
+  {
+    id: "momentos-meio-ambiente-erp",
+    number: 35,
+    section: "Educação Ambiental",
+    text: "Os momentos do meio Ambiente estão sendo realizados e registrados no sistema ERP?",
+    expected: "Sim",
+  },
+  {
+    id: "funcionarios-cientes-temas",
+    number: 37,
+    section: "Educação Ambiental",
+    text: "Os funcionários estão cientes e entendendo os temas dos momentos do meio ambiente?",
     expected: "Sim",
   },
 ];
@@ -187,9 +253,15 @@ const InspecaoAmbiental = () => {
     setAnswers((current) => ({ ...current, [question.id]: answer }));
     if (!answer || answer === "N/A" || answer === question.expected) {
       setEvidences((current) => {
-        const next = { ...current };
-        delete next[question.id];
-        return next;
+        const existing = current[question.id];
+        if (!existing) return current;
+        return {
+          ...current,
+          [question.id]: {
+            ...existing,
+            foto: null,
+          },
+        };
       });
     }
   };
@@ -441,56 +513,67 @@ const InspecaoAmbiental = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {ENVIRONMENTAL_QUESTIONS.map((question) => {
+            {ENVIRONMENTAL_QUESTIONS.map((question, index) => {
               const answer = answers[question.id];
               const isIrregular = Boolean(answer && answer !== "N/A" && answer !== question.expected);
               const evidence = evidences[question.id] || { comentario: "", foto: null };
+              const showSectionTitle =
+                index === 0 || ENVIRONMENTAL_QUESTIONS[index - 1].section !== question.section;
 
               return (
-                <div
-                  key={question.id}
-                  className={`rounded-xl border p-4 transition-colors ${
-                    isIrregular ? "border-red-200 bg-red-50/70" : "border-emerald-100 bg-white"
-                  }`}
-                >
-                  <div className="grid gap-4 md:grid-cols-[72px_1fr_260px] md:items-center">
-                    <div className="text-4xl font-black text-slate-950">
-                      {String(question.number).padStart(2, "0")}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-950">{question.text}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Padrão esperado: {question.expected}
+                <React.Fragment key={question.id}>
+                  {showSectionTitle && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
+                        Inspeção Ambiental
                       </p>
+                      <h3 className="text-xl font-bold text-emerald-950">{question.section}</h3>
                     </div>
-                    <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
-                      {(["Sim", "Não", "N/A"] as EnvironmentalAnswer[]).map((option) => (
-                        <Button
-                          key={option}
-                          type="button"
-                          variant={answer === option ? "default" : "outline"}
-                          className={answer === option ? "bg-slate-950 text-white hover:bg-slate-800" : ""}
-                          onClick={() => handleAnswerChange(question, option)}
-                        >
-                          {option}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {isIrregular && (
-                    <div className="mt-4 rounded-lg border border-red-100 bg-white p-4">
-                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-700">
-                        <Camera className="h-4 w-4" />
-                        Evidência da irregularidade
+                  )}
+                  <div
+                    className={`rounded-xl border p-4 transition-colors ${
+                      isIrregular ? "border-red-200 bg-red-50/70" : "border-emerald-100 bg-white"
+                    }`}
+                  >
+                    <div className="grid gap-4 md:grid-cols-[72px_1fr_300px] md:items-center">
+                      <div className="text-4xl font-black text-slate-950">
+                        {String(question.number).padStart(2, "0")}
                       </div>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label>Comentário</Label>
-                          <Textarea
-                            value={evidence.comentario}
-                            onChange={(event) => updateEvidence(question.id, { comentario: event.target.value })}
-                          />
+                      <div>
+                        <p className="font-semibold text-slate-950">{question.text}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Padrão esperado: {question.expected}
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
+                        {(["Sim", "Não", "N/A"] as EnvironmentalAnswer[]).map((option) => (
+                          <Button
+                            key={option}
+                            type="button"
+                            variant={answer === option ? "default" : "outline"}
+                            className={answer === option ? "bg-slate-950 text-white hover:bg-slate-800" : ""}
+                            onClick={() => handleAnswerChange(question, option)}
+                          >
+                            {option === "N/A" ? "Não se Aplica" : option}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      <Label>Alguma observação?</Label>
+                      <Textarea
+                        value={evidence.comentario}
+                        onChange={(event) => updateEvidence(question.id, { comentario: event.target.value })}
+                        placeholder="Insira sua resposta"
+                      />
+                    </div>
+
+                    {isIrregular && (
+                      <div className="mt-4 rounded-lg border border-red-100 bg-white p-4">
+                        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-700">
+                          <Camera className="h-4 w-4" />
+                          Foto da irregularidade
                         </div>
                         <div className="space-y-2">
                           <Label>Foto</Label>
@@ -506,9 +589,9 @@ const InspecaoAmbiental = () => {
                           )}
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </React.Fragment>
               );
             })}
           </CardContent>
