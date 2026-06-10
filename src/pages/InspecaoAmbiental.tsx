@@ -1,8 +1,9 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, ClipboardCheck, Eraser, Leaf, Save, Signature } from "lucide-react";
+import { ArrowLeft, Camera, ClipboardCheck, Eraser, Leaf, Save, Signature, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,6 +17,7 @@ import {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLocalDateKey } from "@/lib/dateHelpers";
+import { operatorService } from "@/lib/supabase-service";
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
 
@@ -182,13 +184,14 @@ const normalizeStoredList = (raw: string | null) => {
 const InspecaoAmbiental = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { sectors, operators } = useSupabaseData(["sectors", "operators"]);
+  const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingRef = useRef(false);
 
   const [realizadoPor, setRealizadoPor] = useState("");
   const [dataInspecao, setDataInspecao] = useState(getTodayLocalDateKey() || "");
   const [acompanhadoPor, setAcompanhadoPor] = useState("");
+  const [personDialogTarget, setPersonDialogTarget] = useState<"realizadoPor" | "acompanhadoPor" | null>(null);
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [answers, setAnswers] = useState<Record<string, EnvironmentalAnswer>>(
@@ -236,6 +239,61 @@ const InspecaoAmbiental = () => {
     const answered = ENVIRONMENTAL_QUESTIONS.filter((question) => answers[question.id]).length;
     return Math.round((answered / ENVIRONMENTAL_QUESTIONS.length) * 100);
   }, [answers]);
+
+  const sectorOptions = useMemo(
+    () =>
+      [...(sectors as any[])]
+        .map((item) => ({
+          id: String(item?.id || item?.name || ""),
+          name: String(item?.name || "").trim(),
+        }))
+        .filter((item) => item.id && item.name)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+    [sectors],
+  );
+
+  const openAddPersonDialog = (target: "realizadoPor" | "acompanhadoPor") => {
+    setPersonDialogTarget(target);
+  };
+
+  const handleAddPerson = async (data: {
+    id: string;
+    name: string;
+    cargo?: string;
+    setor?: string;
+    senha?: string;
+  }) => {
+    try {
+      const personName = data.name.trim().toUpperCase();
+      await operatorService.create({
+        matricula: data.id.trim(),
+        name: personName,
+        cargo: data.cargo?.trim().toUpperCase() || null,
+        setor: data.setor || null,
+        senha: data.senha ? data.senha.trim() : null,
+      });
+
+      if (personDialogTarget === "realizadoPor") {
+        setRealizadoPor(personName);
+      }
+      if (personDialogTarget === "acompanhadoPor") {
+        setAcompanhadoPor(personName);
+      }
+
+      await refresh();
+      toast({
+        title: "Pessoa adicionada",
+        description: `${personName} foi adicionada e selecionada no campo.`,
+      });
+    } catch (error) {
+      console.error("Erro ao adicionar pessoa na inspeção ambiental:", error);
+      toast({
+        title: "Erro ao adicionar pessoa",
+        description: error instanceof Error ? error.message : "Não foi possível adicionar a pessoa.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateEvidence = (questionId: string, patch: Partial<EnvironmentalEvidence>) => {
     setEvidences((current) => ({
@@ -451,7 +509,18 @@ const InspecaoAmbiental = () => {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Realizado por *</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Realizado por *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openAddPersonDialog("realizadoPor")}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Adicionar pessoa
+                </Button>
+              </div>
               <Select value={realizadoPor} onValueChange={setRealizadoPor}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar responsável" />
@@ -471,7 +540,18 @@ const InspecaoAmbiental = () => {
               <Input type="date" value={dataInspecao} onChange={(event) => setDataInspecao(event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Acompanhado por</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Acompanhado por</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openAddPersonDialog("acompanhadoPor")}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Adicionar pessoa
+                </Button>
+              </div>
               <Select value={acompanhadoPor || "nao-informado"} onValueChange={(value) => setAcompanhadoPor(value === "nao-informado" ? "" : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecionar acompanhante" />
@@ -650,6 +730,14 @@ const InspecaoAmbiental = () => {
           </CardContent>
         </Card>
       </main>
+      <AddOperatorDialog
+        open={Boolean(personDialogTarget)}
+        onOpenChange={(open) => {
+          if (!open) setPersonDialogTarget(null);
+        }}
+        onAddOperator={handleAddPerson}
+        sectors={sectorOptions}
+      />
     </div>
   );
 };
