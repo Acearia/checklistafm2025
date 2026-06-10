@@ -1674,6 +1674,22 @@ export const environmentalInspectionService = {
       throw error;
     }
   },
+
+  async delete(id: string) {
+    const { error: responsesError } = await (supabase as any)
+      .from("environmental_inspection_responses")
+      .delete()
+      .eq("environmental_inspection_id", id);
+
+    if (responsesError) throw responsesError;
+
+    const { error } = await (supabase as any)
+      .from("environmental_inspections")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+  },
 };
 
 export const accidentActionPlanService = {

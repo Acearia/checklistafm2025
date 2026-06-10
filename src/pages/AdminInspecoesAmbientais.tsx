@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Eye, RefreshCw } from "lucide-react";
+import { Eye, RefreshCw, Trash2 } from "lucide-react";
 import EnvironmentalInspectionDetailsDialog, {
   type EnvironmentalInspectionDetail,
 } from "@/components/environmental/EnvironmentalInspectionDetailsDialog";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { environmentalInspectionService } from "@/lib/supabase-service";
 
 const FILTER_ALL = "all";
@@ -68,6 +69,8 @@ const AdminInspecoesAmbientais = () => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [selectedInspection, setSelectedInspection] = useState<EnvironmentalInspectionDetail | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const canDeleteRecords = canDeleteAdminRecords();
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -158,6 +161,41 @@ const AdminInspecoesAmbientais = () => {
       }
     },
     [],
+  );
+
+  const handleDelete = useCallback(
+    async (record: EnvironmentalInspectionListItem) => {
+      if (!canDeleteRecords) return;
+
+      const number = formatNumber(record.numero_inspecao);
+      const confirmed = window.confirm(
+        `Excluir a inspeção ambiental ${number}? Essa ação não pode ser desfeita.`,
+      );
+
+      if (!confirmed) return;
+
+      setDeletingId(record.id);
+      try {
+        await environmentalInspectionService.delete(record.id);
+        setRecords((current) => current.filter((item) => item.id !== record.id));
+        setSelectedInspection((current) => (current?.id === record.id ? null : current));
+        setDetailsOpen((current) => (selectedInspection?.id === record.id ? false : current));
+        toast({
+          title: "Registro excluído",
+          description: `A inspeção ambiental ${number} foi removida.`,
+        });
+      } catch (error) {
+        console.error("[AdminInspecoesAmbientais] Erro ao excluir inspeção ambiental:", error);
+        toast({
+          title: "Erro ao excluir",
+          description: "Não foi possível excluir a inspeção ambiental.",
+          variant: "destructive",
+        });
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [canDeleteRecords, selectedInspection?.id, toast],
   );
 
   return (
@@ -290,10 +328,24 @@ const AdminInspecoesAmbientais = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="sm" onClick={() => void handleOpenDetails(record)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Ver
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => void handleOpenDetails(record)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver
+                            </Button>
+                            {canDeleteRecords ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                disabled={deletingId === record.id}
+                                onClick={() => void handleDelete(record)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {deletingId === record.id ? "Excluindo..." : "Excluir"}
+                              </Button>
+                            ) : null}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
