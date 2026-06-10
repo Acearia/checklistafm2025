@@ -17,7 +17,7 @@ import {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLocalDateKey } from "@/lib/dateHelpers";
-import { operatorService } from "@/lib/supabase-service";
+import { environmentalInspectionService, operatorService } from "@/lib/supabase-service";
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
 
@@ -38,8 +38,6 @@ interface EnvironmentalQuestion {
   text: string;
   expected: "Sim" | "Não";
 }
-
-const STORAGE_KEY = "checklistafm-inspecoes-ambientais";
 
 const ENVIRONMENTAL_QUESTIONS: EnvironmentalQuestion[] = [
   {
@@ -170,16 +168,6 @@ const fileToDataUrl = (file: File) =>
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-
-const normalizeStoredList = (raw: string | null) => {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
 
 const InspecaoAmbiental = () => {
   const navigate = useNavigate();
@@ -390,7 +378,7 @@ const InspecaoAmbiental = () => {
     setSignature("");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!realizadoPor.trim() || !dataInspecao || !setor.trim()) {
       toast({
         title: "Campos obrigatórios",
@@ -425,36 +413,32 @@ const InspecaoAmbiental = () => {
 
     try {
       setIsSaving(true);
-      const existing = normalizeStoredList(localStorage.getItem(STORAGE_KEY));
-      const nextNumber =
-        existing.reduce((max, item) => Math.max(max, Number(item?.numero_inspecao) || 0), 0) + 1;
       const now = new Date().toISOString();
-      const payload = {
-        id: `ambiental-${Date.now()}`,
-        numero_inspecao: nextNumber,
+      const saved = await environmentalInspectionService.create({
         created_at: now,
-        updated_at: now,
         realizado_por: realizadoPor.trim(),
         data_inspecao: dataInspecao,
         acompanhado_por: acompanhadoPor.trim(),
         setor: setor.trim(),
         observacoes: observacoes.trim(),
-        respostas: ENVIRONMENTAL_QUESTIONS.map((question) => ({
+        responses: ENVIRONMENTAL_QUESTIONS.map((question) => ({
           codigo: question.id,
           numero: String(question.number).padStart(2, "0"),
+          secao: question.section,
           pergunta: question.text,
-          resposta: answers[question.id],
+          resposta: answers[question.id] as "Sim" | "Não" | "N/A",
           resposta_esperada: question.expected,
           irregular: answers[question.id] !== "N/A" && answers[question.id] !== question.expected,
-          evidencia: evidences[question.id] || { comentario: "", foto: null },
+          comentario: evidences[question.id]?.comentario || "",
+          foto: evidences[question.id]?.foto || null,
         })),
         assinatura: signature,
-      };
+      });
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([payload, ...existing]));
+      const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
       toast({
         title: "Inspeção ambiental salva",
-        description: `Registro ambiental ${String(nextNumber).padStart(3, "0")} salvo neste dispositivo.`,
+        description: `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`,
       });
       navigate("/");
     } catch (error) {
@@ -621,9 +605,6 @@ const InspecaoAmbiental = () => {
                       </div>
                       <div>
                         <p className="font-semibold text-slate-950">{question.text}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Padrão esperado: {question.expected}
-                        </p>
                       </div>
                       <div className="flex flex-col gap-2 sm:flex-row md:justify-end">
                         {(["Sim", "Não", "N/A"] as EnvironmentalAnswer[]).map((option) => (

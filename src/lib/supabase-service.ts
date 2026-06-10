@@ -169,6 +169,34 @@ export interface AccidentActionPlanRecordPayload {
   }>;
 }
 
+export interface EnvironmentalInspectionRecordPayload {
+  id?: string;
+  numero_inspecao?: number;
+  created_at?: string;
+  realizado_por: string;
+  data_inspecao: string;
+  acompanhado_por?: string | null;
+  setor: string;
+  observacoes?: string | null;
+  assinatura?: string | null;
+  responses: Array<{
+    codigo: string;
+    numero: string;
+    secao: string;
+    pergunta: string;
+    resposta: "Sim" | "Não" | "Nao" | "N/A";
+    resposta_esperada: "Sim" | "Não" | "Nao";
+    irregular: boolean;
+    comentario?: string | null;
+    foto?: {
+      name?: string;
+      size?: number;
+      type?: string;
+      data_url?: string;
+    } | null;
+  }>;
+}
+
 const notifyInspectionEmail = async (inspectionId: string) => {
   if (!inspectionId) return;
 
@@ -1517,6 +1545,98 @@ export const goldenRuleService = {
     return { syncedIds, failedIds };
   },
 };
+
+export const environmentalInspectionService = {
+  async getAll() {
+    const { data, error } = await (supabase as any)
+      .from("environmental_inspections")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getById(id: string) {
+    const { data, error } = await (supabase as any)
+      .from("environmental_inspections")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return data;
+
+    const { data: responses, error: responsesError } = await (supabase as any)
+      .from("environmental_inspection_responses")
+      .select("*")
+      .eq("environmental_inspection_id", data.id)
+      .order("numero", { ascending: true });
+
+    if (responsesError) throw responsesError;
+    return { ...data, responses: responses || [] };
+  },
+
+  async create(payload: EnvironmentalInspectionRecordPayload) {
+    const { data: savedInspection, error: inspectionError } = await (supabase as any)
+      .from("environmental_inspections")
+      .insert({
+        id: payload.id,
+        ...(payload.numero_inspecao ? { numero_inspecao: payload.numero_inspecao } : {}),
+        realizado_por: payload.realizado_por,
+        data_inspecao: payload.data_inspecao,
+        acompanhado_por: payload.acompanhado_por || null,
+        setor: payload.setor,
+        observacoes: payload.observacoes || null,
+        assinatura: payload.assinatura || null,
+        created_at: payload.created_at,
+      })
+      .select()
+      .single();
+
+    if (inspectionError) throw inspectionError;
+
+    try {
+      if (payload.responses.length > 0) {
+        const responseRows = payload.responses.map((item) => ({
+          environmental_inspection_id: savedInspection.id,
+          codigo: item.codigo,
+          numero: item.numero,
+          secao: item.secao,
+          pergunta: item.pergunta,
+          resposta: item.resposta,
+          resposta_esperada: item.resposta_esperada,
+          irregular: item.irregular,
+          comentario: item.comentario?.trim() || null,
+          foto_name: item.foto?.name || null,
+          foto_size: Number(item.foto?.size || 0) || null,
+          foto_type: item.foto?.type || null,
+          foto_data_url: item.foto?.data_url || null,
+        }));
+
+        const { error: responsesError } = await (supabase as any)
+          .from("environmental_inspection_responses")
+          .insert(responseRows);
+
+        if (responsesError) throw responsesError;
+      }
+
+      return this.getById(savedInspection.id);
+    } catch (error) {
+      const { error: rollbackError } = await (supabase as any)
+        .from("environmental_inspections")
+        .delete()
+        .eq("id", savedInspection.id);
+
+      if (rollbackError) {
+        console.warn("[environmentalInspectionService] Falha ao desfazer salvamento parcial:", rollbackError);
+      }
+
+      throw error;
+    }
+  },
+};
+
 export const accidentActionPlanService = {
   async getAll() {
     const withComments = await supabase
