@@ -21,6 +21,7 @@ import AdminRegrasOuro from "./pages/AdminRegrasOuro";
 import AdminUsers from "./pages/AdminUsers";
 import InvestigacaoAcidente from "./pages/InvestigacaoAcidente";
 import InvestigacaoAcidente2 from "./pages/InvestigacaoAcidente2";
+import InspecaoAmbiental from "./pages/InspecaoAmbiental";
 import PlanoAcaoAcidente from "./pages/PlanoAcaoAcidente";
 import LeaderLogin from "./pages/LeaderLogin";
 import LeaderDashboard from "./pages/LeaderDashboard";
@@ -42,6 +43,7 @@ function App() {
         <Route path="/investigacao-acidente" element={<InvestigacaoAcidente />} />
         <Route path="/plano-acao-acidente" element={<PlanoAcaoAcidente />} />
         <Route path="/regras-de-ouro" element={<InvestigacaoAcidente2 />} />
+        <Route path="/inspecao-ambiental" element={<InspecaoAmbiental />} />
         <Route path="/investigacao-acidente-2" element={<InvestigacaoAcidente2 />} />
         
         {/* Novas rotas para o checklist dividido em etapas */}

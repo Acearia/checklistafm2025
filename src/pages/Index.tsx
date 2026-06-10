@@ -1,7 +1,7 @@
 ﻿
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ClipboardCheck, Search, ShieldAlert } from "lucide-react";
+import { ClipboardCheck, Leaf, Search, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -415,16 +415,27 @@ const Index = () => {
                   </div>
                   <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">Abrir formulário de regras de ouro.</p>
                 </Link>
+                <Link
+                  to="/inspecao-ambiental"
+                  className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900 shadow-sm transition-colors hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/60"
+                >
+                  <div className="flex items-center gap-2">
+                    <Leaf className="h-5 w-5 shrink-0" />
+                    <span className="text-base font-semibold sm:text-lg">Inspeção Ambiental</span>
+                  </div>
+                  <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">Abrir formulário ambiental.</p>
+                </Link>
               </div>
             </>
           ) : (
             <Tabs defaultValue="home" className="w-full">
-              <TabsList className="grid h-auto w-full grid-cols-5 rounded-lg border border-white/40 bg-white/75 backdrop-blur-md">
+              <TabsList className="grid h-auto w-full grid-cols-6 rounded-lg border border-white/40 bg-white/75 backdrop-blur-md">
                 <TabsTrigger value="home" className="px-2 py-2.5 text-[15px] md:text-base">Início</TabsTrigger>
                 <TabsTrigger value="leader" className="px-2 py-2.5 text-[15px] md:text-base">Líderes</TabsTrigger>
                 <TabsTrigger value="admin" className="px-2 py-2.5 text-[15px] md:text-base">Administrativo</TabsTrigger>
                 <TabsTrigger value="investigacao" className="mx-0.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-2.5 text-[15px] font-semibold text-amber-900 data-[state=active]:border-amber-700 data-[state=active]:bg-amber-700 data-[state=active]:text-white md:text-base">Investigação</TabsTrigger>
                 <TabsTrigger value="regras-ouro" className="mx-0.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-2.5 text-[15px] font-semibold text-blue-900 data-[state=active]:border-blue-700 data-[state=active]:bg-blue-700 data-[state=active]:text-white md:text-base">Regras de Ouro</TabsTrigger>
+                <TabsTrigger value="ambiental" className="mx-0.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-[15px] font-semibold text-emerald-900 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-700 data-[state=active]:text-white md:text-base">Ambiental</TabsTrigger>
               </TabsList>
 
               <TabsContent value="home" className="mt-6">
@@ -507,6 +518,25 @@ const Index = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              <TabsContent value="ambiental" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-center mb-6">
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Inspeção Ambiental</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Acesse o formulário de inspeção ambiental.</p>
+                    </div>
+
+                    <Link to="/inspecao-ambiental">
+                      <Button
+                        className="w-full py-8 bg-emerald-700 hover:bg-emerald-800 text-white text-lg flex flex-col items-center gap-2"
+                      >
+                        <span>Abrir Inspeção Ambiental</span>
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           )}
         </div>
@@ -565,6 +595,5 @@ const Index = () => {
 };
 
 export default Index;
-
 
 
