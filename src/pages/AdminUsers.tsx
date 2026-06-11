@@ -48,6 +48,10 @@ interface AdminAccount {
   username: string;
   role: "admin" | "seguranca" | "diretoria" | "investigador" | "tecnico" | "coordenador";
   password_hash: string;
+  display_name?: string | null;
+  cargo?: string | null;
+  setor?: string | null;
+  email?: string | null;
 }
 
 const SECURITY_ROLES: UnifiedRole[] = ["supervisor", "tec_seguranca", "inspetor"];
@@ -96,39 +100,79 @@ const encodePassword = (value: string): string => {
   return value;
 };
 
+const isMissingAdminProfileColumnsError = (error: any) => {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+  return (
+    message.includes("display_name") ||
+    message.includes("could not find") ||
+    (message.includes("column") &&
+      (message.includes("cargo") || message.includes("setor") || message.includes("email")))
+  );
+};
+
 const persistAdminUserRole = async ({
   currentUsername,
   nextUsername,
   role,
   passwordHash,
+  profile,
 }: {
   currentUsername?: string | null;
   nextUsername: string;
   role: AdminAccount["role"],
   passwordHash: string;
+  profile?: {
+    displayName?: string | null;
+    cargo?: string | null;
+    setor?: string | null;
+    email?: string | null;
+  };
 }) => {
   const fromAdminUsers = supabase.from("admin_users");
+  const profilePayload =
+    profile === undefined
+      ? {}
+      : {
+          display_name: profile.displayName || null,
+          cargo: profile.cargo || null,
+          setor: profile.setor || null,
+          email: profile.email || null,
+        };
+  const payload = {
+    username: nextUsername,
+    role,
+    password_hash: passwordHash,
+    ...profilePayload,
+  };
 
   if (currentUsername && currentUsername !== nextUsername) {
-    return fromAdminUsers
-      .update({
-        username: nextUsername,
-        role,
-        password_hash: passwordHash,
-      })
-      .eq("username", currentUsername);
+    const result = await fromAdminUsers.update(payload as any).eq("username", currentUsername);
+    if (result.error && isMissingAdminProfileColumnsError(result.error)) {
+      return fromAdminUsers
+        .update({
+          username: nextUsername,
+          role,
+          password_hash: passwordHash,
+        })
+        .eq("username", currentUsername);
+    }
+    return result;
   }
 
-  return fromAdminUsers.upsert(
-    [
-      {
-        username: nextUsername,
-        role,
-        password_hash: passwordHash,
-      },
-    ],
-    { onConflict: "username" },
-  );
+  const result = await fromAdminUsers.upsert([payload as any], { onConflict: "username" });
+  if (result.error && isMissingAdminProfileColumnsError(result.error)) {
+    return fromAdminUsers.upsert(
+      [
+        {
+          username: nextUsername,
+          role,
+          password_hash: passwordHash,
+        },
+      ],
+      { onConflict: "username" },
+    );
+  }
+  return result;
 };
 
 const loadSecurityRoleTags = () => {
@@ -196,10 +240,26 @@ const AdminUsers = () => {
     try {
       const { data, error } = await supabase
         .from("admin_users")
-        .select("username, role, password_hash")
+        .select("username, role, password_hash, display_name, cargo, setor, email")
         .in("role", ["admin", "seguranca", "diretoria", "investigador", "tecnico", "coordenador"]);
 
       if (error) {
+        if (isMissingAdminProfileColumnsError(error)) {
+          const fallback = await supabase
+            .from("admin_users")
+            .select("username, role, password_hash")
+            .in("role", ["admin", "seguranca", "diretoria", "investigador", "tecnico", "coordenador"]);
+
+          if (fallback.error) {
+            console.error("Erro ao carregar contas administrativas:", fallback.error);
+            setAdminAccounts([]);
+            return;
+          }
+
+          setAdminAccounts((fallback.data || []) as AdminAccount[]);
+          return;
+        }
+
         console.error("Erro ao carregar contas administrativas:", error);
         setAdminAccounts([]);
         return;
@@ -263,8 +323,13 @@ const AdminUsers = () => {
     });
 
     adminAccounts.forEach((account) => {
-      const user = ensureUser(account.username, account.username);
+      const user = ensureUser(account.username, account.display_name || account.username);
       if (!user) return;
+
+      user.name = account.display_name || user.name;
+      user.cargo = account.cargo || user.cargo;
+      user.setor = mergeSectorValues(user.setor, account.setor || "");
+      user.email = account.email || user.email;
 
       if (account.role === "investigador") {
         if (!user.roles.includes("investigador")) user.roles.push("investigador");
@@ -591,6 +656,12 @@ const AdminUsers = () => {
           nextUsername: matriculaTrim,
           role: selectedAdminRole,
           passwordHash: adminPasswordHash,
+          profile: {
+            displayName: nameTrim,
+            cargo: cargo.trim() || null,
+            setor: setorNormalized || null,
+            email: email.trim() || null,
+          },
         });
 
         if (error) {
