@@ -19,6 +19,8 @@ export type EnvironmentalInspectionDetail = {
   setor?: string;
   observacoes?: string | null;
   assinatura?: string | null;
+  assinatura_realizado_por?: string | null;
+  assinatura_acompanhante?: string | null;
   responses?: Array<{
     id?: string;
     numero?: string | number;
@@ -85,6 +87,8 @@ const EnvironmentalInspectionDetailsDialog = ({
 }: EnvironmentalInspectionDetailsDialogProps) => {
   const responses = Array.isArray(inspection?.responses) ? inspection.responses : [];
   const irregularResponses = responses.filter((item) => Boolean(item.irregular));
+  const realizadoPorSignature = inspection?.assinatura_realizado_por || inspection?.assinatura || "";
+  const acompanhanteSignature = inspection?.assinatura_acompanhante || "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -141,7 +145,8 @@ const EnvironmentalInspectionDetailsDialog = ({
                 <p><strong>Realizado por:</strong> {inspection.realizado_por || "N/A"}</p>
                 <p><strong>Acompanhado por:</strong> {inspection.acompanhado_por || "N/A"}</p>
                 <p><strong>Criado em:</strong> {formatDateTime(inspection.created_at)}</p>
-                <p><strong>Assinatura:</strong> {inspection.assinatura ? "Registrada" : "N/A"}</p>
+                <p><strong>Ass. realizado por:</strong> {realizadoPorSignature ? "Registrada" : "N/A"}</p>
+                <p><strong>Ass. acompanhante:</strong> {acompanhanteSignature ? "Registrada" : "N/A"}</p>
                 <div className="md:col-span-2">
                   <strong>Observações gerais:</strong>
                   <p className="mt-1 rounded-md border bg-muted/30 p-3 text-muted-foreground">
@@ -207,17 +212,32 @@ const EnvironmentalInspectionDetailsDialog = ({
               </CardContent>
             </Card>
 
-            {inspection.assinatura ? (
+            {realizadoPorSignature || acompanhanteSignature ? (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Assinatura</CardTitle>
+                  <CardTitle className="text-base">Assinaturas</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <img
-                    src={inspection.assinatura}
-                    alt="Assinatura da inspeção ambiental"
-                    className="max-h-48 rounded-md border bg-white object-contain"
-                  />
+                <CardContent className="grid gap-4 md:grid-cols-2">
+                  {realizadoPorSignature ? (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold">Realizado por</p>
+                      <img
+                        src={realizadoPorSignature}
+                        alt="Assinatura de quem realizou a inspeção ambiental"
+                        className="max-h-48 rounded-md border bg-white object-contain"
+                      />
+                    </div>
+                  ) : null}
+                  {acompanhanteSignature ? (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold">Acompanhante</p>
+                      <img
+                        src={acompanhanteSignature}
+                        alt="Assinatura de quem acompanhou a inspeção ambiental"
+                        className="max-h-48 rounded-md border bg-white object-contain"
+                      />
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}

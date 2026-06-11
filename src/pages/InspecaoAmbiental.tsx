@@ -39,6 +39,10 @@ interface EnvironmentalQuestion {
   expected: "Sim" | "Não";
 }
 
+type SignatureTarget = "acompanhante" | "realizado";
+
+const DEFAULT_ENVIRONMENTAL_INSPECTOR = "GICELIA FELIX";
+
 const ENVIRONMENTAL_QUESTIONS: EnvironmentalQuestion[] = [
   {
     id: "segregacao-residuos",
@@ -173,13 +177,14 @@ const InspecaoAmbiental = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
-  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const isDrawingRef = useRef(false);
+  const acompanhanteSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const realizadoPorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingSignatureTargetRef = useRef<SignatureTarget | null>(null);
 
-  const [realizadoPor, setRealizadoPor] = useState("");
+  const [realizadoPor] = useState(DEFAULT_ENVIRONMENTAL_INSPECTOR);
   const [dataInspecao, setDataInspecao] = useState(getTodayLocalDateKey() || "");
   const [acompanhadoPor, setAcompanhadoPor] = useState("");
-  const [personDialogTarget, setPersonDialogTarget] = useState<"realizadoPor" | "acompanhadoPor" | null>(null);
+  const [personDialogTarget, setPersonDialogTarget] = useState<"acompanhadoPor" | null>(null);
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [answers, setAnswers] = useState<Record<string, EnvironmentalAnswer>>(
@@ -189,7 +194,8 @@ const InspecaoAmbiental = () => {
       ),
   );
   const [evidences, setEvidences] = useState<Record<string, EnvironmentalEvidence>>({});
-  const [signature, setSignature] = useState("");
+  const [assinaturaAcompanhante, setAssinaturaAcompanhante] = useState("");
+  const [assinaturaRealizadoPor, setAssinaturaRealizadoPor] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const sortedSectors = useMemo(
@@ -240,7 +246,7 @@ const InspecaoAmbiental = () => {
     [sectors],
   );
 
-  const openAddPersonDialog = (target: "realizadoPor" | "acompanhadoPor") => {
+  const openAddPersonDialog = (target: "acompanhadoPor") => {
     setPersonDialogTarget(target);
   };
 
@@ -261,9 +267,6 @@ const InspecaoAmbiental = () => {
         senha: data.senha ? data.senha.trim() : null,
       });
 
-      if (personDialogTarget === "realizadoPor") {
-        setRealizadoPor(personName);
-      }
       if (personDialogTarget === "acompanhadoPor") {
         setAcompanhadoPor(personName);
       }
@@ -329,8 +332,13 @@ const InspecaoAmbiental = () => {
     });
   };
 
-  const getCanvasPosition = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = signatureCanvasRef.current;
+  const getSignatureCanvas = (target: SignatureTarget) =>
+    target === "acompanhante"
+      ? acompanhanteSignatureCanvasRef.current
+      : realizadoPorSignatureCanvasRef.current;
+
+  const getCanvasPosition = (event: React.PointerEvent<HTMLCanvasElement>, target: SignatureTarget) => {
+    const canvas = getSignatureCanvas(target);
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
@@ -339,43 +347,52 @@ const InspecaoAmbiental = () => {
     };
   };
 
-  const startDrawing = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = signatureCanvasRef.current;
+  const startDrawingSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = getSignatureCanvas(target);
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
 
-    const { x, y } = getCanvasPosition(event);
-    isDrawingRef.current = true;
+    const { x, y } = getCanvasPosition(event, target);
+    drawingSignatureTargetRef.current = target;
     canvas.setPointerCapture(event.pointerId);
     context.beginPath();
     context.moveTo(x, y);
   };
 
-  const drawSignature = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDrawingRef.current) return;
-    const canvas = signatureCanvasRef.current;
+  const drawSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drawingSignatureTargetRef.current !== target) return;
+    const canvas = getSignatureCanvas(target);
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
 
-    const { x, y } = getCanvasPosition(event);
+    const { x, y } = getCanvasPosition(event, target);
     context.lineWidth = 2;
     context.lineCap = "round";
     context.strokeStyle = "#0f172a";
     context.lineTo(x, y);
     context.stroke();
-    setSignature(canvas.toDataURL("image/png"));
+    const dataUrl = canvas.toDataURL("image/png");
+    if (target === "acompanhante") {
+      setAssinaturaAcompanhante(dataUrl);
+    } else {
+      setAssinaturaRealizadoPor(dataUrl);
+    }
   };
 
   const stopDrawing = () => {
-    isDrawingRef.current = false;
+    drawingSignatureTargetRef.current = null;
   };
 
-  const clearSignature = () => {
-    const canvas = signatureCanvasRef.current;
+  const clearSignature = (target: SignatureTarget) => {
+    const canvas = getSignatureCanvas(target);
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    setSignature("");
+    if (target === "acompanhante") {
+      setAssinaturaAcompanhante("");
+    } else {
+      setAssinaturaRealizadoPor("");
+    }
   };
 
   const handleSave = async () => {
@@ -383,6 +400,15 @@ const InspecaoAmbiental = () => {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha realizado por, data da inspeção e setor.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!acompanhadoPor.trim()) {
+      toast({
+        title: "Acompanhante obrigatório",
+        description: "Selecione quem acompanhou a inspeção ambiental.",
         variant: "destructive",
       });
       return;
@@ -411,6 +437,15 @@ const InspecaoAmbiental = () => {
       return;
     }
 
+    if (!assinaturaRealizadoPor || !assinaturaAcompanhante) {
+      toast({
+        title: "Assinaturas obrigatórias",
+        description: "Colete a assinatura de quem realizou e de quem acompanhou antes de salvar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSaving(true);
       const now = new Date().toISOString();
@@ -432,7 +467,9 @@ const InspecaoAmbiental = () => {
           comentario: evidences[question.id]?.comentario || "",
           foto: evidences[question.id]?.foto || null,
         })),
-        assinatura: signature,
+        assinatura: assinaturaRealizadoPor,
+        assinatura_realizado_por: assinaturaRealizadoPor,
+        assinatura_acompanhante: assinaturaAcompanhante,
       });
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
@@ -493,31 +530,8 @@ const InspecaoAmbiental = () => {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label>Realizado por *</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openAddPersonDialog("realizadoPor")}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Adicionar pessoa
-                </Button>
-              </div>
-              <Select value={realizadoPor} onValueChange={setRealizadoPor}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecionar responsável" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortedPeople.map((person) => (
-                    <SelectItem key={person.id} value={person.name}>
-                      {person.name}
-                      {person.sector ? ` - ${person.sector}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Realizado por *</Label>
+              <Input value={realizadoPor} readOnly className="bg-muted/60 font-semibold" />
             </div>
             <div className="space-y-2">
               <Label>Data da inspeção *</Label>
@@ -660,8 +674,8 @@ const InspecaoAmbiental = () => {
 
         <Card className="border-emerald-100 shadow-sm">
           <CardHeader>
-            <CardTitle>Observações e Assinatura</CardTitle>
-            <CardDescription>Finalize com observações gerais e assinatura do responsável.</CardDescription>
+            <CardTitle>Observações e Assinaturas</CardTitle>
+            <CardDescription>Finalize com observações gerais e as assinaturas de quem realizou e acompanhou.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -672,27 +686,51 @@ const InspecaoAmbiental = () => {
                 placeholder="Registre observações adicionais da inspeção ambiental."
               />
             </div>
-            <div className="rounded-xl border bg-white p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <Label className="flex items-center gap-2">
-                  <Signature className="h-4 w-4" />
-                  Assinatura
-                </Label>
-                <Button type="button" variant="outline" size="sm" onClick={clearSignature}>
-                  <Eraser className="mr-2 h-4 w-4" />
-                  Limpar assinatura
-                </Button>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <Label className="flex items-center gap-2">
+                    <Signature className="h-4 w-4" />
+                    Assinatura de quem realizou: {DEFAULT_ENVIRONMENTAL_INSPECTOR} *
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => clearSignature("realizado")}>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Limpar
+                  </Button>
+                </div>
+                <canvas
+                  ref={realizadoPorSignatureCanvasRef}
+                  width={960}
+                  height={220}
+                  className="h-48 w-full touch-none rounded-lg border bg-white"
+                  onPointerDown={(event) => startDrawingSignature("realizado", event)}
+                  onPointerMove={(event) => drawSignature("realizado", event)}
+                  onPointerUp={stopDrawing}
+                  onPointerLeave={stopDrawing}
+                />
               </div>
-              <canvas
-                ref={signatureCanvasRef}
-                width={960}
-                height={220}
-                className="h-48 w-full touch-none rounded-lg border bg-white"
-                onPointerDown={startDrawing}
-                onPointerMove={drawSignature}
-                onPointerUp={stopDrawing}
-                onPointerLeave={stopDrawing}
-              />
+              <div className="rounded-xl border bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <Label className="flex items-center gap-2">
+                    <Signature className="h-4 w-4" />
+                    Assinatura do acompanhante *
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => clearSignature("acompanhante")}>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Limpar
+                  </Button>
+                </div>
+                <canvas
+                  ref={acompanhanteSignatureCanvasRef}
+                  width={960}
+                  height={220}
+                  className="h-48 w-full touch-none rounded-lg border bg-white"
+                  onPointerDown={(event) => startDrawingSignature("acompanhante", event)}
+                  onPointerMove={(event) => drawSignature("acompanhante", event)}
+                  onPointerUp={stopDrawing}
+                  onPointerLeave={stopDrawing}
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <Button type="button" variant="outline" onClick={() => navigate("/")}>
