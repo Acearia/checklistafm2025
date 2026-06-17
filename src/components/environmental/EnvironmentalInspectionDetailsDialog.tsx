@@ -16,11 +16,13 @@ export type EnvironmentalInspectionDetail = {
   realizado_por?: string;
   data_inspecao?: string;
   acompanhado_por?: string | null;
+  gestor?: string | null;
   setor?: string;
   observacoes?: string | null;
   assinatura?: string | null;
   assinatura_realizado_por?: string | null;
   assinatura_acompanhante?: string | null;
+  assinatura_gestor?: string | null;
   responses?: Array<{
     id?: string;
     numero?: string | number;
@@ -89,6 +91,7 @@ const EnvironmentalInspectionDetailsDialog = ({
   const irregularResponses = responses.filter((item) => Boolean(item.irregular));
   const realizadoPorSignature = inspection?.assinatura_realizado_por || inspection?.assinatura || "";
   const acompanhanteSignature = inspection?.assinatura_acompanhante || "";
+  const gestorSignature = inspection?.assinatura_gestor || "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -144,9 +147,11 @@ const EnvironmentalInspectionDetailsDialog = ({
               <CardContent className="grid gap-3 text-sm md:grid-cols-2">
                 <p><strong>Realizado por:</strong> {inspection.realizado_por || "N/A"}</p>
                 <p><strong>Acompanhado por:</strong> {inspection.acompanhado_por || "N/A"}</p>
+                <p><strong>Gestor:</strong> {inspection.gestor || "N/A"}</p>
                 <p><strong>Criado em:</strong> {formatDateTime(inspection.created_at)}</p>
                 <p><strong>Ass. realizado por:</strong> {realizadoPorSignature ? "Registrada" : "N/A"}</p>
                 <p><strong>Ass. acompanhante:</strong> {acompanhanteSignature ? "Registrada" : "N/A"}</p>
+                <p><strong>Ass. gestor:</strong> {gestorSignature ? "Registrada" : "N/A"}</p>
                 <div className="md:col-span-2">
                   <strong>Observações gerais:</strong>
                   <p className="mt-1 rounded-md border bg-muted/30 p-3 text-muted-foreground">
@@ -212,12 +217,12 @@ const EnvironmentalInspectionDetailsDialog = ({
               </CardContent>
             </Card>
 
-            {realizadoPorSignature || acompanhanteSignature ? (
+            {realizadoPorSignature || acompanhanteSignature || gestorSignature ? (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Assinaturas</CardTitle>
                 </CardHeader>
-                <CardContent className="grid gap-4 md:grid-cols-2">
+                <CardContent className="grid gap-4 md:grid-cols-3">
                   {realizadoPorSignature ? (
                     <div>
                       <p className="mb-2 text-sm font-semibold">Realizado por</p>
@@ -234,6 +239,16 @@ const EnvironmentalInspectionDetailsDialog = ({
                       <img
                         src={acompanhanteSignature}
                         alt="Assinatura de quem acompanhou a inspeção ambiental"
+                        className="max-h-48 rounded-md border bg-white object-contain"
+                      />
+                    </div>
+                  ) : null}
+                  {gestorSignature ? (
+                    <div>
+                      <p className="mb-2 text-sm font-semibold">Gestor</p>
+                      <img
+                        src={gestorSignature}
+                        alt="Assinatura do gestor da inspecao ambiental"
                         className="max-h-48 rounded-md border bg-white object-contain"
                       />
                     </div>

@@ -176,11 +176,13 @@ export interface EnvironmentalInspectionRecordPayload {
   realizado_por: string;
   data_inspecao: string;
   acompanhado_por?: string | null;
+  gestor?: string | null;
   setor: string;
   observacoes?: string | null;
   assinatura?: string | null;
   assinatura_realizado_por?: string | null;
   assinatura_acompanhante?: string | null;
+  assinatura_gestor?: string | null;
   responses: Array<{
     codigo: string;
     numero: string;
@@ -1627,11 +1629,13 @@ export const environmentalInspectionService = {
         realizado_por: payload.realizado_por,
         data_inspecao: payload.data_inspecao,
         acompanhado_por: payload.acompanhado_por || null,
+        gestor: payload.gestor || null,
         setor: payload.setor,
         observacoes: payload.observacoes || null,
         assinatura: payload.assinatura || null,
         assinatura_realizado_por: payload.assinatura_realizado_por || null,
         assinatura_acompanhante: payload.assinatura_acompanhante || null,
+        assinatura_gestor: payload.assinatura_gestor || null,
         created_at: payload.created_at,
       })
       .select()

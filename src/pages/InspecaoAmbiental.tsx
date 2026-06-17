@@ -39,7 +39,7 @@ interface EnvironmentalQuestion {
   expected: "Sim" | "Não";
 }
 
-type SignatureTarget = "acompanhante" | "realizado";
+type SignatureTarget = "acompanhante" | "realizado" | "gestor";
 
 const DEFAULT_ENVIRONMENTAL_INSPECTOR = "GICELIA FELIX";
 
@@ -179,12 +179,14 @@ const InspecaoAmbiental = () => {
   const { sectors, operators, refresh } = useSupabaseData(["sectors", "operators"]);
   const acompanhanteSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const realizadoPorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const gestorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingSignatureTargetRef = useRef<SignatureTarget | null>(null);
 
   const [realizadoPor] = useState(DEFAULT_ENVIRONMENTAL_INSPECTOR);
   const [dataInspecao, setDataInspecao] = useState(getTodayLocalDateKey() || "");
   const [acompanhadoPor, setAcompanhadoPor] = useState("");
-  const [personDialogTarget, setPersonDialogTarget] = useState<"acompanhadoPor" | null>(null);
+  const [gestor, setGestor] = useState("");
+  const [personDialogTarget, setPersonDialogTarget] = useState<"acompanhadoPor" | "gestor" | null>(null);
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [answers, setAnswers] = useState<Record<string, EnvironmentalAnswer>>(
@@ -196,6 +198,7 @@ const InspecaoAmbiental = () => {
   const [evidences, setEvidences] = useState<Record<string, EnvironmentalEvidence>>({});
   const [assinaturaAcompanhante, setAssinaturaAcompanhante] = useState("");
   const [assinaturaRealizadoPor, setAssinaturaRealizadoPor] = useState("");
+  const [assinaturaGestor, setAssinaturaGestor] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const sortedSectors = useMemo(
@@ -246,7 +249,7 @@ const InspecaoAmbiental = () => {
     [sectors],
   );
 
-  const openAddPersonDialog = (target: "acompanhadoPor") => {
+  const openAddPersonDialog = (target: "acompanhadoPor" | "gestor") => {
     setPersonDialogTarget(target);
   };
 
@@ -269,6 +272,8 @@ const InspecaoAmbiental = () => {
 
       if (personDialogTarget === "acompanhadoPor") {
         setAcompanhadoPor(personName);
+      } else if (personDialogTarget === "gestor") {
+        setGestor(personName);
       }
 
       await refresh();
@@ -332,10 +337,11 @@ const InspecaoAmbiental = () => {
     });
   };
 
-  const getSignatureCanvas = (target: SignatureTarget) =>
-    target === "acompanhante"
-      ? acompanhanteSignatureCanvasRef.current
-      : realizadoPorSignatureCanvasRef.current;
+  const getSignatureCanvas = (target: SignatureTarget) => {
+    if (target === "acompanhante") return acompanhanteSignatureCanvasRef.current;
+    if (target === "gestor") return gestorSignatureCanvasRef.current;
+    return realizadoPorSignatureCanvasRef.current;
+  };
 
   const getCanvasPosition = (event: React.PointerEvent<HTMLCanvasElement>, target: SignatureTarget) => {
     const canvas = getSignatureCanvas(target);
@@ -374,6 +380,8 @@ const InspecaoAmbiental = () => {
     const dataUrl = canvas.toDataURL("image/png");
     if (target === "acompanhante") {
       setAssinaturaAcompanhante(dataUrl);
+    } else if (target === "gestor") {
+      setAssinaturaGestor(dataUrl);
     } else {
       setAssinaturaRealizadoPor(dataUrl);
     }
@@ -390,6 +398,8 @@ const InspecaoAmbiental = () => {
     context.clearRect(0, 0, canvas.width, canvas.height);
     if (target === "acompanhante") {
       setAssinaturaAcompanhante("");
+    } else if (target === "gestor") {
+      setAssinaturaGestor("");
     } else {
       setAssinaturaRealizadoPor("");
     }
@@ -409,6 +419,15 @@ const InspecaoAmbiental = () => {
       toast({
         title: "Acompanhante obrigatório",
         description: "Selecione quem acompanhou a inspeção ambiental.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!gestor.trim()) {
+      toast({
+        title: "Gestor obrigatorio",
+        description: "Selecione o gestor responsavel pela inspecao ambiental.",
         variant: "destructive",
       });
       return;
@@ -437,10 +456,10 @@ const InspecaoAmbiental = () => {
       return;
     }
 
-    if (!assinaturaRealizadoPor || !assinaturaAcompanhante) {
+    if (!assinaturaRealizadoPor || !assinaturaAcompanhante || !assinaturaGestor) {
       toast({
         title: "Assinaturas obrigatórias",
-        description: "Colete a assinatura de quem realizou e de quem acompanhou antes de salvar.",
+        description: "Colete as assinaturas de quem realizou, acompanhou e do gestor antes de salvar.",
         variant: "destructive",
       });
       return;
@@ -454,6 +473,7 @@ const InspecaoAmbiental = () => {
         realizado_por: realizadoPor.trim(),
         data_inspecao: dataInspecao,
         acompanhado_por: acompanhadoPor.trim(),
+        gestor: gestor.trim(),
         setor: setor.trim(),
         observacoes: observacoes.trim(),
         responses: ENVIRONMENTAL_QUESTIONS.map((question) => ({
@@ -470,6 +490,7 @@ const InspecaoAmbiental = () => {
         assinatura: assinaturaRealizadoPor,
         assinatura_realizado_por: assinaturaRealizadoPor,
         assinatura_acompanhante: assinaturaAcompanhante,
+        assinatura_gestor: assinaturaGestor,
       });
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
@@ -575,6 +596,34 @@ const InspecaoAmbiental = () => {
                   {sortedSectors.map((sector) => (
                     <SelectItem key={sector} value={sector}>
                       {sector}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Gestor *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openAddPersonDialog("gestor")}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Adicionar pessoa
+                </Button>
+              </div>
+              <Select value={gestor || "nao-informado"} onValueChange={(value) => setGestor(value === "nao-informado" ? "" : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar gestor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao-informado">Nao informado</SelectItem>
+                  {sortedPeople.map((person) => (
+                    <SelectItem key={person.id} value={person.name}>
+                      {person.name}
+                      {person.sector ? ` - ${person.sector}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -686,7 +735,7 @@ const InspecaoAmbiental = () => {
                 placeholder="Registre observações adicionais da inspeção ambiental."
               />
             </div>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <div className="rounded-xl border bg-white p-4">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <Label className="flex items-center gap-2">
@@ -727,6 +776,28 @@ const InspecaoAmbiental = () => {
                   className="h-48 w-full touch-none rounded-lg border bg-white"
                   onPointerDown={(event) => startDrawingSignature("acompanhante", event)}
                   onPointerMove={(event) => drawSignature("acompanhante", event)}
+                  onPointerUp={stopDrawing}
+                  onPointerLeave={stopDrawing}
+                />
+              </div>
+              <div className="rounded-xl border bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <Label className="flex items-center gap-2">
+                    <Signature className="h-4 w-4" />
+                    Assinatura do gestor: {gestor || "Gestor"} *
+                  </Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => clearSignature("gestor")}>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Limpar
+                  </Button>
+                </div>
+                <canvas
+                  ref={gestorSignatureCanvasRef}
+                  width={960}
+                  height={220}
+                  className="h-48 w-full touch-none rounded-lg border bg-white"
+                  onPointerDown={(event) => startDrawingSignature("gestor", event)}
+                  onPointerMove={(event) => drawSignature("gestor", event)}
                   onPointerUp={stopDrawing}
                   onPointerLeave={stopDrawing}
                 />
