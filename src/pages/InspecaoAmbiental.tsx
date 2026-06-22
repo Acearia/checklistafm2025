@@ -337,46 +337,7 @@ const InspecaoAmbiental = () => {
     });
   };
 
-  const getSignatureCanvas = (target: SignatureTarget) => {
-    if (target === "acompanhante") return acompanhanteSignatureCanvasRef.current;
-    if (target === "gestor") return gestorSignatureCanvasRef.current;
-    return realizadoPorSignatureCanvasRef.current;
-  };
-
-  const getCanvasPosition = (event: React.PointerEvent<HTMLCanvasElement>, target: SignatureTarget) => {
-    const canvas = getSignatureCanvas(target);
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
-    };
-  };
-
-  const startDrawingSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
-    const canvas = getSignatureCanvas(target);
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-
-    const { x, y } = getCanvasPosition(event, target);
-    drawingSignatureTargetRef.current = target;
-    canvas.setPointerCapture(event.pointerId);
-    context.beginPath();
-    context.moveTo(x, y);
-  };
-
-  const drawSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (drawingSignatureTargetRef.current !== target) return;
-    const canvas = getSignatureCanvas(target);
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-
-    const { x, y } = getCanvasPosition(event, target);
-    context.lineWidth = 2;
-    context.lineCap = "round";
-    context.strokeStyle = "#0f172a";
-    context.lineTo(x, y);
-    context.stroke();
+  const updateSignatureDataUrl = (target: SignatureTarget, canvas: HTMLCanvasElement) => {
     const dataUrl = canvas.toDataURL("image/png");
     if (target === "acompanhante") {
       setAssinaturaAcompanhante(dataUrl);
@@ -387,7 +348,71 @@ const InspecaoAmbiental = () => {
     }
   };
 
-  const stopDrawing = () => {
+  const getSignatureCanvas = (target: SignatureTarget) => {
+    if (target === "acompanhante") return acompanhanteSignatureCanvasRef.current;
+    if (target === "gestor") return gestorSignatureCanvasRef.current;
+    return realizadoPorSignatureCanvasRef.current;
+  };
+
+  const getCanvasPosition = (event: React.PointerEvent<HTMLCanvasElement>, target: SignatureTarget) => {
+    const canvas = getSignatureCanvas(target);
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDrawingSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    const canvas = getSignatureCanvas(target);
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    const { x, y } = getCanvasPosition(event, target);
+    drawingSignatureTargetRef.current = target;
+    try {
+      canvas.setPointerCapture(event.pointerId);
+    } catch {
+      // Alguns navegadores moveis nao suportam captura de ponteiro de forma consistente.
+    }
+    context.beginPath();
+    context.moveTo(x, y);
+  };
+
+  const drawSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drawingSignatureTargetRef.current !== target) return;
+    event.preventDefault();
+    const canvas = getSignatureCanvas(target);
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    const { x, y } = getCanvasPosition(event, target);
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.strokeStyle = "#0f172a";
+    context.lineTo(x, y);
+    context.stroke();
+    updateSignatureDataUrl(target, canvas);
+  };
+
+  const stopDrawingSignature = (target: SignatureTarget, event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (drawingSignatureTargetRef.current !== target) return;
+    event.preventDefault();
+    const canvas = getSignatureCanvas(target);
+    const context = canvas?.getContext("2d");
+    if (canvas && context) {
+      context.closePath();
+      updateSignatureDataUrl(target, canvas);
+      try {
+        canvas.releasePointerCapture(event.pointerId);
+      } catch {
+        // Ignora navegadores que ja liberaram o ponteiro.
+      }
+    }
     drawingSignatureTargetRef.current = null;
   };
 
@@ -701,11 +726,28 @@ const InspecaoAmbiental = () => {
                         </div>
                         <div className="space-y-2">
                           <Label>Foto</Label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(event) => void handleEvidenceFile(question.id, event.target.files?.[0] || null)}
-                          />
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                              <Camera className="mr-2 h-4 w-4" />
+                              Bater foto
+                              <Input
+                                className="sr-only"
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={(event) => void handleEvidenceFile(question.id, event.target.files?.[0] || null)}
+                              />
+                            </label>
+                            <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                              Escolher da galeria
+                              <Input
+                                className="sr-only"
+                                type="file"
+                                accept="image/*"
+                                onChange={(event) => void handleEvidenceFile(question.id, event.target.files?.[0] || null)}
+                              />
+                            </label>
+                          </div>
                           {evidence.foto && (
                             <p className="text-xs text-muted-foreground">
                               Foto anexada: {evidence.foto.name}
@@ -754,8 +796,9 @@ const InspecaoAmbiental = () => {
                   className="h-48 w-full touch-none rounded-lg border bg-white"
                   onPointerDown={(event) => startDrawingSignature("realizado", event)}
                   onPointerMove={(event) => drawSignature("realizado", event)}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
+                  onPointerUp={(event) => stopDrawingSignature("realizado", event)}
+                  onPointerLeave={(event) => stopDrawingSignature("realizado", event)}
+                  onPointerCancel={(event) => stopDrawingSignature("realizado", event)}
                 />
               </div>
               <div className="rounded-xl border bg-white p-4">
@@ -776,8 +819,9 @@ const InspecaoAmbiental = () => {
                   className="h-48 w-full touch-none rounded-lg border bg-white"
                   onPointerDown={(event) => startDrawingSignature("acompanhante", event)}
                   onPointerMove={(event) => drawSignature("acompanhante", event)}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
+                  onPointerUp={(event) => stopDrawingSignature("acompanhante", event)}
+                  onPointerLeave={(event) => stopDrawingSignature("acompanhante", event)}
+                  onPointerCancel={(event) => stopDrawingSignature("acompanhante", event)}
                 />
               </div>
               <div className="rounded-xl border bg-white p-4">
@@ -798,8 +842,9 @@ const InspecaoAmbiental = () => {
                   className="h-48 w-full touch-none rounded-lg border bg-white"
                   onPointerDown={(event) => startDrawingSignature("gestor", event)}
                   onPointerMove={(event) => drawSignature("gestor", event)}
-                  onPointerUp={stopDrawing}
-                  onPointerLeave={stopDrawing}
+                  onPointerUp={(event) => stopDrawingSignature("gestor", event)}
+                  onPointerLeave={(event) => stopDrawingSignature("gestor", event)}
+                  onPointerCancel={(event) => stopDrawingSignature("gestor", event)}
                 />
               </div>
             </div>
