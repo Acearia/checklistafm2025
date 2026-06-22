@@ -53,6 +53,32 @@ import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { parseLocalDateValue } from "@/lib/dateHelpers";
 const INSPECTIONS_AUTO_REFRESH_MS = 15000;
 
+const calculateConformitySummary = (answers: any[], problemCount: number) => {
+  const totalItems = answers.filter((answer) => {
+    const value = String(answer?.answer ?? "").trim();
+    return value.length > 0;
+  }).length;
+  const alertCount = Math.max(0, Number(problemCount || 0));
+  const conformingItems = Math.max(0, totalItems - alertCount);
+  const conformityPercent = totalItems > 0
+    ? Math.round((conformingItems / totalItems) * 100)
+    : null;
+
+  return {
+    totalItems,
+    conformingItems,
+    alertCount,
+    conformityPercent,
+  };
+};
+
+const getConformityBadgeClasses = (percent: number | null) => {
+  if (percent === null) return "bg-gray-100 text-gray-700";
+  if (percent >= 90) return "bg-green-100 text-green-800";
+  if (percent >= 70) return "bg-amber-100 text-amber-800";
+  return "bg-red-100 text-red-800";
+};
+
 const AdminInspections = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -341,6 +367,7 @@ const AdminInspections = () => {
         };
       });
       const problemItems = answersWithFlags.filter((answer) => answer.triggersAlert);
+      const conformitySummary = calculateConformitySummary(answersWithFlags, problemItems.length);
 
       const hasOpenOrder = openOrdersByInspection.has(inspection.id);
 
@@ -349,6 +376,7 @@ const AdminInspections = () => {
         checklist_answers: answersWithFlags,
         problemItems,
         problemCount: problemItems.length,
+        conformitySummary,
         hasOpenOrder,
       };
     });
@@ -843,13 +871,14 @@ const AdminInspections = () => {
             </div>
           ) : (
             <div className="max-h-[62vh] overflow-auto rounded-md border">
-              <Table className="min-w-[980px]">
+              <Table className="min-w-[1080px]">
                 <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                   <TableRow>
                     <TableHead>Data</TableHead>
                     <TableHead>Equipamento</TableHead>
                     <TableHead>KP</TableHead>
                     <TableHead>Operador</TableHead>
+                    <TableHead>Conformidade</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>OS</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -867,6 +896,8 @@ const AdminInspections = () => {
                     const statusClasses = hasProblems
                       ? "bg-red-100 text-red-800"
                       : "bg-green-100 text-green-800";
+                    const conformitySummary = (inspection as any).conformitySummary || {};
+                    const conformityPercent = conformitySummary.conformityPercent ?? null;
                     
                     return (
                       <TableRow key={index}>
@@ -876,6 +907,11 @@ const AdminInspections = () => {
                         <TableCell>{inspectionEquipment?.name || "N/A"}</TableCell>
                         <TableCell>{inspectionEquipment?.kp || "N/A"}</TableCell>
                         <TableCell>{inspectionOperator?.name || "N/A"}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getConformityBadgeClasses(conformityPercent)}`}>
+                            {conformityPercent === null ? "N/A" : `${conformityPercent}% conforme`}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses}`}>
                             {statusLabel}
@@ -1020,13 +1056,15 @@ const AdminInspections = () => {
                     );
                     const inspectionEquipment = equipment.find(eq => eq.id === selectedInspection.equipment_id);
                     const problemCount = selectedInspection.problemCount || 0;
+                    const conformityPercent = selectedInspection.conformitySummary?.conformityPercent ?? null;
                     
                     return (
                       <>
                         Data: {formatInspectionDate(selectedInspection.submission_date || selectedInspection.created_at)} |
                         Equipamento: {inspectionEquipment?.name || selectedInspection.equipment?.name || "N/A"} | 
                         Operador: {inspectionOperator?.name || selectedInspection.operator?.name || "N/A"} | 
-                        Alertas: {problemCount}
+                        Alertas: {problemCount} |
+                        Conformidade: {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
                       </>
                     );
                   })()}
@@ -1048,9 +1086,51 @@ const AdminInspections = () => {
               ? selectedInspection.problemItems
               : [];
             const hasProblems = problemItems.length > 0;
+            const conformitySummary = selectedInspection.conformitySummary || {
+              totalItems: 0,
+              conformingItems: 0,
+              alertCount: problemItems.length,
+              conformityPercent: null,
+            };
+            const conformityPercent = conformitySummary.conformityPercent ?? null;
 
             return (
               <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-lg border bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Conformidade</p>
+                    <p className={`mt-1 text-2xl font-bold ${
+                      conformityPercent === null
+                        ? "text-gray-700"
+                        : conformityPercent >= 90
+                        ? "text-green-700"
+                        : conformityPercent >= 70
+                        ? "text-amber-700"
+                        : "text-red-700"
+                    }`}>
+                      {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Itens conformes</p>
+                    <p className="mt-1 text-2xl font-bold text-green-700">
+                      {Number(conformitySummary.conformingItems || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Alertas</p>
+                    <p className="mt-1 text-2xl font-bold text-red-700">
+                      {Number(conformitySummary.alertCount || 0)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Total avaliado</p>
+                    <p className="mt-1 text-2xl font-bold text-slate-800">
+                      {Number(conformitySummary.totalItems || 0)}
+                    </p>
+                  </div>
+                </div>
+
                 {hasProblems && (
                   <div className="rounded border border-red-200 bg-red-50 p-3">
                     <div className="flex items-center gap-2 text-red-800 font-semibold">
