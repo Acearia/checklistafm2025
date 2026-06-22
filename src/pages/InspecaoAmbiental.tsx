@@ -173,6 +173,60 @@ const fileToDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+const resizeImageToDataUrl = (file: File, maxSize = 1280) =>
+  new Promise<string>((resolve, reject) => {
+    if (!file.type.startsWith("image/")) {
+      fileToDataUrl(file).then(resolve).catch(reject);
+      return;
+    }
+
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(imageUrl);
+
+      let { width, height } = img;
+      const ratio = Math.min(maxSize / width, maxSize / height, 1);
+      width = Math.round(width * ratio);
+      height = Math.round(height * ratio);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        reject(new Error("Nao foi possivel processar a imagem."));
+        return;
+      }
+
+      context.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Nao foi possivel gerar a imagem."));
+            return;
+          }
+
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Falha ao ler a imagem."));
+          reader.readAsDataURL(blob);
+        },
+        "image/jpeg",
+        0.72,
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error("Falha ao carregar a imagem."));
+    };
+
+    img.src = imageUrl;
+  });
+
 const InspecaoAmbiental = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -181,6 +235,11 @@ const InspecaoAmbiental = () => {
   const realizadoPorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const gestorSignatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingSignatureTargetRef = useRef<SignatureTarget | null>(null);
+  const signedTargetsRef = useRef<Record<SignatureTarget, boolean>>({
+    acompanhante: false,
+    realizado: false,
+    gestor: false,
+  });
 
   const [realizadoPor] = useState(DEFAULT_ENVIRONMENTAL_INSPECTOR);
   const [dataInspecao, setDataInspecao] = useState(getTodayLocalDateKey() || "");
@@ -200,6 +259,7 @@ const InspecaoAmbiental = () => {
   const [assinaturaRealizadoPor, setAssinaturaRealizadoPor] = useState("");
   const [assinaturaGestor, setAssinaturaGestor] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [processingPhotos, setProcessingPhotos] = useState(0);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [successInspectionNumber, setSuccessInspectionNumber] = useState<number | null>(null);
 
@@ -328,15 +388,35 @@ const InspecaoAmbiental = () => {
       return;
     }
 
-    const dataUrl = await fileToDataUrl(file);
-    updateEvidence(questionId, {
-      foto: {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        data_url: dataUrl,
-      },
-    });
+    setProcessingPhotos((current) => current + 1);
+    try {
+      const dataUrl = await resizeImageToDataUrl(file);
+      updateEvidence(questionId, {
+        foto: {
+          name: file.name,
+          size: Math.round((dataUrl.length * 3) / 4),
+          type: "image/jpeg",
+          data_url: dataUrl,
+        },
+      });
+    } catch (error) {
+      console.error("Erro ao processar foto ambiental:", error);
+      toast({
+        title: "Erro ao anexar foto",
+        description: error instanceof Error ? error.message : "Nao foi possivel anexar a imagem.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingPhotos((current) => Math.max(0, current - 1));
+    }
+  };
+
+  const handleEvidenceInputChange = async (
+    questionId: string,
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    await handleEvidenceFile(questionId, event.target.files?.[0] || null);
+    event.target.value = "";
   };
 
   const updateSignatureDataUrl = (target: SignatureTarget, canvas: HTMLCanvasElement) => {
@@ -348,6 +428,12 @@ const InspecaoAmbiental = () => {
     } else {
       setAssinaturaRealizadoPor(dataUrl);
     }
+  };
+
+  const getCurrentSignatureDataUrl = (target: SignatureTarget, fallback: string) => {
+    if (!signedTargetsRef.current[target]) return "";
+    const canvas = getSignatureCanvas(target);
+    return fallback || canvas?.toDataURL("image/png") || "";
   };
 
   const getSignatureCanvas = (target: SignatureTarget) => {
@@ -382,6 +468,15 @@ const InspecaoAmbiental = () => {
       // Alguns navegadores moveis nao suportam captura de ponteiro de forma consistente.
     }
     context.beginPath();
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.strokeStyle = "#0f172a";
+    context.fillStyle = "#0f172a";
+    context.arc(x, y, 1, 0, Math.PI * 2);
+    context.fill();
+    signedTargetsRef.current[target] = true;
+    updateSignatureDataUrl(target, canvas);
+    context.beginPath();
     context.moveTo(x, y);
   };
 
@@ -398,6 +493,7 @@ const InspecaoAmbiental = () => {
     context.strokeStyle = "#0f172a";
     context.lineTo(x, y);
     context.stroke();
+    signedTargetsRef.current[target] = true;
     updateSignatureDataUrl(target, canvas);
   };
 
@@ -423,6 +519,7 @@ const InspecaoAmbiental = () => {
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
+    signedTargetsRef.current[target] = false;
     if (target === "acompanhante") {
       setAssinaturaAcompanhante("");
     } else if (target === "gestor") {
@@ -433,6 +530,17 @@ const InspecaoAmbiental = () => {
   };
 
   const handleSave = async () => {
+    if (isSaving) return;
+
+    if (processingPhotos > 0) {
+      toast({
+        title: "Foto em processamento",
+        description: "Aguarde a foto terminar de carregar antes de enviar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!realizadoPor.trim() || !dataInspecao || !setor.trim()) {
       toast({
         title: "Campos obrigatórios",
@@ -483,7 +591,11 @@ const InspecaoAmbiental = () => {
       return;
     }
 
-    if (!assinaturaRealizadoPor || !assinaturaAcompanhante || !assinaturaGestor) {
+    const currentAssinaturaRealizadoPor = getCurrentSignatureDataUrl("realizado", assinaturaRealizadoPor);
+    const currentAssinaturaAcompanhante = getCurrentSignatureDataUrl("acompanhante", assinaturaAcompanhante);
+    const currentAssinaturaGestor = getCurrentSignatureDataUrl("gestor", assinaturaGestor);
+
+    if (!currentAssinaturaRealizadoPor || !currentAssinaturaAcompanhante || !currentAssinaturaGestor) {
       toast({
         title: "Assinaturas obrigatórias",
         description: "Colete as assinaturas de quem realizou, acompanhou e do gestor antes de salvar.",
@@ -514,10 +626,10 @@ const InspecaoAmbiental = () => {
           comentario: evidences[question.id]?.comentario || "",
           foto: evidences[question.id]?.foto || null,
         })),
-        assinatura: assinaturaRealizadoPor,
-        assinatura_realizado_por: assinaturaRealizadoPor,
-        assinatura_acompanhante: assinaturaAcompanhante,
-        assinatura_gestor: assinaturaGestor,
+        assinatura: currentAssinaturaRealizadoPor,
+        assinatura_realizado_por: currentAssinaturaRealizadoPor,
+        assinatura_acompanhante: currentAssinaturaAcompanhante,
+        assinatura_gestor: currentAssinaturaGestor,
       });
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
@@ -758,7 +870,7 @@ const InspecaoAmbiental = () => {
                                 type="file"
                                 accept="image/*"
                                 capture="environment"
-                                onChange={(event) => void handleEvidenceFile(question.id, event.target.files?.[0] || null)}
+                                onChange={(event) => void handleEvidenceInputChange(question.id, event)}
                               />
                             </label>
                             <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
@@ -767,7 +879,7 @@ const InspecaoAmbiental = () => {
                                 className="sr-only"
                                 type="file"
                                 accept="image/*"
-                                onChange={(event) => void handleEvidenceFile(question.id, event.target.files?.[0] || null)}
+                                onChange={(event) => void handleEvidenceInputChange(question.id, event)}
                               />
                             </label>
                           </div>
@@ -879,10 +991,14 @@ const InspecaoAmbiental = () => {
                 type="button"
                 className="bg-emerald-700 hover:bg-emerald-800"
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || processingPhotos > 0}
               >
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Enviando..." : "Enviar Inspe\u00e7\u00e3o Ambiental"}
+                {processingPhotos > 0
+                  ? "Processando foto..."
+                  : isSaving
+                    ? "Enviando..."
+                    : "Enviar Inspe\u00e7\u00e3o Ambiental"}
               </Button>
             </div>
           </CardContent>
