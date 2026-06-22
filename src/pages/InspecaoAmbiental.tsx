@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, ClipboardCheck, Eraser, Leaf, Save, Signature, UserPlus } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle, ClipboardCheck, Eraser, Leaf, Save, Signature, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AddOperatorDialog } from "@/components/operators/AddOperatorDialog";
@@ -200,6 +200,8 @@ const InspecaoAmbiental = () => {
   const [assinaturaRealizadoPor, setAssinaturaRealizadoPor] = useState("");
   const [assinaturaGestor, setAssinaturaGestor] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [successInspectionNumber, setSuccessInspectionNumber] = useState<number | null>(null);
 
   const sortedSectors = useMemo(
     () =>
@@ -523,7 +525,14 @@ const InspecaoAmbiental = () => {
         title: "Inspeção ambiental salva",
         description: `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`,
       });
-      navigate("/");
+      setSuccessInspectionNumber(savedNumber || null);
+      setSubmissionSuccess(true);
+
+      setTimeout(() => {
+        setSubmissionSuccess(false);
+        setSuccessInspectionNumber(null);
+        navigate("/");
+      }, 2000);
     } catch (error) {
       console.error("Erro ao salvar inspeção ambiental:", error);
       toast({
@@ -538,6 +547,20 @@ const InspecaoAmbiental = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950">
+      {submissionSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-700/95 px-6 text-white">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <CheckCircle size={64} className="text-white" />
+            <h2 className="text-2xl font-bold">{"Inspe\u00e7\u00e3o ambiental enviada!"}</h2>
+            <p className="text-sm text-green-100">
+              {successInspectionNumber
+                ? `O registro ambiental ${String(successInspectionNumber).padStart(3, "0")} foi salvo com sucesso.`
+                : "A inspe\u00e7\u00e3o ambiental foi registrada com sucesso."}
+              {" Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes."}
+            </p>
+          </div>
+        </div>
+      )}
       <header className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-red-700 px-4 py-5 text-white shadow-lg">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -859,7 +882,7 @@ const InspecaoAmbiental = () => {
                 disabled={isSaving}
               >
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Salvando..." : "Salvar Inspeção Ambiental"}
+                {isSaving ? "Enviando..." : "Enviar Inspe\u00e7\u00e3o Ambiental"}
               </Button>
             </div>
           </CardContent>
