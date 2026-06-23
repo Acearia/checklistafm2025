@@ -57,6 +57,29 @@ const getInspectionDateKey = (item: EnvironmentalInspectionDetail) =>
 const getIrregularCount = (item: EnvironmentalInspectionDetail) =>
   (Array.isArray(item.responses) ? item.responses : []).filter((response) => Boolean(response.irregular)).length;
 
+const getConformityPercent = (item: EnvironmentalInspectionDetail) => {
+  const responses = Array.isArray(item.responses) ? item.responses : [];
+  const answeredResponses = responses.filter((response) => String(response?.resposta || "").trim());
+  if (answeredResponses.length === 0) return null;
+
+  const irregularCount = answeredResponses.filter((response) => Boolean(response.irregular)).length;
+  return Math.max(0, Math.round(((answeredResponses.length - irregularCount) / answeredResponses.length) * 100));
+};
+
+const getConformityBarClasses = (percent: number | null) => {
+  if (percent === null) return "bg-gray-300";
+  if (percent >= 90) return "bg-green-500";
+  if (percent >= 70) return "bg-amber-500";
+  return "bg-red-500";
+};
+
+const getConformityTextClasses = (percent: number | null) => {
+  if (percent === null) return "text-gray-700";
+  if (percent >= 90) return "text-green-700";
+  if (percent >= 70) return "text-amber-700";
+  return "text-red-700";
+};
+
 const AdminInspecoesAmbientais = () => {
   const { toast } = useToast();
   const { sectors } = useSupabaseData(["sectors"]);
@@ -308,6 +331,7 @@ const AdminInspecoesAmbientais = () => {
                     <TableHead>Setor</TableHead>
                     <TableHead>Realizado por</TableHead>
                     <TableHead>Acompanhado por</TableHead>
+                    <TableHead>Conformidade</TableHead>
                     <TableHead>Irregularidades</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -315,6 +339,7 @@ const AdminInspecoesAmbientais = () => {
                 <TableBody>
                   {filteredRecords.map((record) => {
                     const irregularCount = getIrregularCount(record);
+                    const conformityPercent = getConformityPercent(record);
                     return (
                       <TableRow key={record.id}>
                         <TableCell>{formatNumber(record.numero_inspecao)}</TableCell>
@@ -322,6 +347,22 @@ const AdminInspecoesAmbientais = () => {
                         <TableCell>{record.setor || "N/A"}</TableCell>
                         <TableCell>{record.realizado_por || "N/A"}</TableCell>
                         <TableCell>{record.acompanhado_por || "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="min-w-[150px] space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-semibold ${getConformityTextClasses(conformityPercent)}`}>
+                                {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">conforme</span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                              <div
+                                className={`h-full rounded-full transition-all ${getConformityBarClasses(conformityPercent)}`}
+                                style={{ width: `${conformityPercent ?? 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={irregularCount > 0 ? "destructive" : "secondary"}>
                             {irregularCount > 0 ? `${irregularCount} irregularidade(s)` : "Conforme"}
