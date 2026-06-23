@@ -157,6 +157,29 @@ const isPlanoAtrasado = (item: PlanoAcaoRecord) => {
   return dueDate < today;
 };
 
+const getPlanoProgressPercent = (item: PlanoAcaoRecord) => {
+  if (item.status === "Concluida") return 100;
+  if (item.status === "Cancelada") return 0;
+  if (item.acao_iniciada || item.status === "Em andamento") return 60;
+  return 20;
+};
+
+const getPlanoProgressBarClasses = (item: PlanoAcaoRecord) => {
+  if (isPlanoAtrasado(item)) return "bg-red-500";
+  if (item.status === "Concluida") return "bg-green-500";
+  if (item.status === "Cancelada") return "bg-gray-400";
+  if (item.status === "Em andamento" || item.acao_iniciada) return "bg-amber-500";
+  return "bg-blue-500";
+};
+
+const getPlanoProgressTextClasses = (item: PlanoAcaoRecord) => {
+  if (isPlanoAtrasado(item)) return "text-red-700";
+  if (item.status === "Concluida") return "text-green-700";
+  if (item.status === "Cancelada") return "text-gray-700";
+  if (item.status === "Em andamento" || item.acao_iniciada) return "text-amber-700";
+  return "text-blue-700";
+};
+
 const parsePlanos = (): PlanoAcaoRecord[] => {
   if (typeof window === "undefined") return [];
   try {
@@ -854,6 +877,7 @@ const AdminPlanosAcao = () => {
                 <TableBody>
                   {filteredRecords.map((item) => {
                     const linked = investigacaoByOcorrencia.get(item.numero_ocorrencia);
+                    const progressPercent = getPlanoProgressPercent(item);
                     return (
                       <TableRow key={item.id}>
                         <TableCell>{formatNumero(item.numero_plano)}</TableCell>
@@ -863,16 +887,32 @@ const AdminPlanosAcao = () => {
                         <TableCell>{linked?.setor || "N/A"}</TableCell>
                         <TableCell className="max-w-[280px] truncate">{item.descricao_resumida_acao || "N/A"}</TableCell>
                         <TableCell>
-                          <div className="flex flex-col gap-1">
-                            <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
-                              {item.status}
-                            </Badge>
-                            {isPlanoAtrasado(item) && (
-                              <Badge variant="destructive">Atrasada</Badge>
-                            )}
-                            {isEficaciaPendente(item) && (
-                              <Badge variant="destructive">Avaliacao de eficacia pendente</Badge>
-                            )}
+                          <div className="min-w-[160px] space-y-2">
+                            <div className="flex flex-wrap gap-1">
+                              <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
+                                {item.status}
+                              </Badge>
+                              {isPlanoAtrasado(item) && (
+                                <Badge variant="destructive">Atrasada</Badge>
+                              )}
+                              {isEficaciaPendente(item) && (
+                                <Badge variant="destructive">Avaliacao de eficacia pendente</Badge>
+                              )}
+                            </div>
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={`text-xs font-semibold ${getPlanoProgressTextClasses(item)}`}>
+                                  {progressPercent}%
+                                </span>
+                                <span className="text-[11px] text-muted-foreground">andamento</span>
+                              </div>
+                              <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                                <div
+                                  className={`h-full rounded-full transition-all ${getPlanoProgressBarClasses(item)}`}
+                                  style={{ width: `${progressPercent}%` }}
+                                />
+                              </div>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>

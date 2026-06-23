@@ -206,6 +206,18 @@ const getInvestigacaoDateValue = (item: InvestigacaoRecord) => item.data_ocorren
 
 const hasInvestigacaoAssinada = (item: InvestigacaoRecord) => item.investigador.trim().length > 0;
 
+const getProgressBarClasses = (percent: number) => {
+  if (percent >= 90) return "bg-green-500";
+  if (percent >= 60) return "bg-amber-500";
+  return "bg-red-500";
+};
+
+const getProgressTextClasses = (percent: number) => {
+  if (percent >= 90) return "text-green-700";
+  if (percent >= 60) return "text-amber-700";
+  return "text-red-700";
+};
+
 const parseInvestigacoes = (): InvestigacaoRecord[] => {
   if (typeof window === "undefined") return [];
 
@@ -702,6 +714,17 @@ const AdminInvestigacoes = () => {
   const getPlanoCount = (numeroOcorrencia: number) => {
     if (numeroOcorrencia <= 0) return 0;
     return planoCountByOcorrencia[String(numeroOcorrencia)] || 0;
+  };
+
+  const getInvestigacaoProgress = (item: InvestigacaoRecord) => {
+    const causas = resolveAnaliseCausas(item);
+    const hasCausas = Object.values(causas).some((value) => String(value || "").trim().length > 0);
+    const hasComissao = item.comissao_investigacao || item.membros_comissao.length > 0;
+    const hasPlano = getPlanoCount(item.numero_ocorrencia) > 0;
+    const hasAssinatura = hasInvestigacaoAssinada(item);
+    const completed = [hasComissao, hasCausas, hasPlano, hasAssinatura].filter(Boolean).length;
+
+    return Math.round((completed / 4) * 100);
   };
 
   const handleViewDetails = (record: InvestigacaoRecord) => {
@@ -1415,70 +1438,91 @@ const AdminInvestigacoes = () => {
                     <TableHead>Classificacao</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Gravidade</TableHead>
+                    <TableHead>Progresso</TableHead>
                     <TableHead>Investigador</TableHead>
                     <TableHead className="text-right">Acoes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInvestigacoes.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {item.numero_ocorrencia > 0
-                          ? String(item.numero_ocorrencia).padStart(3, "0")
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell>{formatDateTime(item.data_ocorrencia, item.hora)}</TableCell>
-                      <TableCell>{item.turno || "N/A"}</TableCell>
-                      <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
-                      <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
-                      <TableCell>{item.setor || "N/A"}</TableCell>
-                      <TableCell>{formatNaturezaOcorrenciaLabel(item.natureza_ocorrencia)}</TableCell>
-                      <TableCell>{item.tipo_acidente}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={item.gravidade === "Critica" ? "destructive" : "secondary"}
-                        >
-                          {item.gravidade || "N/A"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {item.investigador ? (
-                          <Badge variant="default">{item.investigador}</Badge>
-                        ) : (
-                          <Badge variant="secondary">Pendente</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap items-center justify-end gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Detalhes
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleOpenAnaliseDialog(item)}>
-                            Analises
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleStartPlanoAcao(item)}>
-                            Iniciar plano
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => handleViewPlanoAcao(item)}>
-                            Ver plano de acao
-                          </Button>
-                          {isAdmUser && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteInvestigacao(item)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Excluir
-                            </Button>
+                  {filteredInvestigacoes.map((item) => {
+                    const progressPercent = getInvestigacaoProgress(item);
+
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {item.numero_ocorrencia > 0
+                            ? String(item.numero_ocorrencia).padStart(3, "0")
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell>{formatDateTime(item.data_ocorrencia, item.hora)}</TableCell>
+                        <TableCell>{item.turno || "N/A"}</TableCell>
+                        <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
+                        <TableCell>{item.nome_acidentado || "N/A"}</TableCell>
+                        <TableCell>{item.setor || "N/A"}</TableCell>
+                        <TableCell>{formatNaturezaOcorrenciaLabel(item.natureza_ocorrencia)}</TableCell>
+                        <TableCell>{item.tipo_acidente}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={item.gravidade === "Critica" ? "destructive" : "secondary"}
+                          >
+                            {item.gravidade || "N/A"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="min-w-[150px] space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-semibold ${getProgressTextClasses(progressPercent)}`}>
+                                {progressPercent}%
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">concluído</span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                              <div
+                                className={`h-full rounded-full transition-all ${getProgressBarClasses(progressPercent)}`}
+                                style={{ width: `${progressPercent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {item.investigador ? (
+                            <Badge variant="default">{item.investigador}</Badge>
+                          ) : (
+                            <Badge variant="secondary">Pendente</Badge>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => handleViewDetails(item)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Detalhes
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleOpenAnaliseDialog(item)}>
+                              Analises
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleStartPlanoAcao(item)}>
+                              Iniciar plano
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleViewPlanoAcao(item)}>
+                              Ver plano de acao
+                            </Button>
+                            {isAdmUser && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteInvestigacao(item)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

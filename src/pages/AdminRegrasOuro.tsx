@@ -427,6 +427,31 @@ const countNonConformityResponses = (
   questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
 ) => responses.filter((response) => responseHasNonConformityEvidence(response, questions)).length;
 
+const calculateGoldenRuleConformityPercent = (
+  responses: QuestionResponse[],
+  questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
+) => {
+  const answeredResponses = responses.filter((response) => normalizeAnswer(response.resposta).length > 0);
+  if (answeredResponses.length === 0) return null;
+
+  const nonConformities = countNonConformityResponses(answeredResponses, questions);
+  return Math.max(0, Math.round(((answeredResponses.length - nonConformities) / answeredResponses.length) * 100));
+};
+
+const getConformityBarClasses = (percent: number | null) => {
+  if (percent === null) return "bg-gray-300";
+  if (percent >= 90) return "bg-green-500";
+  if (percent >= 70) return "bg-amber-500";
+  return "bg-red-500";
+};
+
+const getConformityTextClasses = (percent: number | null) => {
+  if (percent === null) return "text-gray-700";
+  if (percent >= 90) return "text-green-700";
+  if (percent >= 70) return "text-amber-700";
+  return "text-red-700";
+};
+
 const buildNonConformitySummary = (
   record: RegraOuroRecord,
   questions = DEFAULT_GOLDEN_RULE_QUESTION_ITEMS,
@@ -1550,6 +1575,7 @@ const AdminRegrasOuro = () => {
                     <TableHead>Trava 15 dias</TableHead>
                     <TableHead>Técnico</TableHead>
                     <TableHead>Gestor</TableHead>
+                    <TableHead>Conformidade</TableHead>
                     <TableHead>Não conformidade</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -1562,6 +1588,7 @@ const AdminRegrasOuro = () => {
                     const sectorLock = sectorQuestionLocks.get(getSectorComparisonKey(item.setor));
                     const isQuestionLocked = Boolean(sectorLock?.locked);
                     const planoVinculado = actionPlanByOccurrence.get(Number(item.numero_inspecao) || 0);
+                    const conformityPercent = calculateGoldenRuleConformityPercent(item.respostas, questionItems);
 
                     return (
                       <TableRow key={item.id}>
@@ -1593,6 +1620,22 @@ const AdminRegrasOuro = () => {
                         </TableCell>
                         <TableCell>{item.tecnico_seg || "N/A"}</TableCell>
                         <TableCell>{item.gestor || "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="min-w-[150px] space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-semibold ${getConformityTextClasses(conformityPercent)}`}>
+                                {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">conforme</span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-slate-700">
+                              <div
+                                className={`h-full rounded-full transition-all ${getConformityBarClasses(conformityPercent)}`}
+                                style={{ width: `${conformityPercent ?? 0}%` }}
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={temNaoConformidade ? "destructive" : "secondary"}>
                             {temNaoConformidade ? "Com não conformidade" : "Conforme"}
