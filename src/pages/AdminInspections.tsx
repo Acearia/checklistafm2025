@@ -79,6 +79,20 @@ const getConformityBadgeClasses = (percent: number | null) => {
   return "bg-red-100 text-red-800";
 };
 
+const getConformityBarClasses = (percent: number | null) => {
+  if (percent === null) return "bg-gray-300";
+  if (percent >= 90) return "bg-green-500";
+  if (percent >= 70) return "bg-amber-500";
+  return "bg-red-500";
+};
+
+const getConformityTextClasses = (percent: number | null) => {
+  if (percent === null) return "text-gray-700";
+  if (percent >= 90) return "text-green-700";
+  if (percent >= 70) return "text-amber-700";
+  return "text-red-700";
+};
+
 const AdminInspections = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -908,9 +922,22 @@ const AdminInspections = () => {
                         <TableCell>{inspectionEquipment?.kp || "N/A"}</TableCell>
                         <TableCell>{inspectionOperator?.name || "N/A"}</TableCell>
                         <TableCell>
-                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${getConformityBadgeClasses(conformityPercent)}`}>
-                            {conformityPercent === null ? "N/A" : `${conformityPercent}% conforme`}
-                          </span>
+                          <div className="min-w-[150px] space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-semibold ${getConformityTextClasses(conformityPercent)}`}>
+                                {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
+                              </span>
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${getConformityBadgeClasses(conformityPercent)}`}>
+                                conforme
+                              </span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                              <div
+                                className={`h-full rounded-full transition-all ${getConformityBarClasses(conformityPercent)}`}
+                                style={{ width: `${conformityPercent ?? 0}%` }}
+                              />
+                            </div>
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses}`}>
@@ -1097,19 +1124,22 @@ const AdminInspections = () => {
             return (
               <div className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-4">
-                  <div className="rounded-lg border bg-white p-3">
+                  <div className="rounded-lg border bg-white p-3 sm:col-span-2">
                     <p className="text-xs uppercase tracking-wide text-gray-500">Conformidade</p>
-                    <p className={`mt-1 text-2xl font-bold ${
-                      conformityPercent === null
-                        ? "text-gray-700"
-                        : conformityPercent >= 90
-                        ? "text-green-700"
-                        : conformityPercent >= 70
-                        ? "text-amber-700"
-                        : "text-red-700"
-                    }`}>
-                      {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
-                    </p>
+                    <div className="mt-2 flex items-end justify-between gap-3">
+                      <p className={`text-3xl font-bold ${getConformityTextClasses(conformityPercent)}`}>
+                        {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
+                      </p>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${getConformityBadgeClasses(conformityPercent)}`}>
+                        {conformityPercent === null ? "Sem dados" : "conforme"}
+                      </span>
+                    </div>
+                    <div className="mt-3 h-3 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className={`h-full rounded-full transition-all ${getConformityBarClasses(conformityPercent)}`}
+                        style={{ width: `${conformityPercent ?? 0}%` }}
+                      />
+                    </div>
                   </div>
                   <div className="rounded-lg border bg-white p-3">
                     <p className="text-xs uppercase tracking-wide text-gray-500">Itens conformes</p>
