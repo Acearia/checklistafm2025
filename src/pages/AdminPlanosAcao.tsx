@@ -1026,7 +1026,9 @@ const AdminPlanosAcao = () => {
                     <TableHead>Prioridade</TableHead>
                     <TableHead>Responsavel</TableHead>
                     <TableHead>Termino</TableHead>
-                    <TableHead className="text-right">Acoes</TableHead>
+                    <TableHead className="sticky right-0 z-20 min-w-[300px] bg-background text-right shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]">
+                      Acoes
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1077,35 +1079,46 @@ const AdminPlanosAcao = () => {
                         </TableCell>
                         <TableCell>{item.responsavel_execucao || "N/A"}</TableCell>
                         <TableCell>{formatDate(item.termino_planejado)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => setViewPlano(item)}>
+                        <TableCell className="sticky right-0 z-10 bg-background text-right shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]">
+                          <div className="flex min-w-[300px] flex-wrap items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2"
+                              title="Ver plano"
+                              onClick={() => setViewPlano(item)}
+                            >
                               <Eye className="mr-2 h-4 w-4" />
-                              Ver plano
+                              Ver
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8 px-2"
+                              title="Editar plano"
                               onClick={() =>
                                 navigate(
                                   `/plano-acao-acidente?plano=${encodeURIComponent(item.id)}&ocorrencia=${item.numero_ocorrencia}&origem=admin`,
                                 )
                               }
                             >
-                              Editar plano
+                              Editar
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="h-8 px-2"
+                              title="Ver investigacao"
                               onClick={() => navigate(`/admin/investigacoes?ocorrencia=${item.numero_ocorrencia}`)}
                             >
-                              Ver investigacao
+                              Invest.
                             </Button>
                             {item.status !== "Concluida" && item.status !== "Cancelada" ? (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-green-700 hover:text-green-800"
+                                className="h-8 px-2 text-green-700 hover:text-green-800"
+                                title="Finalizar plano"
                                 onClick={() => openFinishDialog(item)}
                               >
                                 <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -1116,7 +1129,8 @@ const AdminPlanosAcao = () => {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700"
+                                className="h-8 px-2 text-red-600 hover:text-red-700"
+                                title="Excluir plano"
                                 onClick={() => void handleDeletePlano(item)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
