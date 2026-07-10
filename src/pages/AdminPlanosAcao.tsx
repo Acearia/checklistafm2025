@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { Eye, RefreshCw, Trash2 } from "lucide-react";
+import { CheckCircle2, Eye, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -59,6 +60,7 @@ interface PlanoAcaoRecord {
   data_eficacia: string;
   observacao_eficacia: string;
   comentarios?: any[];
+  finalizacao_foto?: AttachmentMeta | null;
 }
 
 interface InvestigacaoResumo {
@@ -103,6 +105,32 @@ const formatText = (value?: string) => {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : "N/A";
 };
+
+const getAttachmentImageUrl = (attachment?: AttachmentMeta | null) =>
+  String(
+    attachment?.data_url ||
+      attachment?.dataUrl ||
+      attachment?.url ||
+      attachment?.preview_url ||
+      "",
+  ).trim();
+
+const getTodayInputDate = () => new Date().toISOString().slice(0, 10);
+
+const readFileAsAttachment = (file: File): Promise<AttachmentMeta> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      resolve({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        data_url: String(reader.result || ""),
+      });
+    };
+    reader.onerror = () => reject(reader.error || new Error("Nao foi possivel ler a imagem."));
+    reader.readAsDataURL(file);
+  });
 
 const normalizeQuestionCode = (value?: string | number | null) => {
   const digits = String(value || "").replace(/\D/g, "");
@@ -215,6 +243,17 @@ const parsePlanos = (): PlanoAcaoRecord[] => {
           observacoes_conclusao: String(item.observacoes_conclusao || ""),
           data_eficacia: String(item.data_eficacia || ""),
           observacao_eficacia: String(item.observacao_eficacia || ""),
+          finalizacao_foto: item.finalizacao_foto
+            ? {
+                name: String(item.finalizacao_foto?.name || ""),
+                size: Number(item.finalizacao_foto?.size) || 0,
+                type: String(item.finalizacao_foto?.type || ""),
+                data_url: String(item.finalizacao_foto?.data_url || item.finalizacao_foto?.dataUrl || ""),
+                dataUrl: String(item.finalizacao_foto?.dataUrl || item.finalizacao_foto?.data_url || ""),
+                url: String(item.finalizacao_foto?.url || ""),
+                preview_url: String(item.finalizacao_foto?.preview_url || ""),
+              }
+            : null,
           comentarios: Array.isArray(item.comentarios)
             ? item.comentarios.map((comentario: any) => ({
                 id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
@@ -265,6 +304,7 @@ const mergePlanoRecords = (primary: PlanoAcaoRecord, secondary?: PlanoAcaoRecord
     observacoes_conclusao: pick(primary.observacoes_conclusao, secondary.observacoes_conclusao),
     data_eficacia: pick(primary.data_eficacia, secondary.data_eficacia),
     observacao_eficacia: pick(primary.observacao_eficacia, secondary.observacao_eficacia),
+    finalizacao_foto: primary.finalizacao_foto || secondary.finalizacao_foto || null,
     comentarios: Array.from(commentsById.values()),
   };
 };
@@ -301,6 +341,17 @@ const mapSupabasePlan = (item: any): PlanoAcaoRecord | null => {
     observacoes_conclusao: String(item.observacoes_conclusao || ""),
     data_eficacia: String(item.data_eficacia || ""),
     observacao_eficacia: String(item.observacao_eficacia || ""),
+    finalizacao_foto: item.finalizacao_foto
+      ? {
+          name: String(item.finalizacao_foto?.name || ""),
+          size: Number(item.finalizacao_foto?.size) || 0,
+          type: String(item.finalizacao_foto?.type || ""),
+          data_url: String(item.finalizacao_foto?.data_url || item.finalizacao_foto?.dataUrl || ""),
+          dataUrl: String(item.finalizacao_foto?.dataUrl || item.finalizacao_foto?.data_url || ""),
+          url: String(item.finalizacao_foto?.url || ""),
+          preview_url: String(item.finalizacao_foto?.preview_url || ""),
+        }
+      : null,
     comentarios: rawComments
       .map((comentario: any) => ({
           id: String(comentario?.id || `${Date.now()}-${Math.random()}`),
@@ -366,6 +417,11 @@ const AdminPlanosAcao = () => {
   const [goldenRules, setGoldenRules] = useState<any[]>([]);
   const [goldenRuleDetail, setGoldenRuleDetail] = useState<any | null>(null);
   const [goldenRuleDetailLoading, setGoldenRuleDetailLoading] = useState(false);
+  const [finishPlano, setFinishPlano] = useState<PlanoAcaoRecord | null>(null);
+  const [finishDate, setFinishDate] = useState(getTodayInputDate());
+  const [finishObservation, setFinishObservation] = useState("");
+  const [finishPhoto, setFinishPhoto] = useState<AttachmentMeta | null>(null);
+  const [isFinishing, setIsFinishing] = useState(false);
 
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
@@ -378,6 +434,21 @@ const AdminPlanosAcao = () => {
   const [canDelete, setCanDelete] = useState<boolean>(() =>
     canDeleteAdminRecords(getStoredAdminSession()),
   );
+
+  const resetFinishDialog = () => {
+    setFinishPlano(null);
+    setFinishDate(getTodayInputDate());
+    setFinishObservation("");
+    setFinishPhoto(null);
+    setIsFinishing(false);
+  };
+
+  const openFinishDialog = (record: PlanoAcaoRecord) => {
+    setFinishPlano(record);
+    setFinishDate(record.acao_finalizada || getTodayInputDate());
+    setFinishObservation(record.observacoes_conclusao || "");
+    setFinishPhoto(record.finalizacao_foto || null);
+  };
 
   useEffect(() => {
     setOcorrenciaFilter(ocorrenciaFromQuery.replace(/\D/g, ""));
@@ -691,6 +762,90 @@ const AdminPlanosAcao = () => {
     }
   };
 
+  const handleFinishPhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Arquivo inválido",
+        description: "Selecione uma imagem para anexar à finalização.",
+        variant: "destructive",
+      });
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const attachment = await readFileAsAttachment(file);
+      setFinishPhoto(attachment);
+    } catch (error) {
+      console.error("[AdminPlanosAcao] Erro ao carregar foto de finalização:", error);
+      toast({
+        title: "Erro ao carregar foto",
+        description: "Não foi possível anexar a foto selecionada.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleFinalizePlano = async () => {
+    if (!finishPlano) return;
+    if (!finishDate) {
+      toast({
+        title: "Informe a data",
+        description: "Escolha a data de finalização do plano de ação.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsFinishing(true);
+    const now = new Date().toISOString();
+    const updatedPlano: PlanoAcaoRecord = {
+      ...finishPlano,
+      status: "Concluida",
+      acao_finalizada: finishDate,
+      observacoes_conclusao: finishObservation.trim(),
+      finalizacao_foto: finishPhoto,
+      updated_at: now,
+      comentarios: finishPlano.comentarios || [],
+    };
+
+    try {
+      try {
+        await accidentActionPlanService.upsertFromLegacy({
+          ...updatedPlano,
+          comentarios: updatedPlano.comentarios || [],
+        });
+      } catch (error) {
+        if (!isMissingActionPlansTableError(error)) {
+          console.warn("[AdminPlanosAcao] Plano finalizado localmente, mas falhou ao sincronizar no Supabase:", error);
+        }
+      }
+
+      const nextRecords = records.map((item) => (item.id === updatedPlano.id ? updatedPlano : item));
+      setRecords(nextRecords);
+      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(nextRecords));
+      window.dispatchEvent(new CustomEvent(PLANO_STORAGE_EVENT));
+      setViewPlano((current) => (current?.id === updatedPlano.id ? updatedPlano : current));
+      resetFinishDialog();
+
+      toast({
+        title: "Plano finalizado",
+        description: `Plano ${formatNumero(updatedPlano.numero_plano)} concluído com sucesso.`,
+      });
+    } catch (error) {
+      console.error("[AdminPlanosAcao] Erro ao finalizar plano:", error);
+      toast({
+        title: "Erro ao finalizar",
+        description: "Não foi possível finalizar o plano de ação.",
+        variant: "destructive",
+      });
+      setIsFinishing(false);
+    }
+  };
+
   const summary = useMemo(() => {
     const total = records.length;
     const abertas = records.filter((item) => item.status === "Aberta").length;
@@ -946,6 +1101,17 @@ const AdminPlanosAcao = () => {
                             >
                               Ver investigacao
                             </Button>
+                            {item.status !== "Concluida" && item.status !== "Cancelada" ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-green-700 hover:text-green-800"
+                                onClick={() => openFinishDialog(item)}
+                              >
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Finalizar
+                              </Button>
+                            ) : null}
                             {canDelete ? (
                               <Button
                                 variant="ghost"
@@ -1090,6 +1256,23 @@ const AdminPlanosAcao = () => {
                 )}
               </div>
 
+              <div className="space-y-3 rounded-lg border p-4">
+                <h3 className="text-sm font-semibold">Foto da finalização</h3>
+                {getAttachmentImageUrl(viewPlano.finalizacao_foto) ? (
+                  <div className="overflow-hidden rounded-md border bg-muted/20">
+                    <img
+                      src={getAttachmentImageUrl(viewPlano.finalizacao_foto)}
+                      alt={`Foto de finalização do plano ${formatNumero(viewPlano.numero_plano)}`}
+                      className="max-h-[420px] w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-md border bg-gray-50 p-4 text-sm text-muted-foreground">
+                    Nenhuma foto de finalização anexada neste plano.
+                  </div>
+                )}
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-3 rounded-lg border p-4">
                   <h3 className="text-sm font-semibold">Resumo e descrição</h3>
@@ -1130,6 +1313,103 @@ const AdminPlanosAcao = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(finishPlano)} onOpenChange={(open) => !open && resetFinishDialog()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Finalizar plano de ação</DialogTitle>
+            <DialogDescription>
+              Informe a data de conclusão e, se quiser, anexe uma foto final para comparar com a situação inicial.
+            </DialogDescription>
+          </DialogHeader>
+
+          {finishPlano ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="text-sm font-semibold">Plano {formatNumero(finishPlano.numero_plano)}</div>
+                <div className="text-sm text-muted-foreground">
+                  {finishPlano.descricao_resumida_acao || "Sem resumo informado"}
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="finish-date">
+                    Data de finalização *
+                  </label>
+                  <Input
+                    id="finish-date"
+                    type="date"
+                    value={finishDate}
+                    onChange={(event) => setFinishDate(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="finish-photo">
+                    Foto final opcional
+                  </label>
+                  <Input
+                    id="finish-photo"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(event) => void handleFinishPhotoChange(event)}
+                  />
+                </div>
+              </div>
+
+              {finishPhoto ? (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium">Prévia da foto final</div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setFinishPhoto(null)}>
+                      Remover foto
+                    </Button>
+                  </div>
+                  {getAttachmentImageUrl(finishPhoto) ? (
+                    <img
+                      src={getAttachmentImageUrl(finishPhoto)}
+                      alt="Prévia da foto de finalização"
+                      className="max-h-72 w-full rounded-md border object-contain"
+                    />
+                  ) : null}
+                  <div className="text-xs text-muted-foreground">
+                    {finishPhoto.name || "Imagem anexada"} {finishPhoto.size ? `(${(finishPhoto.size / 1024).toFixed(1)} KB)` : ""}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  <Upload className="mb-2 h-4 w-4" />
+                  A foto não é obrigatória, mas ajuda a comparar o antes e depois da ação.
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="finish-observation">
+                  Observação da conclusão
+                </label>
+                <Textarea
+                  id="finish-observation"
+                  value={finishObservation}
+                  onChange={(event) => setFinishObservation(event.target.value)}
+                  placeholder="Descreva rapidamente o que foi concluído..."
+                  rows={4}
+                />
+              </div>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={resetFinishDialog} disabled={isFinishing}>
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={() => void handleFinalizePlano()} disabled={isFinishing}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  {isFinishing ? "Finalizando..." : "Finalizar plano"}
+                </Button>
               </div>
             </div>
           ) : null}
