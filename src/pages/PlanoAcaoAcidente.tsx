@@ -1,7 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ClipboardCheck, MessageSquarePlus, Save } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,14 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
@@ -925,36 +916,6 @@ const PlanoAcaoAcidente = () => {
     }
   };
 
-  const handleEdit = (record: PlanoAcaoRecord) => {
-    setEditingId(record.id);
-    setEditingNumeroPlano(record.numero_plano);
-    setComentarios(record.comentarios || []);
-    setNovoComentario("");
-    setAutorComentario("");
-    setForm({
-      numero_ocorrencia: record.numero_ocorrencia,
-      data_ocorrencia: record.data_ocorrencia,
-      prioridade_ocorrencia: record.prioridade_ocorrencia,
-      descricao_ocorrencia: record.descricao_ocorrencia || record.descricao_acao || "",
-      origem: record.origem,
-      descricao_resumida_acao: record.descricao_resumida_acao,
-      severidade: record.severidade,
-      probabilidade: record.probabilidade,
-      prioridade: record.prioridade,
-      status: record.status,
-      responsavel_execucao: record.responsavel_execucao,
-      inicio_planejado: record.inicio_planejado,
-      termino_planejado: record.termino_planejado,
-      acao_iniciada: record.acao_iniciada,
-      acao_finalizada: record.acao_finalizada,
-      descricao_acao: record.descricao_acao,
-      observacoes_conclusao: record.observacoes_conclusao,
-      data_eficacia: record.data_eficacia,
-      observacao_eficacia: record.observacao_eficacia,
-    });
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6">
       <Card className="border-blue-100 bg-gradient-to-br from-white via-white to-blue-50/40">
@@ -1310,58 +1271,6 @@ const PlanoAcaoAcidente = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Planos cadastrados</CardTitle>
-          <CardDescription>
-            Clique em editar para atualizar um plano ja registrado.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {planos.length === 0 ? (
-            <div className="rounded-md border bg-gray-50 p-8 text-center text-gray-500">
-              Nenhum plano de acao cadastrado.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Plano</TableHead>
-                    <TableHead>Ocorrencia</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Prioridade</TableHead>
-                    <TableHead>Responsavel</TableHead>
-                    <TableHead>Termino</TableHead>
-                    <TableHead className="text-right">Acoes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {planos.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>#{formatNumero(item.numero_plano)}</TableCell>
-                      <TableCell>#{formatNumero(item.numero_ocorrencia)}</TableCell>
-                      <TableCell>
-                        <Badge variant={item.status === "Concluida" ? "default" : "secondary"}>
-                          {item.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{item.prioridade}</TableCell>
-                      <TableCell>{item.responsavel_execucao || "N/A"}</TableCell>
-                      <TableCell>{formatDate(item.termino_planejado)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button type="button" size="sm" variant="outline" onClick={() => handleEdit(item)}>
-                          Editar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 };
