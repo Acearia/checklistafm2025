@@ -40,6 +40,15 @@ export type EnvironmentalInspectionDetail = {
 };
 
 type EnvironmentalInspectionResponse = NonNullable<EnvironmentalInspectionDetail["responses"]>[number];
+type EnvironmentalInspectionPhoto = {
+  name?: string | null;
+  size?: number | null;
+  type?: string | null;
+  data_url?: string | null;
+};
+
+const MAX_ENVIRONMENTAL_PHOTOS = 4;
+const ENVIRONMENTAL_EXTRA_PHOTOS_MARKER = "__ENVIRONMENTAL_EXTRA_PHOTOS__=";
 
 const formatNumber = (value?: number | null) => String(Number(value) || 0).padStart(3, "0");
 
@@ -73,6 +82,55 @@ const formatFileSize = (value?: number | null) => {
 
 const getResponsePhotoUrl = (response: EnvironmentalInspectionResponse) =>
   String(response?.foto_data_url || "").trim();
+
+const splitEnvironmentalComment = (value?: string | null) => {
+  const raw = String(value || "");
+  const markerIndex = raw.indexOf(ENVIRONMENTAL_EXTRA_PHOTOS_MARKER);
+
+  if (markerIndex < 0) {
+    return { comment: raw, extraPhotos: [] as EnvironmentalInspectionPhoto[] };
+  }
+
+  const comment = raw.slice(0, markerIndex).trim();
+  const jsonText = raw.slice(markerIndex + ENVIRONMENTAL_EXTRA_PHOTOS_MARKER.length).trim();
+
+  try {
+    const parsed = JSON.parse(jsonText);
+    return {
+      comment,
+      extraPhotos: Array.isArray(parsed) ? parsed : [],
+    };
+  } catch {
+    return {
+      comment: raw.replace(ENVIRONMENTAL_EXTRA_PHOTOS_MARKER, "").trim(),
+      extraPhotos: [] as EnvironmentalInspectionPhoto[],
+    };
+  }
+};
+
+const getResponsePhotos = (response: EnvironmentalInspectionResponse) => {
+  const photos: EnvironmentalInspectionPhoto[] = [];
+  const legacyPhotoUrl = getResponsePhotoUrl(response);
+  const { extraPhotos } = splitEnvironmentalComment(response.comentario);
+
+  if (legacyPhotoUrl) {
+    photos.push({
+      name: response.foto_name || "Foto 1",
+      size: response.foto_size,
+      type: response.foto_type,
+      data_url: legacyPhotoUrl,
+    });
+  }
+
+  extraPhotos.forEach((photo) => {
+    const photoUrl = String(photo?.data_url || "").trim();
+    if (photoUrl) {
+      photos.push({ ...photo, data_url: photoUrl });
+    }
+  });
+
+  return photos.slice(0, MAX_ENVIRONMENTAL_PHOTOS);
+};
 
 interface EnvironmentalInspectionDetailsDialogProps {
   open: boolean;
@@ -172,7 +230,9 @@ const EnvironmentalInspectionDetailsDialog = ({
                   </div>
                 ) : (
                   responses.map((response, index) => {
-                    const photoUrl = getResponsePhotoUrl(response);
+                    const { comment } = splitEnvironmentalComment(response.comentario);
+                    const photos = getResponsePhotos(response);
+                    response.comentario = comment;
                     return (
                       <div key={response.id || `${response.numero}-${index}`} className="rounded-lg border p-4">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -192,22 +252,26 @@ const EnvironmentalInspectionDetailsDialog = ({
                           </div>
                         </div>
 
-                        {response.comentario ? (
+                        {comment ? (
                           <div className="mt-3 rounded-md bg-muted/30 p-3 text-sm">
                             <strong>Observação:</strong> {response.comentario}
                           </div>
                         ) : null}
 
-                        {photoUrl ? (
-                          <div className="mt-3 space-y-2">
-                            <p className="text-xs text-muted-foreground">
-                              {response.foto_name || "Foto"} {formatFileSize(response.foto_size)}
-                            </p>
-                            <img
-                              src={photoUrl}
-                              alt={`Foto da pergunta ${response.numero || index + 1}`}
-                              className="max-h-[420px] w-full rounded-md border object-contain"
-                            />
+                        {photos.length > 0 ? (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            {photos.map((photo, photoIndex) => (
+                              <div key={`${photo.name || "foto"}-${photoIndex}`} className="space-y-2">
+                                <p className="text-xs text-muted-foreground">
+                                  {photo.name || `Foto ${photoIndex + 1}`} {formatFileSize(photo.size)}
+                                </p>
+                                <img
+                                  src={String(photo.data_url)}
+                                  alt={`Foto ${photoIndex + 1} da pergunta ${response.numero || index + 1}`}
+                                  className="max-h-[360px] w-full rounded-md border bg-white object-contain"
+                                />
+                              </div>
+                            ))}
                           </div>
                         ) : null}
                       </div>

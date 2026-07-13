@@ -21,14 +21,16 @@ import { environmentalInspectionService, operatorService } from "@/lib/supabase-
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
 
+interface EnvironmentalPhoto {
+  name: string;
+  size: number;
+  type: string;
+  data_url: string;
+}
+
 interface EnvironmentalEvidence {
   comentario: string;
-  foto: {
-    name: string;
-    size: number;
-    type: string;
-    data_url: string;
-  } | null;
+  fotos: EnvironmentalPhoto[];
 }
 
 interface EnvironmentalQuestion {
@@ -42,6 +44,15 @@ interface EnvironmentalQuestion {
 type SignatureTarget = "acompanhante" | "realizado" | "gestor";
 
 const DEFAULT_ENVIRONMENTAL_INSPECTOR = "GICELIA FELIX";
+const MAX_ENVIRONMENTAL_PHOTOS = 4;
+const ENVIRONMENTAL_EXTRA_PHOTOS_MARKER = "__ENVIRONMENTAL_EXTRA_PHOTOS__=";
+
+const serializeEnvironmentalComment = (comment: string, extraPhotos: EnvironmentalPhoto[]) => {
+  const cleanComment = comment.trim();
+  const limitedExtraPhotos = extraPhotos.slice(0, Math.max(0, MAX_ENVIRONMENTAL_PHOTOS - 1));
+  if (limitedExtraPhotos.length === 0) return cleanComment;
+  return `${cleanComment}\n\n${ENVIRONMENTAL_EXTRA_PHOTOS_MARKER}${JSON.stringify(limitedExtraPhotos)}`;
+};
 
 const ENVIRONMENTAL_QUESTIONS: EnvironmentalQuestion[] = [
   {
@@ -358,7 +369,7 @@ const InspecaoAmbiental = () => {
       ...current,
       [questionId]: {
         comentario: "",
-        foto: null,
+        fotos: [],
         ...current[questionId],
         ...patch,
       },
@@ -375,29 +386,52 @@ const InspecaoAmbiental = () => {
           ...current,
           [question.id]: {
             ...existing,
-            foto: null,
+            fotos: [],
           },
         };
       });
     }
   };
 
-  const handleEvidenceFile = async (questionId: string, file: File | null) => {
-    if (!file) {
-      updateEvidence(questionId, { foto: null });
+  const handleEvidenceFile = async (questionId: string, files: FileList | null) => {
+    const selectedFiles = Array.from(files || []);
+    if (selectedFiles.length === 0) {
       return;
+    }
+
+    const currentPhotos = evidences[questionId]?.fotos || [];
+    const availableSlots = MAX_ENVIRONMENTAL_PHOTOS - currentPhotos.length;
+    if (availableSlots <= 0) {
+      toast({
+        title: "Limite de fotos atingido",
+        description: `Cada pergunta pode ter no maximo ${MAX_ENVIRONMENTAL_PHOTOS} fotos.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filesToProcess = selectedFiles.slice(0, availableSlots);
+    if (selectedFiles.length > availableSlots) {
+      toast({
+        title: "Algumas fotos nao foram adicionadas",
+        description: `O limite e de ${MAX_ENVIRONMENTAL_PHOTOS} fotos por pergunta.`,
+      });
     }
 
     setProcessingPhotos((current) => current + 1);
     try {
-      const dataUrl = await resizeImageToDataUrl(file);
-      updateEvidence(questionId, {
-        foto: {
+      const photos = await Promise.all(filesToProcess.map(async (file) => {
+        const dataUrl = await resizeImageToDataUrl(file);
+        return {
           name: file.name,
           size: Math.round((dataUrl.length * 3) / 4),
           type: "image/jpeg",
           data_url: dataUrl,
-        },
+        };
+      }));
+
+      updateEvidence(questionId, {
+        fotos: [...currentPhotos, ...photos].slice(0, MAX_ENVIRONMENTAL_PHOTOS),
       });
     } catch (error) {
       console.error("Erro ao processar foto ambiental:", error);
@@ -415,8 +449,15 @@ const InspecaoAmbiental = () => {
     questionId: string,
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    await handleEvidenceFile(questionId, event.target.files?.[0] || null);
+    await handleEvidenceFile(questionId, event.target.files || null);
     event.target.value = "";
+  };
+
+  const removeEvidencePhoto = (questionId: string, photoIndex: number) => {
+    const currentPhotos = evidences[questionId]?.fotos || [];
+    updateEvidence(questionId, {
+      fotos: currentPhotos.filter((_, index) => index !== photoIndex),
+    });
   };
 
   const updateSignatureDataUrl = (target: SignatureTarget, canvas: HTMLCanvasElement) => {
@@ -580,7 +621,7 @@ const InspecaoAmbiental = () => {
 
     const missingEvidence = irregularQuestions.find((question) => {
       const evidence = evidences[question.id];
-      return !evidence?.comentario?.trim() && !evidence?.foto;
+      return !evidence?.comentario?.trim() && (evidence?.fotos || []).length === 0;
     });
     if (missingEvidence) {
       toast({
@@ -615,7 +656,11 @@ const InspecaoAmbiental = () => {
         gestor: gestor.trim(),
         setor: setor.trim(),
         observacoes: observacoes.trim(),
-        responses: ENVIRONMENTAL_QUESTIONS.map((question) => ({
+        responses: ENVIRONMENTAL_QUESTIONS.map((question) => {
+          const evidence = evidences[question.id] || { comentario: "", fotos: [] };
+          const photos = evidence.fotos.slice(0, MAX_ENVIRONMENTAL_PHOTOS);
+
+          return {
           codigo: question.id,
           numero: String(question.number).padStart(2, "0"),
           secao: question.section,
@@ -623,9 +668,10 @@ const InspecaoAmbiental = () => {
           resposta: answers[question.id] as "Sim" | "Não" | "N/A",
           resposta_esperada: question.expected,
           irregular: answers[question.id] !== "N/A" && answers[question.id] !== question.expected,
-          comentario: evidences[question.id]?.comentario || "",
-          foto: evidences[question.id]?.foto || null,
-        })),
+          comentario: serializeEnvironmentalComment(evidence.comentario || "", photos.slice(1)),
+          foto: photos[0] || null,
+          };
+        }),
         assinatura: currentAssinaturaRealizadoPor,
         assinatura_realizado_por: currentAssinaturaRealizadoPor,
         assinatura_acompanhante: currentAssinaturaAcompanhante,
@@ -803,7 +849,9 @@ const InspecaoAmbiental = () => {
             {ENVIRONMENTAL_QUESTIONS.map((question, index) => {
               const answer = answers[question.id];
               const isIrregular = Boolean(answer && answer !== "N/A" && answer !== question.expected);
-              const evidence = evidences[question.id] || { comentario: "", foto: null };
+              const evidence = evidences[question.id] || { comentario: "", fotos: [] };
+              const attachedPhotos = evidence.fotos || [];
+              const canAddMorePhotos = attachedPhotos.length < MAX_ENVIRONMENTAL_PHOTOS;
               const showSectionTitle =
                 index === 0 || ENVIRONMENTAL_QUESTIONS[index - 1].section !== question.section;
 
@@ -859,10 +907,22 @@ const InspecaoAmbiental = () => {
                           <Camera className="h-4 w-4" />
                           Foto da irregularidade
                         </div>
-                        <div className="space-y-2">
-                          <Label>Foto</Label>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <Label>Fotos</Label>
+                            <span className="text-xs text-muted-foreground">
+                              {attachedPhotos.length}/{MAX_ENVIRONMENTAL_PHOTOS} anexada(s)
+                            </span>
+                          </div>
                           <div className="grid gap-2 sm:grid-cols-2">
-                            <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                            <label
+                              aria-disabled={!canAddMorePhotos}
+                              className={`inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+                                canAddMorePhotos
+                                  ? "cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                                  : "cursor-not-allowed opacity-50"
+                              }`}
+                            >
                               <Camera className="mr-2 h-4 w-4" />
                               Bater foto
                               <Input
@@ -870,23 +930,58 @@ const InspecaoAmbiental = () => {
                                 type="file"
                                 accept="image/*"
                                 capture="environment"
+                                disabled={!canAddMorePhotos}
                                 onChange={(event) => void handleEvidenceInputChange(question.id, event)}
                               />
                             </label>
-                            <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+                            <label
+                              aria-disabled={!canAddMorePhotos}
+                              className={`inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+                                canAddMorePhotos
+                                  ? "cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                                  : "cursor-not-allowed opacity-50"
+                              }`}
+                            >
                               Escolher da galeria
                               <Input
                                 className="sr-only"
                                 type="file"
                                 accept="image/*"
+                                multiple
+                                disabled={!canAddMorePhotos}
                                 onChange={(event) => void handleEvidenceInputChange(question.id, event)}
                               />
                             </label>
                           </div>
-                          {evidence.foto && (
-                            <p className="text-xs text-muted-foreground">
-                              Foto anexada: {evidence.foto.name}
-                            </p>
+                          {attachedPhotos.length > 0 && (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {attachedPhotos.map((photo, photoIndex) => (
+                                <div
+                                  key={`${photo.name}-${photoIndex}`}
+                                  className="rounded-md border bg-muted/20 p-2"
+                                >
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      Foto {photoIndex + 1}: {photo.name}
+                                    </p>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 px-2 text-red-600 hover:text-red-700"
+                                      onClick={() => removeEvidencePhoto(question.id, photoIndex)}
+                                    >
+                                      Remover
+                                    </Button>
+                                  </div>
+                                  <img
+                                    src={photo.data_url}
+                                    alt={`Foto ${photoIndex + 1} da pergunta ${question.number}`}
+                                    className="h-40 w-full rounded border bg-white object-contain"
+                                  />
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </div>
