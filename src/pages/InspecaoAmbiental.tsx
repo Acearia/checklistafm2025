@@ -17,6 +17,7 @@ import {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLocalDateKey } from "@/lib/dateHelpers";
+import { upsertLocalEnvironmentalInspection } from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService, operatorService } from "@/lib/supabase-service";
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
@@ -648,7 +649,12 @@ const InspecaoAmbiental = () => {
     try {
       setIsSaving(true);
       const now = new Date().toISOString();
-      const saved = await environmentalInspectionService.create({
+      const payloadId =
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      const payload = {
+        id: payloadId,
         created_at: now,
         realizado_por: realizadoPor.trim(),
         data_inspecao: dataInspecao,
@@ -676,12 +682,30 @@ const InspecaoAmbiental = () => {
         assinatura_realizado_por: currentAssinaturaRealizadoPor,
         assinatura_acompanhante: currentAssinaturaAcompanhante,
         assinatura_gestor: currentAssinaturaGestor,
-      });
+      };
+
+      let saved: any = null;
+      let savedRemotely = false;
+      try {
+        saved = await environmentalInspectionService.create(payload);
+        savedRemotely = true;
+      } catch (error) {
+        console.warn(
+          "[InspecaoAmbiental] Banco indisponivel durante envio. Salvando inspecao ambiental localmente.",
+          error,
+        );
+        upsertLocalEnvironmentalInspection({
+          ...payload,
+          id: payloadId,
+        });
+      }
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
       toast({
-        title: "Inspeção ambiental salva",
-        description: `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`,
+        title: savedRemotely ? "Inspeção ambiental salva" : "Inspeção ambiental salva neste aparelho",
+        description: savedRemotely
+          ? `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`
+          : "A conexão oscilou. O registro ficou guardado e será sincronizado quando o painel abrir com internet.",
       });
       setSuccessInspectionNumber(savedNumber || null);
       setSubmissionSuccess(true);

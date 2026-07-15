@@ -1501,12 +1501,17 @@ const InvestigacaoAcidente2 = () => {
         finalInspectionNumber = Number((savedRule as any)?.numero_inspecao) || finalInspectionNumber;
         savedRemotely = true;
       } catch (error) {
-        if (!isMissingGoldenRulesTableError(error)) {
-          throw error;
+        savedRemotely = false;
+        if (isMissingGoldenRulesTableError(error)) {
+          console.warn(
+            "[InvestigacaoAcidente2] Tabela golden_rules indisponivel. Salvando apenas no armazenamento local.",
+          );
+        } else {
+          console.warn(
+            "[InvestigacaoAcidente2] Banco indisponivel durante envio. Salvando regra de ouro localmente.",
+            error,
+          );
         }
-        console.warn(
-          "[InvestigacaoAcidente2] Tabela golden_rules indisponivel. Salvando apenas no armazenamento local.",
-        );
       }
 
       localStorage.setItem(COUNTER_KEY, String(finalInspectionNumber));

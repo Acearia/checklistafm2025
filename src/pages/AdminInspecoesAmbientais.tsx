@@ -25,6 +25,12 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
+import {
+  ENVIRONMENTAL_INSPECTION_STORAGE_EVENT,
+  readLocalEnvironmentalInspections,
+  removeLocalEnvironmentalInspections,
+  type EnvironmentalInspectionLocalRecord,
+} from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService } from "@/lib/supabase-service";
 
 const FILTER_ALL = "all";
@@ -80,6 +86,30 @@ const getConformityTextClasses = (percent: number | null) => {
   return "text-red-700";
 };
 
+const mapLocalEnvironmentalInspection = (
+  item: EnvironmentalInspectionLocalRecord,
+): EnvironmentalInspectionListItem => ({
+  ...(item as any),
+  id: String(item.id || ""),
+  setor: String(item.setor || ""),
+  responses: (Array.isArray(item.responses) ? item.responses : []).map((response: any, index) => ({
+    id: `${item.id}-${response.codigo || index}`,
+    environmental_inspection_id: item.id,
+    codigo: response.codigo,
+    numero: response.numero,
+    secao: response.secao,
+    pergunta: response.pergunta,
+    resposta: response.resposta,
+    resposta_esperada: response.resposta_esperada,
+    irregular: Boolean(response.irregular),
+    comentario: response.comentario || "",
+    foto_name: response.foto?.name || null,
+    foto_size: response.foto?.size || null,
+    foto_type: response.foto?.type || null,
+    foto_data_url: response.foto?.data_url || null,
+  })),
+});
+
 const AdminInspecoesAmbientais = () => {
   const { toast } = useToast();
   const { sectors } = useSupabaseData(["sectors"]);
@@ -98,15 +128,36 @@ const AdminInspecoesAmbientais = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
+      let localRecords = readLocalEnvironmentalInspections();
+      if (localRecords.length > 0) {
+        const syncResult = await environmentalInspectionService.syncLocalRecords(localRecords);
+        if (syncResult.syncedIds.length > 0) {
+          removeLocalEnvironmentalInspections(syncResult.syncedIds);
+          localRecords = readLocalEnvironmentalInspections();
+          toast({
+            title: "Inspecoes ambientais sincronizadas",
+            description: `${syncResult.syncedIds.length} registro(s) local(is) foram enviados ao banco.`,
+          });
+        }
+      }
+
       const data = await environmentalInspectionService.safeGetAllWithFallback();
-      setRecords(
-        (Array.isArray(data) ? data : []).map((item: any) => ({
-          ...item,
-          id: String(item.id || ""),
-          setor: String(item.setor || ""),
-          responses: Array.isArray(item.responses) ? item.responses : [],
-        })),
-      );
+      const remoteRecords = (Array.isArray(data) ? data : []).map((item: any) => ({
+        ...item,
+        id: String(item.id || ""),
+        setor: String(item.setor || ""),
+        responses: Array.isArray(item.responses) ? item.responses : [],
+      }));
+      const mergedRecords = new Map<string, EnvironmentalInspectionListItem>();
+
+      localRecords.map(mapLocalEnvironmentalInspection).forEach((item) => {
+        if (item.id) mergedRecords.set(item.id, item);
+      });
+      remoteRecords.forEach((item) => {
+        if (item.id) mergedRecords.set(item.id, item);
+      });
+
+      setRecords(Array.from(mergedRecords.values()));
     } catch (error) {
       console.error("[AdminInspecoesAmbientais] Erro ao carregar inspeções ambientais:", error);
       toast({
@@ -121,6 +172,18 @@ const AdminInspecoesAmbientais = () => {
 
   useEffect(() => {
     void loadData();
+
+    const handleLocalUpdate = () => {
+      void loadData();
+    };
+
+    window.addEventListener(ENVIRONMENTAL_INSPECTION_STORAGE_EVENT, handleLocalUpdate);
+    window.addEventListener("online", handleLocalUpdate);
+
+    return () => {
+      window.removeEventListener(ENVIRONMENTAL_INSPECTION_STORAGE_EVENT, handleLocalUpdate);
+      window.removeEventListener("online", handleLocalUpdate);
+    };
   }, [loadData]);
 
   const uniqueSectors = useMemo(() => {

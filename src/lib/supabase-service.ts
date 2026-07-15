@@ -1698,6 +1698,43 @@ export const environmentalInspectionService = {
 
     if (error) throw error;
   },
+
+  async syncLocalRecords(records: EnvironmentalInspectionRecordPayload[]) {
+    const syncedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const record of records) {
+      try {
+        if (record.id) {
+          const existing = await this.getById(record.id).catch(() => null);
+          const existingResponses = Array.isArray((existing as any)?.responses) ? (existing as any).responses : [];
+          const expectedResponses = Array.isArray(record.responses) ? record.responses : [];
+
+          if (existing && existingResponses.length >= expectedResponses.length) {
+            syncedIds.push(record.id);
+            continue;
+          }
+
+          if (existing) {
+            await this.delete(record.id);
+          }
+        }
+
+        const saved = await this.create(record);
+        const savedId = String((saved as any)?.id || record.id || "").trim();
+        if (savedId) {
+          syncedIds.push(savedId);
+        }
+      } catch (error) {
+        console.error("[environmentalInspectionService] Falha ao sincronizar inspeÃ§Ã£o ambiental local:", error);
+        if (record.id) {
+          failedIds.push(record.id);
+        }
+      }
+    }
+
+    return { syncedIds, failedIds };
+  },
 };
 
 export const accidentActionPlanService = {
