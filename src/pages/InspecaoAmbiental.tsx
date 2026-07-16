@@ -17,6 +17,7 @@ import {
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLocalDateKey } from "@/lib/dateHelpers";
+import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
 import { upsertLocalEnvironmentalInspection } from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService, operatorService } from "@/lib/supabase-service";
 
@@ -176,68 +177,6 @@ const ENVIRONMENTAL_QUESTIONS: EnvironmentalQuestion[] = [
     expected: "Sim",
   },
 ];
-
-const fileToDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-const resizeImageToDataUrl = (file: File, maxSize = 1280) =>
-  new Promise<string>((resolve, reject) => {
-    if (!file.type.startsWith("image/")) {
-      fileToDataUrl(file).then(resolve).catch(reject);
-      return;
-    }
-
-    const imageUrl = URL.createObjectURL(file);
-    const img = new Image();
-
-    img.onload = () => {
-      URL.revokeObjectURL(imageUrl);
-
-      let { width, height } = img;
-      const ratio = Math.min(maxSize / width, maxSize / height, 1);
-      width = Math.round(width * ratio);
-      height = Math.round(height * ratio);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-
-      const context = canvas.getContext("2d");
-      if (!context) {
-        reject(new Error("Nao foi possivel processar a imagem."));
-        return;
-      }
-
-      context.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Nao foi possivel gerar a imagem."));
-            return;
-          }
-
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(new Error("Falha ao ler a imagem."));
-          reader.readAsDataURL(blob);
-        },
-        "image/jpeg",
-        0.72,
-      );
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(imageUrl);
-      reject(new Error("Falha ao carregar a imagem."));
-    };
-
-    img.src = imageUrl;
-  });
 
 const InspecaoAmbiental = () => {
   const navigate = useNavigate();
@@ -421,15 +360,9 @@ const InspecaoAmbiental = () => {
 
     setProcessingPhotos((current) => current + 1);
     try {
-      const photos = await Promise.all(filesToProcess.map(async (file) => {
-        const dataUrl = await resizeImageToDataUrl(file);
-        return {
-          name: file.name,
-          size: Math.round((dataUrl.length * 3) / 4),
-          type: "image/jpeg",
-          data_url: dataUrl,
-        };
-      }));
+      const photos = await Promise.all(
+        filesToProcess.map((file) => buildCompressedImageAttachment(file)),
+      );
 
       updateEvidence(questionId, {
         fotos: [...currentPhotos, ...photos].slice(0, MAX_ENVIRONMENTAL_PHOTOS),

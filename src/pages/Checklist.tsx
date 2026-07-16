@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
 import type { GroupQuestion } from "@/lib/types-compat";
 import { isEquipmentTypeMatch } from "@/lib/equipmentType";
 import {
@@ -501,44 +502,6 @@ const Checklist = () => {
     }
   };
 
-  const resizeImageToDataUrl = (file: File, maxSize = 1280): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        let { width, height } = img;
-        const ratio = Math.min(maxSize / width, maxSize / height, 1);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Não foi possível processar a imagem."));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Não foi possível gerar a imagem."));
-              return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Falha ao ler a imagem."));
-            reader.readAsDataURL(blob);
-          },
-          "image/jpeg",
-          0.7
-        );
-      };
-      img.onerror = () => reject(new Error("Falha ao carregar a imagem."));
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -556,7 +519,7 @@ const Checklist = () => {
     try {
       for (const file of Array.from(files)) {
         if (photos.length >= MAX_PHOTOS) break;
-        const dataUrl = await resizeImageToDataUrl(file, 1280);
+        const dataUrl = await buildImagePreviewDataUrl(file);
         setPhotos((prev) => [...prev, { id: `${Date.now()}-${file.name}`, data: dataUrl }]);
       }
     } catch (err) {

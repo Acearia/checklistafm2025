@@ -31,6 +31,7 @@ import {
 import { accidentActionPlanService, goldenRuleService } from "@/lib/supabase-service";
 import { useToast } from "@/hooks/use-toast";
 import { canDeleteAdminRecords, getStoredAdminSession } from "@/lib/adminSession";
+import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
 
 type PrioridadeAcao = "Baixa" | "Media" | "Alta" | "Critica";
 type StatusAcao = "Aberta" | "Em andamento" | "Concluida" | "Cancelada";
@@ -118,19 +119,7 @@ const getAttachmentImageUrl = (attachment?: AttachmentMeta | null) =>
 const getTodayInputDate = () => new Date().toISOString().slice(0, 10);
 
 const readFileAsAttachment = (file: File): Promise<AttachmentMeta> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      resolve({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        data_url: String(reader.result || ""),
-      });
-    };
-    reader.onerror = () => reject(reader.error || new Error("Nao foi possivel ler a imagem."));
-    reader.readAsDataURL(file);
-  });
+  buildCompressedImageAttachment(file);
 
 const normalizeQuestionCode = (value?: string | number | null) => {
   const digits = String(value || "").replace(/\D/g, "");

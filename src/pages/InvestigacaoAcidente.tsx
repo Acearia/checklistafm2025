@@ -40,7 +40,7 @@ import {
   listInvestigatorAccounts,
   verifyInvestigatorCredentials,
 } from "@/lib/adminCredentials";
-import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
 import { useNavigate } from "react-router-dom";
 
 type MaoDeObra = "Direta" | "Indireta";
@@ -1264,12 +1264,7 @@ const InvestigacaoAcidente = () => {
       ].join("\n");
 
       const serializedAttachments = await Promise.all(
-        attachments.map(async (file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          data_url: await buildImagePreviewDataUrl(file),
-        })),
+        attachments.map((file) => buildCompressedImageAttachment(file)),
       );
 
       const payload: InvestigacaoAcidenteRecord = {

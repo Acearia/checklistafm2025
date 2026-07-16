@@ -21,7 +21,7 @@ import SearchableStringSelect, {
 } from "@/components/ui/searchable-string-select";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
-import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
 import {
   buildGoldenRuleQuestionItems,
   resolveGoldenRuleQuestionExpectedAnswer,
@@ -1439,14 +1439,7 @@ const InvestigacaoAcidente2 = () => {
             effectiveEvidences.map(async (evidence) => ({
               id: evidence.id,
               comentario: evidence.comment.trim(),
-              foto: evidence.photo
-                ? {
-                    name: evidence.photo.name,
-                    size: evidence.photo.size,
-                    type: evidence.photo.type,
-                    data_url: await buildImagePreviewDataUrl(evidence.photo),
-                  }
-                : null,
+              foto: evidence.photo ? await buildCompressedImageAttachment(evidence.photo) : null,
             })),
           );
           const validEvidencias = evidencias.filter(
@@ -1467,12 +1460,7 @@ const InvestigacaoAcidente2 = () => {
       );
 
       const serializedAnexos = await Promise.all(
-        attachments.map(async (file) => ({
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          data_url: await buildImagePreviewDataUrl(file),
-        })),
+        attachments.map((file) => buildCompressedImageAttachment(file)),
       );
 
       const payloadId =

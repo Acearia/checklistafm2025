@@ -8,6 +8,8 @@ export interface AttachmentLike {
 }
 
 const IMAGE_EXTENSION_REGEX = /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif)$/i;
+const DEFAULT_IMAGE_MAX_SIZE = 1024;
+const DEFAULT_IMAGE_QUALITY = 0.62;
 
 export const isImageAttachment = (file: AttachmentLike) => {
   const mimeType = String(file?.type || "").toLowerCase();
@@ -82,8 +84,8 @@ export const buildImagePreviewDataUrl = async (
 ) => {
   if (!isImageAttachment(file)) return "";
 
-  const maxSize = options?.maxSize ?? 1280;
-  const quality = options?.quality ?? 0.72;
+  const maxSize = options?.maxSize ?? DEFAULT_IMAGE_MAX_SIZE;
+  const quality = options?.quality ?? DEFAULT_IMAGE_QUALITY;
 
   try {
     return await resizeImageToDataUrl(file, maxSize, quality);
@@ -92,3 +94,29 @@ export const buildImagePreviewDataUrl = async (
   }
 };
 
+export const estimateDataUrlBytes = (dataUrl: string) => {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  if (!base64) return 0;
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((base64.length * 3) / 4) - padding);
+};
+
+export const buildCompressedImageAttachment = async (
+  file: File,
+  options?: {
+    maxSize?: number;
+    quality?: number;
+  },
+) => {
+  const dataUrl = isImageAttachment(file)
+    ? await buildImagePreviewDataUrl(file, options)
+    : await readFileAsDataUrl(file);
+  const compressedSize = estimateDataUrlBytes(dataUrl);
+
+  return {
+    name: file.name,
+    size: compressedSize || file.size,
+    type: isImageAttachment(file) ? "image/jpeg" : file.type,
+    data_url: dataUrl,
+  };
+};
