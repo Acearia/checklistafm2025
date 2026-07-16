@@ -705,7 +705,7 @@ const InspecaoAmbiental = () => {
         title: savedRemotely ? "Inspeção ambiental salva" : "Inspeção ambiental salva neste aparelho",
         description: savedRemotely
           ? `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`
-          : "A conexão oscilou. O registro ficou guardado e será sincronizado quando o painel abrir com internet.",
+          : "A conexão oscilou. O registro ficou guardado e será enviado automaticamente quando a internet voltar.",
       });
       setSuccessInspectionNumber(savedNumber || null);
       setSubmissionSuccess(true);

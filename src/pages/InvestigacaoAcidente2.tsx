@@ -35,6 +35,7 @@ import {
   operatorService,
   type AccidentActionPlanRecordPayload,
 } from "@/lib/supabase-service";
+import { upsertLocalGoldenRule } from "@/lib/goldenRuleOffline";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -1533,9 +1534,7 @@ const InvestigacaoAcidente2 = () => {
       };
 
       if (!savedRemotely) {
-        const updatedRecords = [payload, ...existingRecords.filter((item: any) => item?.id !== payloadId)];
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedRecords));
-        window.dispatchEvent(new Event(STORAGE_EVENT));
+        upsertLocalGoldenRule(payload);
       } else {
         try {
           const lightweightRecords = existingRecords

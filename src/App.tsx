@@ -1,5 +1,6 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import OfflineSyncManager from "./components/OfflineSyncManager";
 
 const Index = lazy(() => import("./pages/Index"));
 const Checklist = lazy(() => import("./pages/Checklist"));
@@ -48,6 +49,7 @@ const RouteLoader = () => (
 function App() {
   return (
     <Router>
+      <OfflineSyncManager />
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
