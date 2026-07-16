@@ -784,7 +784,7 @@ const AdminRegrasOuro = () => {
     const localPlans = parsePlanosAcao();
 
     try {
-      const remotePlans = (await accidentActionPlanService.safeGetAllWithFallback())
+      const remotePlans = (await accidentActionPlanService.safeGetListWithFallback())
         .map(mapPlanoAcaoSummary)
         .filter((item): item is PlanoAcaoSummary => Boolean(item));
       const mergedPlans = new Map<number, PlanoAcaoSummary>();
@@ -805,7 +805,7 @@ const AdminRegrasOuro = () => {
     }
 
     try {
-      let remoteRows = await goldenRuleService.safeGetAllWithFallback();
+      let remoteRows = await goldenRuleService.safeGetListWithFallback();
       let remoteRecords = mapSupabaseRegrasOuro(remoteRows);
 
       if (localRecords.length > 0) {
@@ -829,7 +829,7 @@ const AdminRegrasOuro = () => {
             });
           }
 
-          remoteRows = await goldenRuleService.safeGetAllWithFallback();
+          remoteRows = await goldenRuleService.safeGetListWithFallback();
           remoteRecords = mapSupabaseRegrasOuro(remoteRows);
         }
       }

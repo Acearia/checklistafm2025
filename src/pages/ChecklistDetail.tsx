@@ -37,6 +37,7 @@ import {
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import { inspectionService } from "@/lib/supabase-service";
 
 interface ChecklistItem {
   id: string;
@@ -215,7 +216,7 @@ const ChecklistDetail = () => {
       return;
     }
 
-    const loadInspection = () => {
+    const loadInspection = async () => {
       setIsLoading(true);
       
       try {
@@ -270,6 +271,17 @@ const ChecklistDetail = () => {
           return;
         }
 
+        const remoteInspection = await inspectionService.getById(id);
+        if (remoteInspection) {
+          const normalized = normalizeSupabaseInspection(remoteInspection);
+          setInspection(normalized);
+          setObservations(normalized.observations || "");
+          setArchived(false);
+          setSignature(normalized.signature || null);
+          setCanEdit(false);
+          return;
+        }
+
         toast({
           title: "Checklist não encontrado",
           description: "O checklist solicitado não foi encontrado",
@@ -288,7 +300,7 @@ const ChecklistDetail = () => {
       }
     };
     
-    loadInspection();
+    void loadInspection();
   }, [
     id,
     navigate,
@@ -700,4 +712,3 @@ const ChecklistDetail = () => {
 };
 
 export default ChecklistDetail;
-

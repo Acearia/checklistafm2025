@@ -462,14 +462,14 @@ const AdminPlanosAcao = () => {
 
     try {
       try {
-        const rules = await goldenRuleService.safeGetAllWithFallback();
+        const rules = await goldenRuleService.safeGetListWithFallback();
         setGoldenRules(Array.isArray(rules) ? rules : []);
       } catch (error) {
         console.warn("Erro ao carregar regras de ouro para visualizacao do plano:", error);
         setGoldenRules([]);
       }
 
-      const remoteRows = await accidentActionPlanService.safeGetAllWithFallback();
+      const remoteRows = await accidentActionPlanService.safeGetListWithFallback();
       if (remoteRows.length === 0) {
         setRecords(localRecords);
         return;

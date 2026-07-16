@@ -470,6 +470,47 @@ export const checklistService = {
 
 // Inspections
 export const inspectionService = {
+  async getList(limit?: number) {
+    const inspections: any[] = [];
+    const requestedLimit = Number(limit || 0);
+    const hasLimit = Number.isFinite(requestedLimit) && requestedLimit > 0;
+
+    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+      const remaining = hasLimit ? requestedLimit - inspections.length : SUPABASE_PAGE_SIZE;
+      if (hasLimit && remaining <= 0) break;
+
+      const pageSize = hasLimit ? Math.min(SUPABASE_PAGE_SIZE, remaining) : SUPABASE_PAGE_SIZE;
+      const to = from + pageSize - 1;
+
+      const { data, error } = await supabase
+        .from("inspections")
+        .select(`
+          id,
+          created_at,
+          updated_at,
+          inspection_date,
+          submission_date,
+          equipment_id,
+          operator_matricula,
+          checklist_answers,
+          comments,
+          operator:operators!inspections_operator_matricula_fkey(id, name, matricula),
+          equipment:equipment(id, name, kp, sector, type)
+        `)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      inspections.push(...data);
+      if (data.length < pageSize) break;
+    }
+
+    return inspections;
+  },
+
   async getAll() {
     const inspections: Array<
       Inspection & {
@@ -1304,6 +1345,22 @@ export const goldenRuleService = {
     });
   },
 
+  async getList(limit = 300) {
+    const { data, error } = await supabase
+      .from("golden_rules")
+      .select("id, numero_inspecao, titulo, setor, gestor, tecnico_seg, acompanhante, ass_tst, ass_gestor, ass_acomp, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return this.hydrateRulesWithRelations(data || [], {
+      includeAttachments: false,
+      includeEvidencePayloads: false,
+      includeResponseImageData: false,
+      includeAttachmentImageData: false,
+    });
+  },
+
   async getById(id: string) {
     const { data, error } = await supabase
       .from("golden_rules")
@@ -1527,6 +1584,15 @@ export const goldenRuleService = {
     }
   },
 
+  async safeGetListWithFallback(limit = 300) {
+    try {
+      return await this.getList(limit);
+    } catch (error) {
+      if (relationMissingError(error, "golden_rules")) return [];
+      throw error;
+    }
+  },
+
   async syncLocalRecords(records: GoldenRuleRecordPayload[]) {
     const syncedIds: string[] = [];
     const failedIds: string[] = [];
@@ -1738,6 +1804,41 @@ export const environmentalInspectionService = {
 };
 
 export const accidentActionPlanService = {
+  async getList(limit = 400) {
+    const { data, error } = await supabase
+      .from("accident_action_plans")
+      .select(`
+        id,
+        created_at,
+        updated_at,
+        numero_plano,
+        numero_ocorrencia,
+        data_ocorrencia,
+        prioridade_ocorrencia,
+        descricao_ocorrencia,
+        origem,
+        descricao_resumida_acao,
+        severidade,
+        probabilidade,
+        prioridade,
+        status,
+        responsavel_execucao,
+        inicio_planejado,
+        termino_planejado,
+        acao_iniciada,
+        acao_finalizada,
+        descricao_acao,
+        observacoes_conclusao,
+        data_eficacia,
+        observacao_eficacia
+      `)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async getAll() {
     const withComments = await supabase
       .from("accident_action_plans")
@@ -1885,6 +1986,15 @@ export const accidentActionPlanService = {
   async safeGetAllWithFallback() {
     try {
       return await this.getAll();
+    } catch (error) {
+      if (relationMissingError(error, "accident_action_plans")) return [];
+      throw error;
+    }
+  },
+
+  async safeGetListWithFallback(limit = 400) {
+    try {
+      return await this.getList(limit);
     } catch (error) {
       if (relationMissingError(error, "accident_action_plans")) return [];
       throw error;

@@ -1,5 +1,5 @@
 ﻿
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -202,10 +202,40 @@ const AdminInspections = () => {
     };
   }, []);
 
-  const handleViewDetails = (inspection: any) => {
+  const handleViewDetails = useCallback(async (inspection: any) => {
     setSelectedInspection(inspection);
     setIsDialogOpen(true);
-  };
+
+    const inspectionId = String(inspection?.id ?? inspection?.inspection_id ?? "").trim();
+    if (!inspectionId) return;
+
+    try {
+      const detail = await inspectionService.getById(inspectionId);
+      if (!detail) return;
+
+      setSelectedInspection((current: any) => {
+        const currentId = String(current?.id ?? current?.inspection_id ?? "").trim();
+        const base = currentId === inspectionId ? current : inspection;
+
+        return {
+          ...base,
+          ...detail,
+          checklist_answers: base?.checklist_answers || detail.checklist_answers,
+          problemItems: base?.problemItems || [],
+          problemCount: Number(base?.problemCount || 0),
+          conformitySummary: base?.conformitySummary,
+          hasOpenOrder: Boolean(base?.hasOpenOrder),
+        };
+      });
+    } catch (error) {
+      console.error("Erro ao carregar detalhes da inspecao:", error);
+      toast({
+        title: "Detalhes incompletos",
+        description: "A lista abriu, mas nao foi possivel carregar fotos e assinatura desta inspecao.",
+        variant: "destructive",
+      });
+    }
+  }, [toast]);
 
   const handleDeleteInspection = async (inspection: any) => {
     if (!isAdmUser) {

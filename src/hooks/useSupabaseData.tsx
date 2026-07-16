@@ -74,7 +74,7 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
       },
       {
         queryKey: ["inspections"],
-        queryFn: () => inspectionService.getAll(),
+        queryFn: () => inspectionService.getList(),
         staleTime: STALE_TIME_MS / 2,
         enabled: enabledResources.has("inspections"),
       },
