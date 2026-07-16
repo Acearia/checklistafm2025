@@ -119,6 +119,7 @@ interface PlanoAcaoContext {
 }
 
 interface ActionPlanDraft {
+  id: string;
   descricao_resumida_acao: string;
   responsavel_execucao: string;
   inicio_planejado: string;
@@ -605,7 +606,11 @@ const parseStoredActionPlans = (): Array<Record<string, unknown>> => {
   }
 };
 
-const createActionPlanDraft = (_item: QuestionItem, _response: QuestionState): ActionPlanDraft => ({
+const createActionPlanDraft = (_item: QuestionItem, _response?: QuestionState): ActionPlanDraft => ({
+  id:
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`,
   descricao_resumida_acao: "",
   responsavel_execucao: "",
   inicio_planejado: "",
@@ -690,11 +695,11 @@ const openPlanoAcaoForQuestion = (
   },
   openQuestionId: string | null,
   setOpenQuestionId: React.Dispatch<React.SetStateAction<string | null>>,
-  setActionPlanDrafts: React.Dispatch<React.SetStateAction<Record<string, ActionPlanDraft>>>,
+  setActionPlanDrafts: React.Dispatch<React.SetStateAction<Record<string, ActionPlanDraft[]>>>,
 ) => {
   setOpenQuestionId((previous) => (previous === item.id ? null : item.id));
   setActionPlanDrafts((previous) =>
-    previous[item.id] ? previous : { ...previous, [item.id]: createActionPlanDraft(item, response) },
+    previous[item.id]?.length ? previous : { ...previous, [item.id]: [createActionPlanDraft(item, response)] },
   );
 };
 
@@ -704,6 +709,7 @@ const buildActionPlanPayloadForQuestion = (
   draft: ActionPlanDraft,
   savedRecord: InvestigacaoChecklistRecord,
   finalInspectionNumber: number,
+  planIndex = 0,
 ): AccidentActionPlanRecordPayload => {
   const now = new Date().toISOString();
   const questionContext = buildQuestionPlanoAcaoContext(item, response, {
@@ -732,7 +738,10 @@ const buildActionPlanPayloadForQuestion = (
       .join(""),
     origem: "Regra de Ouro",
     descricao_resumida_acao:
-      draft.descricao_resumida_acao.trim() || questionContext.descricao_resumida_acao || `Tratar irregularidade da pergunta ${item.numero}`,
+      draft.descricao_resumida_acao.trim() ||
+      (planIndex > 0
+        ? `Tratar irregularidade da pergunta ${item.numero} - acao ${planIndex + 1}`
+        : questionContext.descricao_resumida_acao || `Tratar irregularidade da pergunta ${item.numero}`),
     severidade: "",
     probabilidade: "",
     prioridade: "Baixa",
@@ -768,7 +777,7 @@ const persistActionPlansForInspection = async (
   savedRecord: InvestigacaoChecklistRecord,
   finalInspectionNumber: number,
   responses: Record<string, QuestionState>,
-  actionPlanDrafts: Record<string, ActionPlanDraft>,
+  actionPlanDrafts: Record<string, ActionPlanDraft[]>,
   questions: QuestionItem[] = QUESTION_ITEMS,
 ) => {
   const nonConformingItems = questions.filter((item) =>
@@ -781,51 +790,65 @@ const persistActionPlansForInspection = async (
 
   const existingPlans = parseStoredActionPlans();
   const persistedPlans = [...existingPlans];
+  let savedPlansCount = 0;
 
   for (const item of nonConformingItems) {
     const response = responses[item.id];
     if (!response) continue;
 
-    const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
-    const payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
-    storePlanoAcaoContext({
-      fonte: "regra-ouro",
-      registro_id: savedRecord.id,
-      numero_referencia: finalInspectionNumber,
-      data_referencia: savedRecord.created_at,
-      titulo: savedRecord.titulo,
-      setor: savedRecord.setor,
-      tecnico: savedRecord.tecnico_seg,
-      descricao_ocorrencia: payload.descricao_ocorrencia || "",
-      origem: payload.origem || "Regra de Ouro",
-      descricao_resumida_acao: payload.descricao_resumida_acao || "",
-      descricao_acao: payload.descricao_acao || "",
-      question_id: item.id,
-      question_numero: item.numero,
-      question_texto: item.texto,
-      question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
-    });
+    const drafts = actionPlanDrafts[item.id]?.length
+      ? actionPlanDrafts[item.id]
+      : [createActionPlanDraft(item, response)];
 
-    try {
-      await accidentActionPlanService.upsertFromLegacy(payload);
-    } catch (error) {
-      if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
-        console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+    for (const [planIndex, draft] of drafts.entries()) {
+      const payload = buildActionPlanPayloadForQuestion(
+        item,
+        response,
+        draft,
+        savedRecord,
+        finalInspectionNumber,
+        planIndex,
+      );
+      storePlanoAcaoContext({
+        fonte: "regra-ouro",
+        registro_id: savedRecord.id,
+        numero_referencia: finalInspectionNumber,
+        data_referencia: savedRecord.created_at,
+        titulo: savedRecord.titulo,
+        setor: savedRecord.setor,
+        tecnico: savedRecord.tecnico_seg,
+        descricao_ocorrencia: payload.descricao_ocorrencia || "",
+        origem: payload.origem || "Regra de Ouro",
+        descricao_resumida_acao: payload.descricao_resumida_acao || "",
+        descricao_acao: payload.descricao_acao || "",
+        question_id: item.id,
+        question_numero: item.numero,
+        question_texto: item.texto,
+        question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
+      });
+
+      try {
+        await accidentActionPlanService.upsertFromLegacy(payload);
+      } catch (error) {
+        if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
+          console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+        }
       }
-    }
 
-    const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
-    if (existingIndex >= 0) {
-      persistedPlans[existingIndex] = payload;
-    } else {
-      persistedPlans.unshift(payload);
+      const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
+      if (existingIndex >= 0) {
+        persistedPlans[existingIndex] = payload;
+      } else {
+        persistedPlans.unshift(payload);
+      }
+      savedPlansCount += 1;
     }
   }
 
   localStorage.setItem(ACTION_PLAN_STORAGE_KEY, JSON.stringify(persistedPlans));
   window.dispatchEvent(new Event(ACTION_PLAN_STORAGE_EVENT));
 
-  return nonConformingItems.length;
+  return savedPlansCount;
 };
 
 const getAnswerTone = (answer: QuestionAnswer) => {
@@ -915,7 +938,7 @@ const InvestigacaoAcidente2 = () => {
     "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.",
   );
   const [openActionPlanQuestionId, setOpenActionPlanQuestionId] = useState<string | null>(null);
-  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft>>({});
+  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft[]>>({});
   useEffect(() => {
     setResponses((previous) => createInitialResponses(questionItems, previous));
   }, [questionItems]);
@@ -939,7 +962,7 @@ const InvestigacaoAcidente2 = () => {
         const response = responses[item.id];
         if (!response) return;
         if (isResponseOutOfPattern(item.id, normalizeText(response.answer).trim() as QuestionAnswer, questionItems) && !next[item.id]) {
-          next[item.id] = createActionPlanDraft(item, response);
+          next[item.id] = [createActionPlanDraft(item, response)];
           changed = true;
         }
       });
@@ -1339,19 +1362,43 @@ const InvestigacaoAcidente2 = () => {
     });
   };
 
-  const updateActionPlanDraft = (questionId: string, patch: Partial<ActionPlanDraft>) => {
+  const addActionPlanDraft = (questionId: string) => {
+    const question = questionItems.find((item) => item.id === questionId);
+    if (!question) return;
+
+    setActionPlanDrafts((previous) => ({
+      ...previous,
+      [questionId]: [
+        ...(previous[questionId] || []),
+        createActionPlanDraft(question, responses[questionId]),
+      ],
+    }));
+  };
+
+  const removeActionPlanDraft = (questionId: string, draftId: string) => {
+    setActionPlanDrafts((previous) => {
+      const currentDrafts = previous[questionId] || [];
+      if (currentDrafts.length <= 1) return previous;
+
+      return {
+        ...previous,
+        [questionId]: currentDrafts.filter((draft) => draft.id !== draftId),
+      };
+    });
+  };
+
+  const updateActionPlanDraft = (questionId: string, draftId: string, patch: Partial<ActionPlanDraft>) => {
     const question = questionItems.find((item) => item.id === questionId);
     if (!question) return;
 
     setActionPlanDrafts((previous) => {
       const response = responses[questionId];
-      const baseDraft = previous[questionId] || createActionPlanDraft(question, response);
+      const currentDrafts = previous[questionId]?.length ? previous[questionId] : [createActionPlanDraft(question, response)];
       return {
         ...previous,
-        [questionId]: {
-          ...baseDraft,
-          ...patch,
-        },
+        [questionId]: currentDrafts.map((draft) =>
+          draft.id === draftId ? { ...draft, ...patch } : draft,
+        ),
       };
     });
   };
@@ -1388,12 +1435,13 @@ const InvestigacaoAcidente2 = () => {
       }
 
     if (requiresEvidence) {
-        const draft = actionPlanDrafts[item.id];
-        if (!draft) {
+        const drafts = actionPlanDrafts[item.id] || [];
+        if (drafts.length === 0) {
           return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
         }
-        if (!draft.descricao_acao.trim()) {
-          return `Preencha a descrição da ação do item ${item.numero}.`;
+        const incompleteDraftIndex = drafts.findIndex((draft) => !draft.descricao_acao.trim());
+        if (incompleteDraftIndex >= 0) {
+          return `Preencha a descrição da ação ${incompleteDraftIndex + 1} do item ${item.numero}.`;
         }
       }
 
@@ -1959,7 +2007,10 @@ const InvestigacaoAcidente2 = () => {
                       </div>
 
                       {(() => {
-                        const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
+                        const drafts = actionPlanDrafts[item.id]?.length
+                          ? actionPlanDrafts[item.id]
+                          : [createActionPlanDraft(item, response)];
+                        const draft = drafts[0];
 
                         return (
                           <>
@@ -1970,7 +2021,7 @@ const InvestigacaoAcidente2 = () => {
                                   id={`plano-resumo-${item.id}`}
                                   value={draft.descricao_resumida_acao}
                                   onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
+                                  updateActionPlanDraft(item.id, draft.id, {
                                       descricao_resumida_acao: event.target.value,
                                     })
                                   }
@@ -1982,7 +2033,7 @@ const InvestigacaoAcidente2 = () => {
                                 <SearchableStringSelect
                                   value={draft.responsavel_execucao}
                                   onValueChange={(value) =>
-                                    updateActionPlanDraft(item.id, {
+                                    updateActionPlanDraft(item.id, draft.id, {
                                       responsavel_execucao: value,
                                     })
                                   }
@@ -2003,7 +2054,7 @@ const InvestigacaoAcidente2 = () => {
                                   type="date"
                                   value={draft.inicio_planejado}
                                   onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
+                                    updateActionPlanDraft(item.id, draft.id, {
                                       inicio_planejado: event.target.value,
                                     })
                                   }
@@ -2017,7 +2068,7 @@ const InvestigacaoAcidente2 = () => {
                                   type="date"
                                   value={draft.termino_planejado}
                                   onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
+                                    updateActionPlanDraft(item.id, draft.id, {
                                       termino_planejado: event.target.value,
                                     })
                                   }
@@ -2032,12 +2083,119 @@ const InvestigacaoAcidente2 = () => {
                                 rows={4}
                                 value={draft.descricao_acao}
                                 onChange={(event) =>
-                                  updateActionPlanDraft(item.id, {
+                                    updateActionPlanDraft(item.id, draft.id, {
                                     descricao_acao: event.target.value,
                                   })
                                 }
                               />
                             </div>
+
+                            {drafts.slice(1).map((extraDraft, extraIndex) => (
+                              <div
+                                key={extraDraft.id}
+                                className="space-y-3 rounded-lg border border-emerald-200 bg-white p-3"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-emerald-900">
+                                    Plano de ação {extraIndex + 2}
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => removeActionPlanDraft(item.id, extraDraft.id)}
+                                  >
+                                    Remover plano
+                                  </Button>
+                                </div>
+
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-resumo-${item.id}-${extraDraft.id}`}>Resumo da ação *</Label>
+                                    <Input
+                                      id={`plano-resumo-${item.id}-${extraDraft.id}`}
+                                      value={extraDraft.descricao_resumida_acao}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, extraDraft.id, {
+                                          descricao_resumida_acao: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-responsavel-${item.id}-${extraDraft.id}`}>Responsável *</Label>
+                                    <SearchableStringSelect
+                                      value={extraDraft.responsavel_execucao}
+                                      onValueChange={(value) =>
+                                        updateActionPlanDraft(item.id, extraDraft.id, {
+                                          responsavel_execucao: value,
+                                        })
+                                      }
+                                      options={withCurrentSearchableStringOption(
+                                        responsavelExecucaoOptions,
+                                        extraDraft.responsavel_execucao,
+                                      )}
+                                      placeholder="Selecionar responsável"
+                                      searchPlaceholder="Buscar responsável..."
+                                      emptyText="Nenhuma pessoa encontrada."
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-inicio-${item.id}-${extraDraft.id}`}>Início planejado</Label>
+                                    <Input
+                                      id={`plano-inicio-${item.id}-${extraDraft.id}`}
+                                      type="date"
+                                      value={extraDraft.inicio_planejado}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, extraDraft.id, {
+                                          inicio_planejado: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-prazo-${item.id}-${extraDraft.id}`}>Prazo final</Label>
+                                    <Input
+                                      id={`plano-prazo-${item.id}-${extraDraft.id}`}
+                                      type="date"
+                                      value={extraDraft.termino_planejado}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, extraDraft.id, {
+                                          termino_planejado: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor={`plano-descricao-${item.id}-${extraDraft.id}`}>Descrição da ação *</Label>
+                                  <Textarea
+                                    id={`plano-descricao-${item.id}-${extraDraft.id}`}
+                                    rows={4}
+                                    value={extraDraft.descricao_acao}
+                                    onChange={(event) =>
+                                      updateActionPlanDraft(item.id, extraDraft.id, {
+                                        descricao_acao: event.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ))}
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => addActionPlanDraft(item.id)}
+                            >
+                              Adicionar outro plano de ação
+                            </Button>
                           </>
                         );
                       })()}
