@@ -1565,19 +1565,31 @@ const AdminRegrasOuro = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[1280px] table-fixed">
+                <colgroup>
+                  <col className="w-[58px]" />
+                  <col className="w-[112px]" />
+                  <col className="w-[210px]" />
+                  <col className="w-[135px]" />
+                  <col className="w-[115px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[135px]" />
+                  <col className="w-[150px]" />
+                  <col className="w-[135px]" />
+                  <col className="w-[320px]" />
+                </colgroup>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>N</TableHead>
-                    <TableHead>Data/Hora</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead>Setor</TableHead>
-                    <TableHead>Trava 15 dias</TableHead>
-                    <TableHead>Técnico</TableHead>
-                    <TableHead>Gestor</TableHead>
-                    <TableHead>Conformidade</TableHead>
-                    <TableHead>Não conformidade</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="px-3">N</TableHead>
+                    <TableHead className="px-3">Data/Hora</TableHead>
+                    <TableHead className="px-3">Título</TableHead>
+                    <TableHead className="px-3">Setor</TableHead>
+                    <TableHead className="px-3">Trava</TableHead>
+                    <TableHead className="px-3">Técnico</TableHead>
+                    <TableHead className="px-3">Gestor</TableHead>
+                    <TableHead className="px-3">Conformidade</TableHead>
+                    <TableHead className="px-3">Status</TableHead>
+                    <TableHead className="px-3 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1592,24 +1604,28 @@ const AdminRegrasOuro = () => {
 
                     return (
                       <TableRow key={item.id}>
-                        <TableCell>{formatInspectionNumber(item.numero_inspecao)}</TableCell>
-                        <TableCell>{formatDateTime(item.created_at)}</TableCell>
-                        <TableCell className="max-w-[260px] truncate">{item.titulo || "N/A"}</TableCell>
-                        <TableCell>{item.setor || "N/A"}</TableCell>
-                        <TableCell>
+                        <TableCell className="px-3">{formatInspectionNumber(item.numero_inspecao)}</TableCell>
+                        <TableCell className="px-3 text-xs">{formatDateTime(item.created_at)}</TableCell>
+                        <TableCell className="truncate px-3" title={item.titulo || "N/A"}>
+                          {item.titulo || "N/A"}
+                        </TableCell>
+                        <TableCell className="truncate px-3" title={item.setor || "N/A"}>
+                          {item.setor || "N/A"}
+                        </TableCell>
+                        <TableCell className="px-3">
                           {sectorLock ? (
                             <div className="space-y-1">
                               <Badge variant={isQuestionLocked ? "destructive" : "secondary"}>
                                 {isQuestionLocked ? "Bloqueado" : "Liberado"}
                               </Badge>
-                              <div className="text-xs text-gray-600">
+                              <div className="text-[11px] text-gray-600">
                                 {isQuestionLocked ? (
                                   <>
-                                    Retorna em {format(sectorLock.unlockAt as Date, "dd/MM/yyyy")}
+                                    {format(sectorLock.unlockAt as Date, "dd/MM/yyyy")}
                                   </>
                                 ) : (
                                   <>
-                                    Última em {format(sectorLock.lastInspectionAt as Date, "dd/MM/yyyy")}
+                                    {format(sectorLock.lastInspectionAt as Date, "dd/MM/yyyy")}
                                   </>
                                 )}
                               </div>
@@ -1618,10 +1634,14 @@ const AdminRegrasOuro = () => {
                             <Badge variant="outline">Sem histórico</Badge>
                           )}
                         </TableCell>
-                        <TableCell>{item.tecnico_seg || "N/A"}</TableCell>
-                        <TableCell>{item.gestor || "N/A"}</TableCell>
-                        <TableCell>
-                          <div className="min-w-[150px] space-y-1">
+                        <TableCell className="truncate px-3" title={item.tecnico_seg || "N/A"}>
+                          {item.tecnico_seg || "N/A"}
+                        </TableCell>
+                        <TableCell className="truncate px-3" title={item.gestor || "N/A"}>
+                          {item.gestor || "N/A"}
+                        </TableCell>
+                        <TableCell className="px-3">
+                          <div className="space-y-1">
                             <div className="flex items-center justify-between gap-2">
                               <span className={`text-xs font-semibold ${getConformityTextClasses(conformityPercent)}`}>
                                 {conformityPercent === null ? "N/A" : `${conformityPercent}%`}
@@ -1636,18 +1656,19 @@ const AdminRegrasOuro = () => {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="px-3">
                           <Badge variant={temNaoConformidade ? "destructive" : "secondary"}>
-                            {temNaoConformidade ? "Com não conformidade" : "Conforme"}
+                            {temNaoConformidade ? "Irregular" : "Conforme"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <TableCell className="px-3 text-right">
+                          <div className="flex items-center justify-end gap-1 whitespace-nowrap">
                             {temNaoConformidade && (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
+                                className="px-2"
                                 onClick={() => handleStartPlanoAcao(item)}
                               >
                                 {planoVinculado ? (
@@ -1655,23 +1676,23 @@ const AdminRegrasOuro = () => {
                                 ) : (
                                   <PlusCircle className="mr-2 h-4 w-4" />
                                 )}
-                                {planoVinculado ? "Ver plano de acao" : "Plano de acao"}
+                                {planoVinculado ? "Ver plano" : "Plano"}
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm" onClick={() => void handleExportRecordPdf(item)}>
+                            <Button variant="ghost" size="sm" className="px-2" onClick={() => void handleExportRecordPdf(item)}>
                               <FileText className="mr-2 h-4 w-4" />
                               PDF
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => void handleViewDetails(item)}>
+                            <Button variant="ghost" size="sm" className="px-2" onClick={() => void handleViewDetails(item)}>
                               <Eye className="mr-2 h-4 w-4" />
-                              Detalhes
+                              Ver
                             </Button>
-            {canDeleteRecords && (
+                            {canDeleteRecords && (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700"
+                                className="px-2 text-red-600 hover:text-red-700"
                                 onClick={() => handleDeleteRecord(item)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
