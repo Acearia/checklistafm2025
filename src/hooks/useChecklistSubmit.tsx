@@ -7,6 +7,11 @@ import { getTodayLocalDateKey } from "@/lib/dateHelpers";
 import { isDatabaseConnected } from "@/lib/dataInitializer";
 import { appendChecklistAlert } from "@/lib/checklistTemplate";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
+import {
+  createLocalInspectionId,
+  removeLocalInspections,
+  upsertLocalInspection,
+} from "@/lib/inspectionOffline";
 import type { ChecklistAlert } from "@/lib/types";
 
 interface ChecklistAlertPreviewItem {
@@ -146,8 +151,9 @@ export const useChecklistSubmit = () => {
       // Save signature to state
       saveChecklistState({ signature });
       
+      const payloadId = createLocalInspectionId();
       const formData = {
-        id: Date.now().toString(),
+        id: payloadId,
         operator: currentState.operator,
         equipment: currentState.equipment,
         checklist: currentState.checklist,
@@ -157,6 +163,11 @@ export const useChecklistSubmit = () => {
         inspectionDate,
         submissionDate: new Date().toISOString(),
       };
+
+      upsertLocalInspection({
+        id: payloadId,
+        legacy: formData,
+      });
 
       const alertsGenerated = createAlertsForChecklist(formData.id);
 
@@ -188,7 +199,8 @@ export const useChecklistSubmit = () => {
             alertOnNo: item.alertOnNo ?? false,
           }));
 
-          await inspectionService.create({
+          const inspectionPayload = {
+            id: payloadId,
             operator_matricula: operatorMatricula,
             equipment_id: equipmentMatch.id,
             inspection_date: inspectionDate,
@@ -197,7 +209,16 @@ export const useChecklistSubmit = () => {
             signature,
             photos: currentState.photos || [],
             checklist_answers: sanitizedChecklistAnswers
+          };
+
+          upsertLocalInspection({
+            id: payloadId,
+            payload: inspectionPayload,
+            legacy: formData,
           });
+
+          await inspectionService.create(inspectionPayload);
+          removeLocalInspections([payloadId]);
 
           toast({
             title: "Dados sincronizados",

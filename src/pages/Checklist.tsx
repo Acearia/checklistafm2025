@@ -29,6 +29,11 @@ import { ptBR } from "date-fns/locale";
 import { filterChecklistItemsByEquipmentType } from "@/lib/checklistQuestionsByEquipmentType";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { buildImagePreviewDataUrl } from "@/lib/attachmentPreview";
+import {
+  createLocalInspectionId,
+  removeLocalInspections,
+  upsertLocalInspection,
+} from "@/lib/inspectionOffline";
 import type { GroupQuestion } from "@/lib/types-compat";
 import { isEquipmentTypeMatch } from "@/lib/equipmentType";
 import {
@@ -632,11 +637,11 @@ const Checklist = () => {
     setIsSaving(true);
 
     try {
-      const { inspectionService } = await import('@/lib/supabase-service');
-
       const operatorMatricula = getOperatorIdentifier(selectedOperator);
+      const payloadId = createLocalInspectionId();
 
       const inspectionData = {
+        id: payloadId,
         operator_matricula: operatorMatricula,
         equipment_id: selectedEquipment!.id,
         inspection_date: inspectionDate,
@@ -653,8 +658,21 @@ const Checklist = () => {
         }))
       };
 
-      await inspectionService.create(inspectionData);
-      refresh();
+      upsertLocalInspection({
+        id: payloadId,
+        payload: inspectionData,
+      });
+
+      let savedRemotely = false;
+      try {
+        const { inspectionService } = await import('@/lib/supabase-service');
+        await inspectionService.create(inspectionData);
+        removeLocalInspections([payloadId]);
+        refresh();
+        savedRemotely = true;
+      } catch (syncError) {
+        console.warn("[Checklist] Banco indisponivel durante envio. Checklist salvo na fila local.", syncError);
+      }
 
       if (selectedEquipment?.sector) {
         try {
@@ -676,9 +694,11 @@ const Checklist = () => {
       }
 
       toast({
-        title: "Checklist enviado com sucesso!",
-        description: `Inspeção do equipamento ${selectedEquipment!.name} registrada`,
-        variant: "default",
+        title: savedRemotely ? "Checklist enviado com sucesso!" : "Checklist salvo neste aparelho",
+        description: savedRemotely
+          ? `Inspeção do equipamento ${selectedEquipment!.name} registrada`
+          : "A conexão oscilou. O registro será enviado automaticamente quando a internet estabilizar.",
+        variant: savedRemotely ? "default" : "destructive",
       });
 
       const equipmentName = selectedEquipment!.name;
