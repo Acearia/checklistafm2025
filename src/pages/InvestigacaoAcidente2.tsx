@@ -902,7 +902,6 @@ const InvestigacaoAcidente2 = () => {
     ass_acomp: string | null;
   }>(createInitialSignatures);
   const [attachments, setAttachments] = useState<File[]>([]);
-  const [signatureDialog, setSignatureDialog] = useState<SignatureKey | null>(null);
   const [manualPersonTarget, setManualPersonTarget] = useState<"gestor" | "acompanhante" | null>(null);
   const [manualPersonName, setManualPersonName] = useState("");
   const [manualPersonMatricula, setManualPersonMatricula] = useState("");
@@ -1605,7 +1604,11 @@ const InvestigacaoAcidente2 = () => {
       setIsSaving(false);
     }
   };
-  const signatureTargetLabel = signatureDialog ? SIGNATURE_LABELS[signatureDialog] : "";
+  const signaturePersonNames: Record<SignatureKey, string> = {
+    ass_tst: tecnicoSeg,
+    ass_gestor: gestor,
+    ass_acomp: acompanhante,
+  };
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6 lg:space-y-6">
@@ -2046,24 +2049,23 @@ const InvestigacaoAcidente2 = () => {
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {(Object.keys(SIGNATURE_LABELS) as SignatureKey[]).map((key) => (
-              <div key={key} className="rounded-lg border p-3">
-                <p className="mb-2 text-sm font-medium text-gray-700">{SIGNATURE_LABELS[key]}</p>
-
-                <div className="flex h-32 items-center justify-center rounded border bg-gray-50">
-                  {signatures[key] ? (
-                    <img
-                      src={signatures[key] || ""}
-                      alt={`Assinatura ${SIGNATURE_LABELS[key]}`}
-                      className="max-h-[120px] w-full object-contain"
-                    />
-                  ) : (
-                    <p className="text-xs text-gray-500">Sem assinatura</p>
-                  )}
+              <div key={key} className="rounded-lg border bg-white p-3">
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-gray-700">{SIGNATURE_LABELS[key]}</p>
+                  <p className="text-xs text-gray-500">
+                    {signaturePersonNames[key] || "Selecione a pessoa responsavel antes de enviar."}
+                  </p>
                 </div>
 
-                <Button type="button" variant="outline" className="mt-2 w-full" onClick={() => setSignatureDialog(key)}>
-                  {signatures[key] ? "Refazer assinatura" : "Assinar"}
-                </Button>
+                <SignatureCanvas
+                  initialSignature={signatures[key]}
+                  onSignatureChange={(signature) => {
+                    setSignatures((previous) => ({
+                      ...previous,
+                      [key]: signature,
+                    }));
+                  }}
+                />
               </div>
             ))}
           </CardContent>
@@ -2096,33 +2098,6 @@ const InvestigacaoAcidente2 = () => {
           </Button>
         </div>
       </form>
-
-      <Dialog open={Boolean(signatureDialog)} onOpenChange={(open) => !open && setSignatureDialog(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{signatureTargetLabel}</DialogTitle>
-            <DialogDescription>Use o dedo ou o mouse para registrar a assinatura.</DialogDescription>
-          </DialogHeader>
-
-          {signatureDialog && (
-            <SignatureCanvas
-              initialSignature={signatures[signatureDialog]}
-              onSignatureChange={(signature) => {
-                setSignatures((previous) => ({
-                  ...previous,
-                  [signatureDialog]: signature,
-                }));
-              }}
-            />
-          )}
-
-          <DialogFooter>
-            <Button type="button" onClick={() => setSignatureDialog(null)}>
-              Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog
         open={Boolean(manualPersonTarget)}
