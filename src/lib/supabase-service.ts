@@ -56,6 +56,46 @@ export type GoldenRuleQuestionInsert = TablesInsert<"golden_rule_questions">;
 export type GoldenRuleQuestionUpdate = TablesUpdate<"golden_rule_questions">;
 export type AccidentActionPlanInsert = TablesInsert<"accident_action_plans">;
 
+export interface AccidentInvestigationAttachmentPayload {
+  name?: string;
+  size?: number;
+  type?: string;
+  data_url?: string;
+  storage_path?: string | null;
+}
+
+export interface AccidentInvestigationRecordPayload {
+  id?: string;
+  numero_ocorrencia?: number;
+  titulo: string;
+  data_ocorrencia: string;
+  hora: string;
+  turno: string;
+  nome_acidentado: string;
+  matricula_acidentado?: string | null;
+  cargo: string;
+  setor: string;
+  tempo_empresa: string;
+  tempo_funcao: string;
+  natureza_ocorrencia: string;
+  mao_de_obra: string;
+  tipo_acidente: string;
+  teve_afastamento?: boolean | string | null;
+  dias_afastamento?: number | string | null;
+  gravidade: string;
+  probabilidade: string;
+  parte_corpo_atingida: string;
+  causa_raiz?: string | null;
+  agente_causador: string;
+  causa_acidente: string;
+  descricao_detalhada: string;
+  observacoes: string;
+  investigador: string;
+  whatsapp_resumo?: string | null;
+  created_at?: string;
+  attachments?: AccidentInvestigationAttachmentPayload[];
+}
+
 const SUPABASE_PAGE_SIZE = 1000;
 
 const normalizeSectorName = (value?: string | null) =>
@@ -1796,6 +1836,127 @@ export const environmentalInspectionService = {
         if (record.id) {
           failedIds.push(record.id);
         }
+      }
+    }
+
+    return { syncedIds, failedIds };
+  },
+};
+
+const normalizeBooleanAnswer = (value: unknown) => {
+  if (typeof value === "boolean") return value;
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+
+  return normalized === "sim" || normalized === "true" || normalized === "1";
+};
+
+const parseNullableInteger = (value: unknown) => {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+export const accidentInvestigationService = {
+  async getById(id: string) {
+    const { data, error } = await (supabase as any)
+      .from("accident_investigations")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async upsertFromLegacy(record: AccidentInvestigationRecordPayload) {
+    const row = {
+      id: record.id,
+      titulo: String(record.titulo || "Investigacao de acidente").trim(),
+      data_ocorrencia: record.data_ocorrencia,
+      hora: record.hora || "00:00",
+      turno: record.turno || "Geral",
+      nome_acidentado: record.nome_acidentado || "N/A",
+      matricula_acidentado: record.matricula_acidentado || null,
+      cargo: record.cargo || "N/A",
+      setor: record.setor || "N/A",
+      tempo_empresa: record.tempo_empresa || "N/A",
+      tempo_funcao: record.tempo_funcao || "N/A",
+      natureza_ocorrencia: record.natureza_ocorrencia || "Incidente",
+      mao_de_obra: record.mao_de_obra || "Direta",
+      tipo_acidente: record.tipo_acidente || "Tipico",
+      teve_afastamento: normalizeBooleanAnswer(record.teve_afastamento),
+      dias_afastamento: parseNullableInteger(record.dias_afastamento),
+      gravidade: record.gravidade || "Minima",
+      probabilidade: record.probabilidade || "Improvavel",
+      parte_corpo_atingida: record.parte_corpo_atingida || "N/A",
+      causa_raiz: record.causa_raiz || "N/A",
+      agente_causador: record.agente_causador || "N/A",
+      causa_acidente: record.causa_acidente || "N/A",
+      descricao_detalhada: record.descricao_detalhada || "N/A",
+      observacoes: record.observacoes || "N/A",
+      investigador: record.investigador || "N/A",
+      whatsapp_resumo: record.whatsapp_resumo || null,
+      created_at: record.created_at,
+    };
+
+    const { data: saved, error } = await (supabase as any)
+      .from("accident_investigations")
+      .upsert(row, { onConflict: "id" })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const attachments = Array.isArray(record.attachments) ? record.attachments : [];
+    if (saved?.id && attachments.length > 0) {
+      const { error: deleteError } = await (supabase as any)
+        .from("accident_investigation_attachments")
+        .delete()
+        .eq("investigation_id", saved.id);
+
+      if (deleteError) throw deleteError;
+
+      const attachmentRows = attachments.map((attachment) => ({
+        investigation_id: saved.id,
+        file_name: attachment.name || "arquivo",
+        file_size: Number(attachment.size) || 0,
+        file_type: attachment.type || null,
+        storage_path: attachment.storage_path || attachment.data_url || null,
+      }));
+
+      const { error: attachmentsError } = await (supabase as any)
+        .from("accident_investigation_attachments")
+        .insert(attachmentRows);
+
+      if (attachmentsError) throw attachmentsError;
+    }
+
+    return saved;
+  },
+
+  async syncLocalRecords(records: AccidentInvestigationRecordPayload[]) {
+    const syncedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const record of records) {
+      try {
+        if (record.id) {
+          const existing = await this.getById(record.id).catch(() => null);
+          if (existing) {
+            syncedIds.push(record.id);
+            continue;
+          }
+        }
+
+        const saved = await this.upsertFromLegacy(record);
+        const savedId = String((saved as any)?.id || record.id || "").trim();
+        if (savedId) syncedIds.push(savedId);
+      } catch (error) {
+        console.error("[accidentInvestigationService] Falha ao sincronizar investigacao local:", error);
+        if (record.id) failedIds.push(record.id);
       }
     }
 

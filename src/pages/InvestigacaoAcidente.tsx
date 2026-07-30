@@ -42,6 +42,9 @@ import {
 } from "@/lib/adminCredentials";
 import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
 import { useNavigate } from "react-router-dom";
+import { accidentInvestigationService } from "@/lib/supabase-service";
+import { isDeviceOnline } from "@/lib/connectivity";
+import { markLocalAccidentInvestigationPending } from "@/lib/accidentInvestigationOffline";
 
 type MaoDeObra = "Direta" | "Indireta";
 type TipoAcidente = "Tipico" | "Trajeto" | "Terceiros" | "Danos Morais" | "Ambiental";
@@ -91,6 +94,9 @@ interface InvestigacaoAcidenteRecord extends InvestigacaoAcidenteForm {
   id: string;
   created_at: string;
   attachments: AttachmentMeta[];
+  whatsapp_resumo?: string;
+  _sync_status?: "pending";
+  _saved_local_at?: string;
 }
 
 const STORAGE_KEY = "checklistafm-investigacoes-acidente";
@@ -1267,7 +1273,7 @@ const InvestigacaoAcidente = () => {
         attachments.map((file) => buildCompressedImageAttachment(file)),
       );
 
-      const payload: InvestigacaoAcidenteRecord = {
+      let payload: InvestigacaoAcidenteRecord = {
         ...form,
         setor: resolveFixedSectorName(form.setor),
         numero_ocorrencia: ocorrenciaNumero,
@@ -1280,7 +1286,32 @@ const InvestigacaoAcidente = () => {
         created_at: new Date().toISOString(),
         attachments: serializedAttachments,
         comissao_investigacao: form.membros_comissao.length > 0,
+        whatsapp_resumo: resumoWhatsapp,
       };
+
+      let savedRemotely = false;
+      if (await isDeviceOnline()) {
+        try {
+          const savedRemote = await accidentInvestigationService.upsertFromLegacy(payload);
+          const remoteNumber = Number((savedRemote as any)?.numero_ocorrencia);
+          if (Number.isFinite(remoteNumber)) {
+            payload = {
+              ...payload,
+              numero_ocorrencia: remoteNumber,
+            };
+          }
+          savedRemotely = true;
+        } catch (error) {
+          console.warn(
+            "[InvestigacaoAcidente] Banco indisponivel durante envio. Salvando investigacao localmente.",
+            error,
+          );
+        }
+      }
+
+      if (!savedRemotely) {
+        payload = markLocalAccidentInvestigationPending(payload);
+      }
 
       localStorage.setItem(
         STORAGE_KEY,
@@ -1290,8 +1321,10 @@ const InvestigacaoAcidente = () => {
       window.dispatchEvent(new Event("checklistafm-investigacao-acidente-updated"));
 
       toast({
-        title: "Investigacao enviada",
-        description: "Registro salvo com sucesso.",
+        title: savedRemotely ? "Investigacao enviada" : "Investigacao salva neste aparelho",
+        description: savedRemotely
+          ? "Registro salvo com sucesso."
+          : "A conexao oscilou. O registro sera enviado automaticamente quando a internet voltar.",
       });
 
       setSuccessOccurrenceNumber(ocorrenciaNumero);

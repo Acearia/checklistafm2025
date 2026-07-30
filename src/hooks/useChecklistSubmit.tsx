@@ -13,6 +13,7 @@ import {
   upsertLocalInspection,
 } from "@/lib/inspectionOffline";
 import type { ChecklistAlert } from "@/lib/types";
+import { isDeviceOnline } from "@/lib/connectivity";
 
 interface ChecklistAlertPreviewItem {
   id: string;
@@ -178,6 +179,9 @@ export const useChecklistSubmit = () => {
 
       // Try to save to Supabase
       try {
+        if (!(await isDeviceOnline())) {
+          throw new Error("Aparelho offline; envio adiado.");
+        }
         const { inspectionService, operatorService, equipmentService } = await import('@/lib/supabase-service');
         
         // Get operator and equipment IDs from Supabase

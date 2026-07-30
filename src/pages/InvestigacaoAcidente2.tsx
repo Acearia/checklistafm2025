@@ -36,6 +36,8 @@ import {
   type AccidentActionPlanRecordPayload,
 } from "@/lib/supabase-service";
 import { upsertLocalGoldenRule } from "@/lib/goldenRuleOffline";
+import { markLocalActionPlanPending } from "@/lib/actionPlanOffline";
+import { isDeviceOnline } from "@/lib/connectivity";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -787,7 +789,7 @@ const persistActionPlansForInspection = async (
     if (!response) continue;
 
     const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
-    const payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
+    let payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
     storePlanoAcaoContext({
       fonte: "regra-ouro",
       registro_id: savedRecord.id,
@@ -806,12 +808,20 @@ const persistActionPlansForInspection = async (
       question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
     });
 
-    try {
-      await accidentActionPlanService.upsertFromLegacy(payload);
-    } catch (error) {
-      if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
-        console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+    let planSavedRemotely = false;
+    if (await isDeviceOnline()) {
+      try {
+        await accidentActionPlanService.upsertFromLegacy(payload);
+        planSavedRemotely = true;
+      } catch (error) {
+        if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
+          console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+        }
       }
+    }
+
+    if (!planSavedRemotely) {
+      payload = markLocalActionPlanPending(payload);
     }
 
     const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
@@ -1470,7 +1480,7 @@ const InvestigacaoAcidente2 = () => {
       let finalInspectionNumber = fallbackNumber;
       let savedRemotely = false;
 
-      try {
+      if (await isDeviceOnline()) try {
         const savedRule = await goldenRuleService.upsertFromLegacy({
           id: payloadId,
           titulo: titulo.trim(),

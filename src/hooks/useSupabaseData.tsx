@@ -13,6 +13,7 @@ import {
   groupProcedureService,
   equipmentGroupService,
 } from "@/lib/supabase-service";
+import { fetchWithOfflineCache } from "@/lib/offlineResourceCache";
 
 const STALE_TIME_MS = 1000 * 60; // 1 minute
 
@@ -62,73 +63,79 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
     queries: [
       {
         queryKey: ["operators"],
-        queryFn: () => operatorService.getAll(),
+        queryFn: () => fetchWithOfflineCache("operators", () => operatorService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("operators"),
       },
       {
         queryKey: ["equipment"],
-        queryFn: () => equipmentService.getAll(),
+        queryFn: () => fetchWithOfflineCache("equipment", () => equipmentService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("equipment"),
       },
       {
         queryKey: ["inspections"],
-        queryFn: () => inspectionService.getList(),
+        queryFn: () => fetchWithOfflineCache("inspections", () => inspectionService.getList()),
         staleTime: STALE_TIME_MS / 2,
         enabled: enabledResources.has("inspections"),
       },
       {
         queryKey: ["checklist-items"],
-        queryFn: () => checklistService.getAll(),
+        queryFn: () => fetchWithOfflineCache("checklist-items", () => checklistService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("checklistItems"),
       },
       {
         queryKey: ["sectors"],
-        queryFn: () => sectorService.getAll(),
+        queryFn: () => fetchWithOfflineCache("sectors", () => sectorService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("sectors"),
       },
       {
         queryKey: ["leaders"],
-        queryFn: () => leaderService.getAll(),
+        queryFn: () => fetchWithOfflineCache("leaders", () => leaderService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("leaders"),
       },
       {
         queryKey: ["sector-leader-assignments"],
-        queryFn: () => sectorLeaderAssignmentService.getAll(),
+        queryFn: () =>
+          fetchWithOfflineCache("sector-leader-assignments", () =>
+            sectorLeaderAssignmentService.getAll(),
+          ),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("sectorLeaderAssignments"),
       },
       {
         queryKey: ["checklist-groups"],
-        queryFn: () => checklistGroupService.getAll(),
+        queryFn: () => fetchWithOfflineCache("checklist-groups", () => checklistGroupService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groups"),
       },
       {
         queryKey: ["group-questions"],
-        queryFn: () => groupQuestionService.getAll(),
+        queryFn: () => fetchWithOfflineCache("group-questions", () => groupQuestionService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groupQuestions"),
       },
       {
         queryKey: ["group-procedures"],
-        queryFn: () => groupProcedureService.getAll(),
+        queryFn: () => fetchWithOfflineCache("group-procedures", () => groupProcedureService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groupProcedures"),
       },
       {
         queryKey: ["golden-rule-questions"],
-        queryFn: () => goldenRuleQuestionService.safeGetAllWithFallback(),
+        queryFn: () =>
+          fetchWithOfflineCache("golden-rule-questions", () =>
+            goldenRuleQuestionService.safeGetAllWithFallback(),
+          ),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("goldenRuleQuestions"),
       },
       {
         queryKey: ["equipment-groups"],
-        queryFn: () => equipmentGroupService.getAll(),
+        queryFn: () => fetchWithOfflineCache("equipment-groups", () => equipmentGroupService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("equipmentGroups"),
       },

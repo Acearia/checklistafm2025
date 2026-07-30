@@ -16,6 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { accidentActionPlanService } from "@/lib/supabase-service";
+import { isDeviceOnline } from "@/lib/connectivity";
+import { markLocalActionPlanPending } from "@/lib/actionPlanOffline";
 
 type Severidade = "Minima" | "Mediana" | "Consideravel" | "Critica";
 type Probabilidade = "Improvavel" | "Pouco Provavel" | "Provavel" | "Altamente Provavel";
@@ -858,7 +860,8 @@ const PlanoAcaoAcidente = () => {
             comentarios: nextComentarios,
           };
 
-      try {
+      let savedRemotely = false;
+      if (await isDeviceOnline()) try {
         const savedRemote = await accidentActionPlanService.upsertFromLegacy({
           ...payload,
           comentarios: payload.comentarios,
@@ -866,6 +869,7 @@ const PlanoAcaoAcidente = () => {
         const normalized = savedRemote ? mapSupabasePlan(savedRemote) : null;
         if (normalized) {
           payload = normalized;
+          savedRemotely = true;
           console.log("Plano salvo no Supabase com sucesso");
         }
       } catch (error) {
@@ -875,6 +879,10 @@ const PlanoAcaoAcidente = () => {
         console.warn(
           "[PlanoAcaoAcidente] Salvando apenas localStorage (Supabase indisponivel ou erro).",
         );
+      }
+
+      if (!savedRemotely) {
+        payload = markLocalActionPlanPending(payload);
       }
 
       const updated = editingId
@@ -901,7 +909,9 @@ const PlanoAcaoAcidente = () => {
 
       toast({
         title: "Plano de acao salvo com sucesso",
-        description: `${editingId ? "Registro atualizado" : "Novo registro criado"}. Local e remoto.`,
+        description: savedRemotely
+          ? `${editingId ? "Registro atualizado" : "Novo registro criado"}. Local e remoto.`
+          : "Salvo neste aparelho e aguardando conexão para sincronizar.",
       });
       console.log("[PlanoAcao] Save completado com sucesso");
     } catch (error) {

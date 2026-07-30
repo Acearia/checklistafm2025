@@ -18,8 +18,12 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLocalDateKey } from "@/lib/dateHelpers";
 import { buildCompressedImageAttachment } from "@/lib/attachmentPreview";
-import { upsertLocalEnvironmentalInspection } from "@/lib/environmentalInspectionOffline";
+import {
+  removeLocalEnvironmentalInspections,
+  upsertLocalEnvironmentalInspection,
+} from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService, operatorService } from "@/lib/supabase-service";
+import { isDeviceOnline } from "@/lib/connectivity";
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
 
@@ -213,6 +217,7 @@ const InspecaoAmbiental = () => {
   const [processingPhotos, setProcessingPhotos] = useState(0);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [successInspectionNumber, setSuccessInspectionNumber] = useState<number | null>(null);
+  const [successSavedRemotely, setSuccessSavedRemotely] = useState(false);
 
   const sortedSectors = useMemo(
     () =>
@@ -619,18 +624,20 @@ const InspecaoAmbiental = () => {
 
       let saved: any = null;
       let savedRemotely = false;
-      try {
+      upsertLocalEnvironmentalInspection({
+        ...payload,
+        id: payloadId,
+      });
+
+      if (await isDeviceOnline()) try {
         saved = await environmentalInspectionService.create(payload);
+        removeLocalEnvironmentalInspections([payloadId]);
         savedRemotely = true;
       } catch (error) {
         console.warn(
           "[InspecaoAmbiental] Banco indisponivel durante envio. Salvando inspecao ambiental localmente.",
           error,
         );
-        upsertLocalEnvironmentalInspection({
-          ...payload,
-          id: payloadId,
-        });
       }
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
@@ -641,11 +648,13 @@ const InspecaoAmbiental = () => {
           : "A conexão oscilou. O registro ficou guardado e será enviado automaticamente quando a internet voltar.",
       });
       setSuccessInspectionNumber(savedNumber || null);
+      setSuccessSavedRemotely(savedRemotely);
       setSubmissionSuccess(true);
 
       setTimeout(() => {
         setSubmissionSuccess(false);
         setSuccessInspectionNumber(null);
+        setSuccessSavedRemotely(false);
         navigate("/");
       }, 2000);
     } catch (error) {
@@ -666,11 +675,15 @@ const InspecaoAmbiental = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-700/95 px-6 text-white">
           <div className="flex max-w-md flex-col items-center gap-4 text-center">
             <CheckCircle size={64} className="text-white" />
-            <h2 className="text-2xl font-bold">{"Inspe\u00e7\u00e3o ambiental enviada!"}</h2>
+            <h2 className="text-2xl font-bold">
+              {successSavedRemotely
+                ? "Inspe\u00e7\u00e3o ambiental enviada!"
+                : "Inspe\u00e7\u00e3o ambiental salva no aparelho!"}
+            </h2>
             <p className="text-sm text-green-100">
-              {successInspectionNumber
+              {successSavedRemotely && successInspectionNumber
                 ? `O registro ambiental ${String(successInspectionNumber).padStart(3, "0")} foi salvo com sucesso.`
-                : "A inspe\u00e7\u00e3o ambiental foi registrada com sucesso."}
+                : "A inspe\u00e7\u00e3o ambiental ficou guardada e ser\u00e1 enviada automaticamente quando a internet voltar."}
               {" Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes."}
             </p>
           </div>

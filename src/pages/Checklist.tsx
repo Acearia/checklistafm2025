@@ -36,6 +36,7 @@ import {
 } from "@/lib/inspectionOffline";
 import type { GroupQuestion } from "@/lib/types-compat";
 import { isEquipmentTypeMatch } from "@/lib/equipmentType";
+import { isDeviceOnline } from "@/lib/connectivity";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -664,7 +665,7 @@ const Checklist = () => {
       });
 
       let savedRemotely = false;
-      try {
+      if (await isDeviceOnline()) try {
         const { inspectionService } = await import('@/lib/supabase-service');
         await inspectionService.create(inspectionData);
         removeLocalInspections([payloadId]);
