@@ -21,7 +21,7 @@ O arquivo `.env` do projeto deve refletir os valores de produção. No CT:
 
 ```
 VITE_SUPABASE_URL=https://checklist.afm.com.br
-VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzYwMzg3NTQzLCJleHAiOjQ5MTYxNDc1NDN9.zRwelhfwRSguWRvq6eFg2vH7RvAq6-8GSoRUwse42Ak
+VITE_SUPABASE_PUBLISHABLE_KEY=<PUBLISHABLE_KEY_DA_INSTANCIA>
 VITE_SUPABASE_PROJECT_ID=local
 ```
 

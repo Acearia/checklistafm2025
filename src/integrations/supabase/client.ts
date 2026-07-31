@@ -29,12 +29,16 @@ const resolveSupabaseUrlForClient = (rawUrl?: string) => {
   }
 };
 
-const SUPABASE_URL = resolveSupabaseUrlForClient(
-  import.meta.env.VITE_SUPABASE_URL || "https://checklist.afm.com.br",
+export const SUPABASE_URL = resolveSupabaseUrlForClient(
+  import.meta.env.VITE_SUPABASE_URL || "",
 );
-const SUPABASE_PUBLISHABLE_KEY =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH";
+export const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  throw new Error(
+    "Variaveis do Supabase ausentes. Configure VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY no .env antes do build.",
+  );
+}
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {

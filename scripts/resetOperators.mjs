@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://rmtwtfgipupaxofmlvrz.supabase.co";
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtdHd0ZmdpcHVwYXhvZm1sdnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNTQ5MzIsImV4cCI6MjA3MjkzMDkzMn0.D7HCOIUUNinwEFEv4bF-zIbbRzeKUUF9ItIu5lFTODo";
+  process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const KEEP_OPERATOR = {
   matricula: "3675",
@@ -12,6 +12,18 @@ const KEEP_OPERATOR = {
 };
 
 async function resetOperators() {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    console.error(
+      "Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in your environment.",
+    );
+    process.exit(1);
+  }
+
+  if (process.env.ALLOW_OPERATOR_RESET !== "1") {
+    console.error("Refusing to reset operators without ALLOW_OPERATOR_RESET=1.");
+    process.exit(1);
+  }
+
   const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
   console.log("Removing all operators except matricula", KEEP_OPERATOR.matricula);

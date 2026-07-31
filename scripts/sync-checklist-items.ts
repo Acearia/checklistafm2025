@@ -2,24 +2,17 @@ import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 import { checklistItems } from "@/lib/data";
 
-const DEFAULT_SUPABASE_URL = "https://rmtwtfgipupaxofmlvrz.supabase.co";
-const DEFAULT_SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtdHd0ZmdpcHVwYXhvZm1sdnJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTczNTQ5MzIsImV4cCI6MjA3MjkzMDkzMn0.D7HCOIUUNinwEFEv4bF-zIbbRzeKUUF9ItIu5lFTODo";
-
 const SUPABASE_URL =
   process.env.SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  DEFAULT_SUPABASE_URL;
+  process.env.VITE_SUPABASE_URL;
 
 const SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  DEFAULT_SUPABASE_KEY;
+  process.env.SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error(
-    "Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your environment.",
+    "Missing Supabase credentials. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your environment.",
   );
   process.exit(1);
 }

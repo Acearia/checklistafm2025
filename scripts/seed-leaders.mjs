@@ -30,13 +30,12 @@ for (const envFile of envCandidates) {
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
 const SERVICE_ROLE_KEY =
-  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ??
   process.env.SUPABASE_SERVICE_ROLE_KEY ??
   process.env.SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error(
-    "Defina SUPABASE_URL/VITE_SUPABASE_URL e SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY para executar o seeding.",
+    "Defina SUPABASE_URL e SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY para executar o seeding.",
   );
   process.exit(1);
 }
