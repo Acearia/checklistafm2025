@@ -1321,17 +1321,6 @@ const InvestigacaoAcidente2 = () => {
 
     setResponses((previous) => {
       const current = previous[questionId];
-      if (!shouldRequireEvidence) {
-        return {
-          ...previous,
-          [questionId]: {
-            ...current,
-            answer,
-            evidences: [],
-          },
-        };
-      }
-
       const nextEvidences =
         shouldRequireEvidence && current.evidences.length === 0
           ? [createEmptyEvidence()]
@@ -1764,7 +1753,7 @@ const InvestigacaoAcidente2 = () => {
           <CardHeader>
             <CardTitle>Checklist de Perguntas</CardTitle>
             <CardDescription>
-              Responda cada item com Sim, Não ou N/A. Quando a resposta ficar diferente do padrão da pergunta, comentário e foto são obrigatórios. Em N/A não é necessário preencher nada.
+              Responda cada item com Sim, Não ou N/A. Foto e comentário podem ser adicionados independentemente da resposta e são obrigatórios quando ela ficar diferente do padrão.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1783,7 +1772,9 @@ const InvestigacaoAcidente2 = () => {
               const isLockedQuestion = isPeriodicQuestionLocked(item.id);
               const displayAnswer = normalizeText(response.answer).trim() as QuestionAnswer;
               const requiresEvidence = isResponseOutOfPattern(item.id, displayAnswer, questionItems);
-              const showExtra = !isLockedQuestion && requiresEvidence;
+              const showExtra =
+                !isLockedQuestion &&
+                (requiresEvidence || response.evidences.length > 0);
 
               return (
                 <div key={item.id} className="rounded-lg border border-blue-200 bg-white">
@@ -1869,7 +1860,9 @@ const InvestigacaoAcidente2 = () => {
                     <div id={`evidencias-${item.id}`} className="space-y-3 border-t border-blue-100 px-4 pb-4 pt-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm text-gray-600">
-                          Adicione uma ou mais evidências com comentário e foto para este item.
+                          {requiresEvidence
+                            ? "Adicione uma ou mais evidências com comentário e foto para este item."
+                            : "Foto e comentário opcionais para complementar esta resposta."}
                         </p>
                         <Button
                           type="button"
