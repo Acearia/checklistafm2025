@@ -121,6 +121,7 @@ interface PlanoAcaoContext {
 }
 
 interface ActionPlanDraft {
+  id: string;
   descricao_resumida_acao: string;
   responsavel_execucao: string;
   inicio_planejado: string;
@@ -593,14 +594,20 @@ const getNextActionPlanNumber = () => {
   return next;
 };
 
-const parseStoredActionPlans = (): Array<Record<string, unknown>> => {
+type StoredActionPlan = AccidentActionPlanRecordPayload & {
+  id: string;
+  _sync_status?: "pending";
+  _sync_updated_at?: string;
+};
+
+const parseStoredActionPlans = (): StoredActionPlan[] => {
   if (typeof window === "undefined") return [];
 
   try {
     const raw = localStorage.getItem(ACTION_PLAN_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? (parsed as StoredActionPlan[]) : [];
   } catch (error) {
     console.error("Erro ao ler planos de acao locais:", error);
     return [];
@@ -608,6 +615,10 @@ const parseStoredActionPlans = (): Array<Record<string, unknown>> => {
 };
 
 const createActionPlanDraft = (_item: QuestionItem, _response: QuestionState): ActionPlanDraft => ({
+  id:
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `action-plan-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   descricao_resumida_acao: "",
   responsavel_execucao: "",
   inicio_planejado: "",
@@ -692,11 +703,11 @@ const openPlanoAcaoForQuestion = (
   },
   openQuestionId: string | null,
   setOpenQuestionId: React.Dispatch<React.SetStateAction<string | null>>,
-  setActionPlanDrafts: React.Dispatch<React.SetStateAction<Record<string, ActionPlanDraft>>>,
+  setActionPlanDrafts: React.Dispatch<React.SetStateAction<Record<string, ActionPlanDraft[]>>>,
 ) => {
   setOpenQuestionId((previous) => (previous === item.id ? null : item.id));
   setActionPlanDrafts((previous) =>
-    previous[item.id] ? previous : { ...previous, [item.id]: createActionPlanDraft(item, response) },
+    previous[item.id]?.length ? previous : { ...previous, [item.id]: [createActionPlanDraft(item, response)] },
   );
 };
 
@@ -706,7 +717,7 @@ const buildActionPlanPayloadForQuestion = (
   draft: ActionPlanDraft,
   savedRecord: InvestigacaoChecklistRecord,
   finalInspectionNumber: number,
-): AccidentActionPlanRecordPayload => {
+): StoredActionPlan => {
   const now = new Date().toISOString();
   const questionContext = buildQuestionPlanoAcaoContext(item, response, {
     previewNumber: finalInspectionNumber,
@@ -770,7 +781,7 @@ const persistActionPlansForInspection = async (
   savedRecord: InvestigacaoChecklistRecord,
   finalInspectionNumber: number,
   responses: Record<string, QuestionState>,
-  actionPlanDrafts: Record<string, ActionPlanDraft>,
+  actionPlanDrafts: Record<string, ActionPlanDraft[]>,
   questions: QuestionItem[] = QUESTION_ITEMS,
 ) => {
   const nonConformingItems = questions.filter((item) =>
@@ -784,58 +795,66 @@ const persistActionPlansForInspection = async (
   const existingPlans = parseStoredActionPlans();
   const persistedPlans = [...existingPlans];
 
+  let savedPlanCount = 0;
+
   for (const item of nonConformingItems) {
     const response = responses[item.id];
     if (!response) continue;
 
-    const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
-    let payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
-    storePlanoAcaoContext({
-      fonte: "regra-ouro",
-      registro_id: savedRecord.id,
-      numero_referencia: finalInspectionNumber,
-      data_referencia: savedRecord.created_at,
-      titulo: savedRecord.titulo,
-      setor: savedRecord.setor,
-      tecnico: savedRecord.tecnico_seg,
-      descricao_ocorrencia: payload.descricao_ocorrencia || "",
-      origem: payload.origem || "Regra de Ouro",
-      descricao_resumida_acao: payload.descricao_resumida_acao || "",
-      descricao_acao: payload.descricao_acao || "",
-      question_id: item.id,
-      question_numero: item.numero,
-      question_texto: item.texto,
-      question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
-    });
+    const drafts = actionPlanDrafts[item.id]?.length
+      ? actionPlanDrafts[item.id]
+      : [createActionPlanDraft(item, response)];
 
-    let planSavedRemotely = false;
-    if (await isDeviceOnline()) {
-      try {
-        await accidentActionPlanService.upsertFromLegacy(payload);
-        planSavedRemotely = true;
-      } catch (error) {
-        if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
-          console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+    for (const draft of drafts) {
+      let payload = buildActionPlanPayloadForQuestion(item, response, draft, savedRecord, finalInspectionNumber);
+      storePlanoAcaoContext({
+        fonte: "regra-ouro",
+        registro_id: savedRecord.id,
+        numero_referencia: finalInspectionNumber,
+        data_referencia: savedRecord.created_at,
+        titulo: savedRecord.titulo,
+        setor: savedRecord.setor,
+        tecnico: savedRecord.tecnico_seg,
+        descricao_ocorrencia: payload.descricao_ocorrencia || "",
+        origem: payload.origem || "Regra de Ouro",
+        descricao_resumida_acao: payload.descricao_resumida_acao || "",
+        descricao_acao: payload.descricao_acao || "",
+        question_id: item.id,
+        question_numero: item.numero,
+        question_texto: item.texto,
+        question_resposta: normalizeText(response.answer).trim() as QuestionAnswer,
+      });
+
+      let planSavedRemotely = false;
+      if (await isDeviceOnline()) {
+        try {
+          await accidentActionPlanService.upsertFromLegacy(payload);
+          planSavedRemotely = true;
+        } catch (error) {
+          if (!String((error as any)?.message || "").toLowerCase().includes("accident_action_plans")) {
+            console.warn("[InvestigacaoAcidente2] Falha ao salvar o plano de acao no Supabase.", error);
+          }
         }
       }
-    }
 
-    if (!planSavedRemotely) {
-      payload = markLocalActionPlanPending(payload);
-    }
+      if (!planSavedRemotely) {
+        payload = markLocalActionPlanPending(payload);
+      }
 
-    const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
-    if (existingIndex >= 0) {
-      persistedPlans[existingIndex] = payload;
-    } else {
-      persistedPlans.unshift(payload);
+      const existingIndex = persistedPlans.findIndex((plan: any) => String(plan?.id || "") === payload.id);
+      if (existingIndex >= 0) {
+        persistedPlans[existingIndex] = payload;
+      } else {
+        persistedPlans.unshift(payload);
+      }
+      savedPlanCount += 1;
     }
   }
 
   localStorage.setItem(ACTION_PLAN_STORAGE_KEY, JSON.stringify(persistedPlans));
   window.dispatchEvent(new Event(ACTION_PLAN_STORAGE_EVENT));
 
-  return nonConformingItems.length;
+  return savedPlanCount;
 };
 
 const getAnswerTone = (answer: QuestionAnswer) => {
@@ -924,7 +943,7 @@ const InvestigacaoAcidente2 = () => {
     "Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes.",
   );
   const [openActionPlanQuestionId, setOpenActionPlanQuestionId] = useState<string | null>(null);
-  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft>>({});
+  const [actionPlanDrafts, setActionPlanDrafts] = useState<Record<string, ActionPlanDraft[]>>({});
   useEffect(() => {
     setResponses((previous) => createInitialResponses(questionItems, previous));
   }, [questionItems]);
@@ -948,7 +967,7 @@ const InvestigacaoAcidente2 = () => {
         const response = responses[item.id];
         if (!response) return;
         if (isResponseOutOfPattern(item.id, normalizeText(response.answer).trim() as QuestionAnswer, questionItems) && !next[item.id]) {
-          next[item.id] = createActionPlanDraft(item, response);
+          next[item.id] = [createActionPlanDraft(item, response)];
           changed = true;
         }
       });
@@ -1337,19 +1356,46 @@ const InvestigacaoAcidente2 = () => {
     });
   };
 
-  const updateActionPlanDraft = (questionId: string, patch: Partial<ActionPlanDraft>) => {
+  const updateActionPlanDraft = (questionId: string, draftId: string, patch: Partial<ActionPlanDraft>) => {
     const question = questionItems.find((item) => item.id === questionId);
     if (!question) return;
 
     setActionPlanDrafts((previous) => {
       const response = responses[questionId];
-      const baseDraft = previous[questionId] || createActionPlanDraft(question, response);
+      const drafts = previous[questionId]?.length
+        ? previous[questionId]
+        : [createActionPlanDraft(question, response)];
       return {
         ...previous,
-        [questionId]: {
-          ...baseDraft,
-          ...patch,
-        },
+        [questionId]: drafts.map((draft) =>
+          draft.id === draftId ? { ...draft, ...patch } : draft,
+        ),
+      };
+    });
+  };
+
+  const addActionPlanDraft = (questionId: string) => {
+    const question = questionItems.find((item) => item.id === questionId);
+    const response = responses[questionId];
+    if (!question || !response) return;
+
+    setActionPlanDrafts((previous) => ({
+      ...previous,
+      [questionId]: [
+        ...(previous[questionId]?.length ? previous[questionId] : [createActionPlanDraft(question, response)]),
+        createActionPlanDraft(question, response),
+      ],
+    }));
+  };
+
+  const removeActionPlanDraft = (questionId: string, draftId: string) => {
+    setActionPlanDrafts((previous) => {
+      const drafts = previous[questionId] || [];
+      if (drafts.length <= 1) return previous;
+
+      return {
+        ...previous,
+        [questionId]: drafts.filter((draft) => draft.id !== draftId),
       };
     });
   };
@@ -1385,13 +1431,14 @@ const InvestigacaoAcidente2 = () => {
         return `Adicione pelo menos uma foto com comentário no item ${item.numero} quando a resposta estiver fora do padrão.`;
       }
 
-    if (requiresEvidence) {
-        const draft = actionPlanDrafts[item.id];
-        if (!draft) {
+      if (requiresEvidence) {
+        const drafts = actionPlanDrafts[item.id] || [];
+        if (drafts.length === 0) {
           return `Abra o plano de ação do item ${item.numero} para registrar a tratativa.`;
         }
-        if (!draft.descricao_acao.trim()) {
-          return `Preencha a descrição da ação do item ${item.numero}.`;
+        const incompletePlanIndex = drafts.findIndex((draft) => !draft.descricao_acao.trim());
+        if (incompletePlanIndex >= 0) {
+          return `Preencha a descrição da ação do plano ${incompletePlanIndex + 1} do item ${item.numero}.`;
         }
       }
 
@@ -1816,7 +1863,8 @@ const InvestigacaoAcidente2 = () => {
                               }
                             >
                               <ClipboardList className="mr-2 h-4 w-4" />
-                              Plano de ação
+                              Planos de ação
+                              {actionPlanDrafts[item.id]?.length ? ` (${actionPlanDrafts[item.id].length})` : ""}
                             </Button>
                           )}
                         </div>
@@ -1937,102 +1985,133 @@ const InvestigacaoAcidente2 = () => {
                     <div className="space-y-3 border-t border-emerald-100 bg-emerald-50/40 px-4 pb-4 pt-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                          <p className="text-sm font-semibold text-emerald-900">Plano de ação da irregularidade</p>
+                          <p className="text-sm font-semibold text-emerald-900">Planos de ação da irregularidade</p>
                           <p className="text-xs text-emerald-800">
-                            Esse rascunho será salvo junto com a inspeção e vai cair no painel de planos de ação.
+                            Cada plano será salvo separadamente no painel de planos de ação.
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setOpenActionPlanQuestionId(null)}
-                        >
-                          Fechar
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => addActionPlanDraft(item.id)}
+                          >
+                            Adicionar outro plano
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setOpenActionPlanQuestionId(null)}
+                          >
+                            Fechar
+                          </Button>
+                        </div>
                       </div>
 
                       {(() => {
-                        const draft = actionPlanDrafts[item.id] || createActionPlanDraft(item, response);
+                        const drafts = actionPlanDrafts[item.id]?.length
+                          ? actionPlanDrafts[item.id]
+                          : [createActionPlanDraft(item, response)];
 
                         return (
-                          <>
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <div className="space-y-2">
-                                <Label htmlFor={`plano-resumo-${item.id}`}>Resumo da ação *</Label>
-                                <Input
-                                  id={`plano-resumo-${item.id}`}
-                                  value={draft.descricao_resumida_acao}
-                                  onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
-                                      descricao_resumida_acao: event.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label htmlFor={`plano-responsavel-${item.id}`}>Responsável *</Label>
-                                <SearchableStringSelect
-                                  value={draft.responsavel_execucao}
-                                  onValueChange={(value) =>
-                                    updateActionPlanDraft(item.id, {
-                                      responsavel_execucao: value,
-                                    })
-                                  }
-                                  options={withCurrentSearchableStringOption(
-                                    responsavelExecucaoOptions,
-                                    draft.responsavel_execucao,
+                          <div className="space-y-4">
+                            {drafts.map((draft, draftIndex) => (
+                              <div key={draft.id} className="space-y-3 rounded-lg border border-emerald-200 bg-background p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-semibold text-emerald-900">Plano {draftIndex + 1}</p>
+                                  {drafts.length > 1 && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                                      onClick={() => removeActionPlanDraft(item.id, draft.id)}
+                                    >
+                                      Remover plano
+                                    </Button>
                                   )}
-                                  placeholder="Selecionar responsável"
-                                  searchPlaceholder="Buscar responsável..."
-                                  emptyText="Nenhuma pessoa encontrada."
-                                />
-                              </div>
+                                </div>
 
-                              <div className="space-y-2">
-                                <Label htmlFor={`plano-inicio-${item.id}`}>Início planejado</Label>
-                                <Input
-                                  id={`plano-inicio-${item.id}`}
-                                  type="date"
-                                  value={draft.inicio_planejado}
-                                  onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
-                                      inicio_planejado: event.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-resumo-${item.id}-${draft.id}`}>Resumo da ação *</Label>
+                                    <Input
+                                      id={`plano-resumo-${item.id}-${draft.id}`}
+                                      value={draft.descricao_resumida_acao}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, draft.id, {
+                                          descricao_resumida_acao: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
 
-                              <div className="space-y-2">
-                                <Label htmlFor={`plano-prazo-${item.id}`}>Prazo final</Label>
-                                <Input
-                                  id={`plano-prazo-${item.id}`}
-                                  type="date"
-                                  value={draft.termino_planejado}
-                                  onChange={(event) =>
-                                    updateActionPlanDraft(item.id, {
-                                      termino_planejado: event.target.value,
-                                    })
-                                  }
-                                />
-                              </div>
-                            </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-responsavel-${item.id}-${draft.id}`}>Responsável *</Label>
+                                    <SearchableStringSelect
+                                      value={draft.responsavel_execucao}
+                                      onValueChange={(value) =>
+                                        updateActionPlanDraft(item.id, draft.id, {
+                                          responsavel_execucao: value,
+                                        })
+                                      }
+                                      options={withCurrentSearchableStringOption(
+                                        responsavelExecucaoOptions,
+                                        draft.responsavel_execucao,
+                                      )}
+                                      placeholder="Selecionar responsável"
+                                      searchPlaceholder="Buscar responsável..."
+                                      emptyText="Nenhuma pessoa encontrada."
+                                    />
+                                  </div>
 
-                            <div className="space-y-2">
-                              <Label htmlFor={`plano-descricao-${item.id}`}>Descrição da ação *</Label>
-                              <Textarea
-                                id={`plano-descricao-${item.id}`}
-                                rows={4}
-                                value={draft.descricao_acao}
-                                onChange={(event) =>
-                                  updateActionPlanDraft(item.id, {
-                                    descricao_acao: event.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                          </>
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-inicio-${item.id}-${draft.id}`}>Início planejado</Label>
+                                    <Input
+                                      id={`plano-inicio-${item.id}-${draft.id}`}
+                                      type="date"
+                                      value={draft.inicio_planejado}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, draft.id, {
+                                          inicio_planejado: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label htmlFor={`plano-prazo-${item.id}-${draft.id}`}>Prazo final</Label>
+                                    <Input
+                                      id={`plano-prazo-${item.id}-${draft.id}`}
+                                      type="date"
+                                      value={draft.termino_planejado}
+                                      onChange={(event) =>
+                                        updateActionPlanDraft(item.id, draft.id, {
+                                          termino_planejado: event.target.value,
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor={`plano-descricao-${item.id}-${draft.id}`}>Descrição da ação *</Label>
+                                  <Textarea
+                                    id={`plano-descricao-${item.id}-${draft.id}`}
+                                    rows={4}
+                                    value={draft.descricao_acao}
+                                    onChange={(event) =>
+                                      updateActionPlanDraft(item.id, draft.id, {
+                                        descricao_acao: event.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         );
                       })()}
                     </div>

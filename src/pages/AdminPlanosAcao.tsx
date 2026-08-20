@@ -174,6 +174,14 @@ const isPlanoAtrasado = (item: PlanoAcaoRecord) => {
   return dueDate < today;
 };
 
+const normalizeResponsibleKey = (value: string) =>
+  value
+    .trim()
+    .replace(/\s+/g, " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+
 const getPlanoProgressPercent = (item: PlanoAcaoRecord) => {
   if (item.status === "Concluida") return 100;
   if (item.status === "Cancelada") return 0;
@@ -739,7 +747,7 @@ const AdminPlanosAcao = () => {
 
       toast({
         title: "Plano excluído",
-        description: `O plano ${formatOccurrenceNumber(record.numero_plano)} foi removido com sucesso.`,
+        description: `O plano ${formatNumero(record.numero_plano)} foi removido com sucesso.`,
       });
     } catch (error) {
       console.error("[AdminPlanosAcao] Erro ao excluir plano:", error);
@@ -845,6 +853,40 @@ const AdminPlanosAcao = () => {
     return { total, abertas, andamento, concluidas, atrasadas, eficaciaPendente };
   }, [records]);
 
+  const responsibleRanking = useMemo(() => {
+    const grouped = new Map<
+      string,
+      { responsavel: string; total: number; andamento: number; concluidos: number; atrasados: number }
+    >();
+
+    records.forEach((item) => {
+      const responsavel = item.responsavel_execucao.trim() || "Sem responsável";
+      const key = normalizeResponsibleKey(responsavel);
+      const current = grouped.get(key) || {
+        responsavel,
+        total: 0,
+        andamento: 0,
+        concluidos: 0,
+        atrasados: 0,
+      };
+
+      current.total += 1;
+      if (item.status === "Em andamento") current.andamento += 1;
+      if (item.status === "Concluida") current.concluidos += 1;
+      if (isPlanoAtrasado(item)) current.atrasados += 1;
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.values()).sort(
+      (a, b) =>
+        b.atrasados - a.atrasados ||
+        b.andamento - a.andamento ||
+        a.concluidos - b.concluidos ||
+        b.total - a.total ||
+        a.responsavel.localeCompare(b.responsavel, "pt-BR"),
+    );
+  }, [records]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -903,6 +945,59 @@ const AdminPlanosAcao = () => {
           </CardHeader>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle>Desempenho por responsável</CardTitle>
+          <CardDescription>
+            Ranking do maior número de atrasos para o melhor resultado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {responsibleRanking.length === 0 ? (
+            <div className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+              Nenhum responsável encontrado nos planos de ação.
+            </div>
+          ) : (
+            <div className="max-h-80 overflow-auto rounded-md border">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background">
+                  <TableRow>
+                    <TableHead className="w-16">Posição</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead className="text-center">Em andamento</TableHead>
+                    <TableHead className="text-center">Concluídos</TableHead>
+                    <TableHead className="text-center">Atrasados</TableHead>
+                    <TableHead className="text-center">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {responsibleRanking.map((item, index) => (
+                    <TableRow key={normalizeResponsibleKey(item.responsavel)}>
+                      <TableCell className="font-semibold text-muted-foreground">#{index + 1}</TableCell>
+                      <TableCell className="font-medium">{item.responsavel}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{item.andamento}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                          {item.concluidos}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={item.atrasados > 0 ? "destructive" : "secondary"}>
+                          {item.atrasados}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">{item.total}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
