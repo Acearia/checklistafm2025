@@ -419,6 +419,7 @@ const AdminPlanosAcao = () => {
   const [finishObservation, setFinishObservation] = useState("");
   const [finishPhoto, setFinishPhoto] = useState<AttachmentMeta | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   const ocorrenciaFromQuery = useMemo(() => {
     const value = searchParams.get("ocorrencia") || "";
@@ -465,8 +466,8 @@ const AdminPlanosAcao = () => {
   }, []);
 
   const loadData = async () => {
-    const localRecords = parsePlanos();
     setInvestigacoes(parseInvestigacoes());
+    setLoadError("");
 
     try {
       try {
@@ -477,12 +478,7 @@ const AdminPlanosAcao = () => {
         setGoldenRules([]);
       }
 
-      const remoteRows = await accidentActionPlanService.safeGetListWithFallback();
-      if (remoteRows.length === 0) {
-        setRecords(localRecords);
-        return;
-      }
-
+      const remoteRows = await accidentActionPlanService.getList();
       const remoteRecords = remoteRows
         .map((item) => mapSupabasePlan(item))
         .filter((item): item is PlanoAcaoRecord => Boolean(item))
@@ -492,34 +488,16 @@ const AdminPlanosAcao = () => {
           return dateB - dateA;
         });
 
-      const mergedMap = new Map<string, PlanoAcaoRecord>();
-      [...remoteRecords, ...localRecords].forEach((item) => {
-        const key = item.id || `n-${item.numero_plano}-${item.numero_ocorrencia}`;
-        const current = mergedMap.get(key);
-        if (!current) {
-          mergedMap.set(key, item);
-          return;
-        }
-
-        const currentTimestamp = new Date(current.updated_at || current.created_at).getTime();
-        const incomingTimestamp = new Date(item.updated_at || item.created_at).getTime();
-        const preferred = incomingTimestamp >= currentTimestamp ? item : current;
-        const fallback = incomingTimestamp >= currentTimestamp ? current : item;
-        mergedMap.set(key, mergePlanoRecords(preferred, fallback));
-      });
-      const mergedRecords = Array.from(mergedMap.values()).sort((a, b) => {
-        const dateA = new Date(a.updated_at || a.created_at).getTime();
-        const dateB = new Date(b.updated_at || b.created_at).getTime();
-        return dateB - dateA;
-      });
-
-      setRecords(mergedRecords);
-      localStorage.setItem(PLANO_STORAGE_KEY, JSON.stringify(mergedRecords));
+      // A tela administrativa usa somente o banco central. Registros do
+      // localStorage pertencem a fila offline e variam entre dispositivos.
+      setRecords(remoteRecords);
     } catch (error) {
       if (!isMissingActionPlansTableError(error)) {
         console.error("Erro ao carregar planos de ação no Supabase:", error);
       }
-      setRecords(localRecords);
+      setLoadError(
+        "Não foi possível consultar o banco central. Os totais foram mantidos para evitar exibir dados locais diferentes entre computadores.",
+      );
     }
   };
 
@@ -904,6 +882,12 @@ const AdminPlanosAcao = () => {
           </Button>
         </div>
       </div>
+
+      {loadError ? (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          {loadError}
+        </div>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-6">
         <Card>
