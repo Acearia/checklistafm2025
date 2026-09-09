@@ -196,11 +196,13 @@ const InspecaoAmbiental = () => {
     gestor: false,
   });
 
-  const [realizadoPor] = useState(DEFAULT_ENVIRONMENTAL_INSPECTOR);
+  const [realizadoPor, setRealizadoPor] = useState(DEFAULT_ENVIRONMENTAL_INSPECTOR);
   const [dataInspecao, setDataInspecao] = useState(getTodayLocalDateKey() || "");
   const [acompanhadoPor, setAcompanhadoPor] = useState("");
   const [gestor, setGestor] = useState("");
-  const [personDialogTarget, setPersonDialogTarget] = useState<"acompanhadoPor" | "gestor" | null>(null);
+  const [personDialogTarget, setPersonDialogTarget] = useState<
+    "realizadoPor" | "acompanhadoPor" | "gestor" | null
+  >(null);
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [answers, setAnswers] = useState<Record<string, EnvironmentalAnswer>>(
@@ -267,7 +269,7 @@ const InspecaoAmbiental = () => {
     [sectors],
   );
 
-  const openAddPersonDialog = (target: "acompanhadoPor" | "gestor") => {
+  const openAddPersonDialog = (target: "realizadoPor" | "acompanhadoPor" | "gestor") => {
     setPersonDialogTarget(target);
   };
 
@@ -288,7 +290,10 @@ const InspecaoAmbiental = () => {
         senha: data.senha ? data.senha.trim() : null,
       });
 
-      if (personDialogTarget === "acompanhadoPor") {
+      if (personDialogTarget === "realizadoPor") {
+        setRealizadoPor(personName);
+        clearSignature("realizado");
+      } else if (personDialogTarget === "acompanhadoPor") {
         setAcompanhadoPor(personName);
       } else if (personDialogTarget === "gestor") {
         setGestor(personName);
@@ -727,8 +732,42 @@ const InspecaoAmbiental = () => {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Realizado por *</Label>
-              <Input value={realizadoPor} readOnly className="bg-muted/60 font-semibold" />
+              <div className="flex items-center justify-between gap-2">
+                <Label>Realizado por *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openAddPersonDialog("realizadoPor")}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Adicionar pessoa
+                </Button>
+              </div>
+              <Select
+                value={realizadoPor}
+                onValueChange={(value) => {
+                  setRealizadoPor(value);
+                  clearSignature("realizado");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!sortedPeople.some((person) => person.name === DEFAULT_ENVIRONMENTAL_INSPECTOR) && (
+                    <SelectItem value={DEFAULT_ENVIRONMENTAL_INSPECTOR}>
+                      {DEFAULT_ENVIRONMENTAL_INSPECTOR}
+                    </SelectItem>
+                  )}
+                  {sortedPeople.map((person) => (
+                    <SelectItem key={person.id} value={person.name}>
+                      {person.name}
+                      {person.sector ? ` - ${person.sector}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Data da inspeção *</Label>
@@ -982,7 +1021,7 @@ const InspecaoAmbiental = () => {
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <Label className="flex items-center gap-2">
                     <Signature className="h-4 w-4" />
-                    Assinatura de quem realizou: {DEFAULT_ENVIRONMENTAL_INSPECTOR} *
+                    Assinatura de quem realizou: {realizadoPor || "Responsável"} *
                   </Label>
                   <Button type="button" variant="outline" size="sm" onClick={() => clearSignature("realizado")}>
                     <Eraser className="mr-2 h-4 w-4" />

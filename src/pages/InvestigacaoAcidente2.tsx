@@ -38,6 +38,7 @@ import {
 import { upsertLocalGoldenRule } from "@/lib/goldenRuleOffline";
 import { markLocalActionPlanPending } from "@/lib/actionPlanOffline";
 import { isDeviceOnline } from "@/lib/connectivity";
+import { listInvestigatorAccounts } from "@/lib/adminCredentials";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -147,11 +148,6 @@ const ACTION_PLAN_COUNTER_KEY = "checklistafm-plano-acao-counter";
 const ACTION_PLAN_STORAGE_EVENT = "checklistafm-plano-acao-updated";
 const PERIODIC_15_DAY_QUESTION_IDS = new Set(["1n15", "1n16", "1n17"]);
 const PERIODIC_15_DAY_INTERVAL_DAYS = 15;
-const REGRAS_DE_OURO_TECNICOS = [
-  "CELSO PEREIRA",
-  "JOÃO PAULO",
-] as const;
-
 const QUESTION_ITEMS: QuestionItem[] = [
   {
     id: "1n1",
@@ -923,6 +919,7 @@ const InvestigacaoAcidente2 = () => {
   const [setor, setSetor] = useState("");
   const [gestor, setGestor] = useState("");
   const [tecnicoSeg, setTecnicoSeg] = useState("");
+  const [investigationSignerUsernames, setInvestigationSignerUsernames] = useState<string[]>([]);
   const [acompanhante, setAcompanhante] = useState("");
   const [responses, setResponses] = useState<Record<string, QuestionState>>(createInitialResponses);
   const [signatures, setSignatures] = useState<{
@@ -1059,12 +1056,53 @@ const InvestigacaoAcidente2 = () => {
     [leaders],
   );
 
-  const tecnicoInvestigadorOptions = useMemo<SearchableStringOption[]>(() => {
-    return [...REGRAS_DE_OURO_TECNICOS].map((option) => ({
-      value: option,
-      label: option,
-    }));
+  useEffect(() => {
+    let active = true;
+
+    listInvestigatorAccounts()
+      .then((accounts) => {
+        if (active) {
+          setInvestigationSignerUsernames(accounts.map((account) => account.username));
+        }
+      })
+      .catch((error) => {
+        console.error("Erro ao carregar técnicos/investigadores:", error);
+        if (active) setInvestigationSignerUsernames([]);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const tecnicoInvestigadorOptions = useMemo<SearchableStringOption[]>(() => {
+    const optionsByName = new Map<string, SearchableStringOption>();
+
+    investigationSignerUsernames.forEach((username) => {
+      const normalizedUsername = normalizeText(username).trim();
+      const matchingOperator = (operators || []).find((item: any) => {
+        const matricula = normalizeText(item?.matricula).trim();
+        const name = normalizeText(item?.name).trim();
+        const normalizedKey = normalizedUsername.toLocaleLowerCase("pt-BR");
+        return (
+          matricula.toLocaleLowerCase("pt-BR") === normalizedKey ||
+          name.toLocaleLowerCase("pt-BR") === normalizedKey
+        );
+      });
+      const displayName = normalizeText(matchingOperator?.name || normalizedUsername).trim();
+      if (!displayName) return;
+
+      optionsByName.set(displayName.toLocaleLowerCase("pt-BR"), {
+        value: displayName,
+        label: displayName,
+        searchText: [displayName, normalizedUsername].filter(Boolean).join(" "),
+      });
+    });
+
+    return Array.from(optionsByName.values()).sort((a, b) =>
+      a.label.localeCompare(b.label, "pt-BR"),
+    );
+  }, [investigationSignerUsernames, operators]);
 
   const periodicQuestionLock = useMemo(
     () => getPeriodicQuestionLock(setor, goldenRuleHistory),
@@ -1764,7 +1802,7 @@ const InvestigacaoAcidente2 = () => {
                 emptyText="Nenhum técnico encontrado."
               />
               <p className="text-xs text-gray-500">
-                Técnicos/Investigadores de Segurança: CELSO PEREIRA e JOÃO PAULO.
+                A lista é atualizada pelos perfis de Técnico, Segurança e Investigador cadastrados no administrativo.
               </p>
             </div>
 
