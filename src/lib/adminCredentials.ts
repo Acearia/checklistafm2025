@@ -224,6 +224,18 @@ export const verifyAdminCredentials = async (
   if (isHiddenOdairUsername(normalized)) return null;
   const expectedHash = encodePassword(password);
 
+  // Local development must remain accessible even when the remote account with
+  // the same username uses a different production password.
+  if (canUseLocalFallback()) {
+    const localAuth = verifyLocalCredentials(username, password, (role) => isAdminRole(role));
+    if (localAuth && isAdminRole(localAuth.role)) {
+      return {
+        username: localAuth.username,
+        role: localAuth.role,
+      };
+    }
+  }
+
   const { data, error } = await supabase
     .from(ADMIN_TABLE)
     .select("username, role, password_hash")
@@ -235,12 +247,7 @@ export const verifyAdminCredentials = async (
       if (error) console.error("Erro ao verificar credenciais administrativas:", error);
       return null;
     }
-    const localAuth = verifyLocalCredentials(username, password, (role) => isAdminRole(role));
-    if (!localAuth || !isAdminRole(localAuth.role)) return null;
-    return {
-      username: localAuth.username,
-      role: localAuth.role,
-    };
+    return null;
   }
 
   if (!isAdminRole(data.role)) return null;

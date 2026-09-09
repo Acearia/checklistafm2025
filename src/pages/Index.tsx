@@ -1,11 +1,11 @@
 ﻿
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ClipboardCheck, Leaf, Search, ShieldAlert } from "lucide-react";
+import { ClipboardCheck, HardHat, Leaf, Search, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,7 @@ const Index = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordSetupError, setPasswordSetupError] = useState<string | null>(null);
   const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [activeDesktopTab, setActiveDesktopTab] = useState("home");
 
   useEffect(() => {
     const handleResize = () => {
@@ -354,7 +355,7 @@ const Index = () => {
         "home-background"
       )}
     >
-      <header className="flex items-center justify-between bg-red-700 px-4 py-3 text-white shadow-md dark:border-b dark:border-slate-800 dark:bg-slate-950/95">
+      <header className="flex items-center justify-between gap-4 bg-red-700 px-4 py-3 text-white shadow-md dark:border-b dark:border-slate-800 dark:bg-slate-950/95">
         <div className="flex items-center gap-4">
           <img src={logoUrl} alt="Checklist AFM" className="h-16 w-auto md:h-24 drop-shadow-md" />
           <div className="leading-tight text-white">
@@ -364,11 +365,26 @@ const Index = () => {
             </p>
           </div>
         </div>
-        <SupabaseStatus 
-          isConnected={!error && !loading}
-          loading={loading}
-          error={error}
-        />
+        <div className="flex items-center gap-3">
+          {!isMobile && (
+            <nav className="flex items-center overflow-hidden rounded-lg border border-white/40 bg-white/95 p-1 shadow-sm" aria-label="Acessos principais">
+              <button type="button" onClick={() => setActiveDesktopTab("home")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "home" ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100")}>Início</button>
+              <button type="button" onClick={() => setActiveDesktopTab("leader")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "leader" ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100")}>Líderes</button>
+              <button type="button" onClick={() => navigate("/admin/login?redirect=/admin/permissoes-trabalho")} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100">Administrativo</button>
+              <button type="button" onClick={() => setActiveDesktopTab("investigacao")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "investigacao" ? "bg-amber-700 text-white" : "text-amber-800 hover:bg-amber-50")}>Investigação</button>
+              <button type="button" onClick={() => setActiveDesktopTab("regras-ouro")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "regras-ouro" ? "bg-blue-700 text-white" : "text-blue-800 hover:bg-blue-50")}>Regras de Ouro</button>
+              <button type="button" onClick={() => setActiveDesktopTab("ambiental")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "ambiental" ? "bg-emerald-700 text-white" : "text-emerald-800 hover:bg-emerald-50")}>Ambiental</button>
+              <button type="button" onClick={() => setActiveDesktopTab("permissao")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "permissao" ? "bg-orange-700 text-white" : "text-orange-800 hover:bg-orange-50")}>Permissão</button>
+            </nav>
+          )}
+          <div className="rounded-full border border-white/30 bg-white/10 p-2" title="Status do banco de dados">
+            <SupabaseStatus
+              isConnected={!error && !loading}
+              loading={loading}
+              error={error}
+            />
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 flex items-center justify-center p-4">
@@ -425,20 +441,21 @@ const Index = () => {
                   </div>
                   <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">Abrir formulário ambiental.</p>
                 </Link>
+                <Link
+                  to="/permissao-de-trabalho"
+                  className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-orange-950 shadow-sm transition-colors hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-100 dark:hover:bg-orange-950/60"
+                >
+                  <div className="flex items-center gap-2">
+                    <HardHat className="h-5 w-5 shrink-0" />
+                    <span className="text-base font-semibold sm:text-lg">Permissão de Trabalho</span>
+                  </div>
+                  <p className="mt-1 text-sm text-orange-900 dark:text-orange-200">Abrir formulário de permissão.</p>
+                </Link>
               </div>
             </>
           ) : (
-            <Tabs defaultValue="home" className="w-full">
-              <TabsList className="grid h-auto w-full grid-cols-6 rounded-lg border border-white/40 bg-white/75 backdrop-blur-md">
-                <TabsTrigger value="home" className="px-2 py-2.5 text-[15px] md:text-base">Início</TabsTrigger>
-                <TabsTrigger value="leader" className="px-2 py-2.5 text-[15px] md:text-base">Líderes</TabsTrigger>
-                <TabsTrigger value="admin" className="px-2 py-2.5 text-[15px] md:text-base">Administrativo</TabsTrigger>
-                <TabsTrigger value="investigacao" className="mx-0.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-2.5 text-[15px] font-semibold text-amber-900 data-[state=active]:border-amber-700 data-[state=active]:bg-amber-700 data-[state=active]:text-white md:text-base">Investigação</TabsTrigger>
-                <TabsTrigger value="regras-ouro" className="mx-0.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-2.5 text-[15px] font-semibold text-blue-900 data-[state=active]:border-blue-700 data-[state=active]:bg-blue-700 data-[state=active]:text-white md:text-base">Regras de Ouro</TabsTrigger>
-                <TabsTrigger value="ambiental" className="mx-0.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-[15px] font-semibold text-emerald-900 data-[state=active]:border-emerald-700 data-[state=active]:bg-emerald-700 data-[state=active]:text-white md:text-base">Ambiental</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="home" className="mt-6">
+            <Tabs value={activeDesktopTab} onValueChange={setActiveDesktopTab} className="w-full">
+              <TabsContent value="home" className="mt-0">
                 {HomeCard}
               </TabsContent>
 
@@ -537,6 +554,22 @@ const Index = () => {
                   </CardContent>
                 </Card>
               </TabsContent>
+              <TabsContent value="permissao" className="mt-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="mb-6 text-center">
+                      <HardHat className="mx-auto mb-3 h-10 w-10 text-orange-700" />
+                      <h2 className="mb-2 text-2xl font-bold text-gray-800 dark:text-slate-50">Permissão de Trabalho</h2>
+                      <p className="mb-6 text-gray-600 dark:text-slate-300">Emita uma permissão e registre riscos, controles e responsáveis.</p>
+                    </div>
+                    <Link to="/permissao-de-trabalho">
+                      <Button className="flex w-full flex-col items-center gap-2 bg-orange-700 py-8 text-lg text-white hover:bg-orange-800">
+                        <span>Abrir Permissão de Trabalho</span>
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              </TabsContent>
             </Tabs>
           )}
         </div>
@@ -595,5 +628,3 @@ const Index = () => {
 };
 
 export default Index;
-
-

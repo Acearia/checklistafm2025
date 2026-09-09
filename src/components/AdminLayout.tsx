@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   ClipboardCheck,
   Leaf,
+  HardHat,
   Users
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -139,6 +140,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/planos-acao" icon={<ClipboardList size={20} />} label="Planos de Ação" />
               <SidebarLink to="/admin/regras-ouro" icon={<ClipboardCheck size={20} />} label="Regras de Ouro" />
               <SidebarLink to="/admin/inspecoes-ambientais" icon={<Leaf size={20} />} label="Inspeção Ambiental" />
+              <SidebarLink to="/admin/permissoes-trabalho" icon={<HardHat size={20} />} label="Permissões de Trabalho" />
               <SidebarLink to="/admin/users" icon={<Users size={20} />} label="Usuários" />
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />

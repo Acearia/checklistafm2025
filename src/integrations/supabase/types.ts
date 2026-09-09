@@ -312,6 +312,111 @@ export type Database = {
         }
         Relationships: []
       }
+      work_permits: {
+        Row: {
+          created_at: string
+          data_permissao: string
+          descricao_servico: string
+          detalhes_respostas: Json
+          detalhes_tipo: Json
+          emissor_assinatura: string | null
+          emissor_data: string | null
+          emissor_hora: string | null
+          emissor_nome: string
+          empresa: string
+          encerramento_emissor: Json
+          encerramento_executor: Json
+          executores: Json
+          hora_permissao: string
+          id: string
+          medidas_controle: Json
+          medidas_outros: string | null
+          numero_permissao: number
+          observacoes_emissor: string | null
+          observacoes_verificador: string | null
+          procedimento_auxiliar: string | null
+          respostas: Json
+          riscos: Json
+          riscos_outros: string | null
+          setor: string
+          status: string
+          tipos_servico: Json
+          updated_at: string
+          verificador_assinatura: string | null
+          verificador_data: string | null
+          verificador_hora: string | null
+          verificador_nome: string
+        }
+        Insert: {
+          created_at?: string
+          data_permissao: string
+          descricao_servico: string
+          detalhes_respostas?: Json
+          detalhes_tipo?: Json
+          emissor_assinatura?: string | null
+          emissor_data?: string | null
+          emissor_hora?: string | null
+          emissor_nome: string
+          empresa: string
+          encerramento_emissor?: Json
+          encerramento_executor?: Json
+          executores?: Json
+          hora_permissao: string
+          id?: string
+          medidas_controle?: Json
+          medidas_outros?: string | null
+          numero_permissao?: number
+          observacoes_emissor?: string | null
+          observacoes_verificador?: string | null
+          procedimento_auxiliar?: string | null
+          respostas?: Json
+          riscos?: Json
+          riscos_outros?: string | null
+          setor: string
+          status?: string
+          tipos_servico?: Json
+          updated_at?: string
+          verificador_assinatura?: string | null
+          verificador_data?: string | null
+          verificador_hora?: string | null
+          verificador_nome: string
+        }
+        Update: {
+          created_at?: string
+          data_permissao?: string
+          descricao_servico?: string
+          detalhes_respostas?: Json
+          detalhes_tipo?: Json
+          emissor_assinatura?: string | null
+          emissor_data?: string | null
+          emissor_hora?: string | null
+          emissor_nome?: string
+          empresa?: string
+          encerramento_emissor?: Json
+          encerramento_executor?: Json
+          executores?: Json
+          hora_permissao?: string
+          id?: string
+          medidas_controle?: Json
+          medidas_outros?: string | null
+          numero_permissao?: number
+          observacoes_emissor?: string | null
+          observacoes_verificador?: string | null
+          procedimento_auxiliar?: string | null
+          respostas?: Json
+          riscos?: Json
+          riscos_outros?: string | null
+          setor?: string
+          status?: string
+          tipos_servico?: Json
+          updated_at?: string
+          verificador_assinatura?: string | null
+          verificador_data?: string | null
+          verificador_hora?: string | null
+          verificador_nome?: string
+        }
+        Relationships: []
+      }
       accident_action_plans: {
         Row: {
           acao_finalizada: string | null

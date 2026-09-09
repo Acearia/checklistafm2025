@@ -56,13 +56,17 @@ export const useChecklistData = () => {
   // Convert Supabase data to legacy format
   useEffect(() => {
     if (supabaseOperators.length > 0) {
-      setOperators(supabaseOperators.map(convertSupabaseOperatorToLegacy));
+      const legacyOperators = supabaseOperators.map(convertSupabaseOperatorToLegacy);
+      setOperators(legacyOperators);
+      localStorage.setItem("checklistafm-operators", JSON.stringify(legacyOperators));
     }
   }, [supabaseOperators]);
 
   useEffect(() => {
     if (supabaseEquipments.length > 0) {
-      setEquipments(supabaseEquipments.map(convertSupabaseEquipmentToLegacy));
+      const legacyEquipment = supabaseEquipments.map(convertSupabaseEquipmentToLegacy);
+      setEquipments(legacyEquipment);
+      localStorage.setItem("checklistafm-equipments", JSON.stringify(legacyEquipment));
     }
   }, [supabaseEquipments]);
 

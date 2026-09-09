@@ -25,6 +25,8 @@ const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const InvestigacaoAcidente = lazy(() => import("./pages/InvestigacaoAcidente"));
 const InvestigacaoAcidente2 = lazy(() => import("./pages/InvestigacaoAcidente2"));
 const InspecaoAmbiental = lazy(() => import("./pages/InspecaoAmbiental"));
+const PermissaoTrabalho = lazy(() => import("./pages/PermissaoTrabalho"));
+const AdminPermissoesTrabalho = lazy(() => import("./pages/AdminPermissoesTrabalho"));
 const PlanoAcaoAcidente = lazy(() => import("./pages/PlanoAcaoAcidente"));
 const LeaderLogin = lazy(() => import("./pages/LeaderLogin"));
 const LeaderDashboard = lazy(() => import("./pages/LeaderDashboard"));
@@ -59,6 +61,7 @@ function App() {
           <Route path="/plano-acao-acidente" element={<PlanoAcaoAcidente />} />
           <Route path="/regras-de-ouro" element={<InvestigacaoAcidente2 />} />
           <Route path="/inspecao-ambiental" element={<InspecaoAmbiental />} />
+          <Route path="/permissao-de-trabalho" element={<PermissaoTrabalho />} />
           <Route path="/investigacao-acidente-2" element={<InvestigacaoAcidente2 />} />
 
           {/* Novas rotas para o checklist dividido em etapas */}
@@ -87,6 +90,7 @@ function App() {
             <Route path="planos-acao" element={<AdminPlanosAcao />} />
             <Route path="regras-ouro" element={<AdminRegrasOuro />} />
             <Route path="inspecoes-ambientais" element={<AdminInspecoesAmbientais />} />
+            <Route path="permissoes-trabalho" element={<AdminPermissoesTrabalho />} />
             <Route path="checklists" element={<AdminChecklistsOverview />} />
             <Route path="leaders/dashboard" element={<AdminLeaderDashboard />} />
             <Route path="leaders" element={<AdminLeaders />} />

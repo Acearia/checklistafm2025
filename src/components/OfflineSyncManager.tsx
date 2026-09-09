@@ -36,6 +36,12 @@ import {
   markLocalAccidentInvestigationsSynced,
 } from "@/lib/accidentInvestigationOffline";
 import { isDeviceOnline } from "@/lib/connectivity";
+import {
+  WORK_PERMIT_STORAGE_EVENT,
+  readLocalWorkPermits,
+  removeLocalWorkPermits,
+  workPermitService,
+} from "@/lib/workPermit";
 
 const SYNC_INTERVAL_MS = 15_000;
 const RETRY_DELAYS_MS = [0, 2_000, 8_000];
@@ -46,6 +52,7 @@ const QUEUE_EVENTS = [
   GOLDEN_RULE_STORAGE_EVENT,
   ACTION_PLAN_STORAGE_EVENT,
   ACCIDENT_INVESTIGATION_STORAGE_EVENT,
+  WORK_PERMIT_STORAGE_EVENT,
 ];
 
 const syncChecklistQueue = async () => {
@@ -124,6 +131,14 @@ const syncAccidentInvestigationQueue = async () => {
   markLocalAccidentInvestigationsSynced(result.syncedIds);
 };
 
+const syncWorkPermitQueue = async () => {
+  const permits = readLocalWorkPermits();
+  if (permits.length === 0) return;
+
+  const result = await workPermitService.syncLocalRecords(permits);
+  removeLocalWorkPermits(result.syncedIds);
+};
+
 const syncOfflineQueues = async () => {
   if (!(await isDeviceOnline())) return;
 
@@ -133,6 +148,7 @@ const syncOfflineQueues = async () => {
     ["regra de ouro", syncGoldenRuleQueue],
     ["plano de acao", syncActionPlanQueue],
     ["investigacao", syncAccidentInvestigationQueue],
+    ["permissao de trabalho", syncWorkPermitQueue],
   ] as const;
 
   for (const [queueName, syncQueue] of queues) {
