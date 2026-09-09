@@ -33,7 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
-import { accidentActionPlanService } from "@/lib/supabase-service";
+import { accidentActionPlanService, accidentInvestigationService } from "@/lib/supabase-service";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { useToast } from "@/hooks/use-toast";
 
@@ -218,90 +218,107 @@ const getProgressTextClasses = (percent: number) => {
   return "text-red-700";
 };
 
+const normalizeInvestigacao = (item: any): InvestigacaoRecord | null => {
+  if (!item || typeof item !== "object") return null;
+  const attachments = Array.isArray(item.attachments)
+    ? item.attachments.map((file: any) => ({
+        name: toSafeString(file?.name),
+        size: Number(file?.size) || 0,
+        type: toSafeString(file?.type),
+        data_url: toSafeString(file?.data_url),
+        dataUrl: toSafeString(file?.dataUrl),
+        url: toSafeString(file?.url),
+        preview_url: toSafeString(file?.preview_url),
+      }))
+    : [];
+  const rawNatureza = toSafeString(item.natureza_ocorrencia);
+  const teveAfastamento =
+    rawNatureza === "Aguardando retorno medico"
+      ? "Aguardando retorno medico"
+      : normalizeAfastamentoStatus(item.teve_afastamento);
+  const membrosComissao = Array.isArray(item.membros_comissao)
+    ? item.membros_comissao.map((membro: any) => toSafeString(membro)).filter(Boolean)
+    : [];
+
+  return {
+    id: toSafeString(item.id) || `${Date.now()}-${Math.random()}`,
+    numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
+    created_at: toSafeString(item.created_at),
+    titulo: toSafeString(item.titulo),
+    data_ocorrencia: toSafeString(item.data_ocorrencia),
+    hora: toSafeString(item.hora),
+    turno: toSafeString(item.turno),
+    nome_acidentado: toSafeString(item.nome_acidentado),
+    cargo: toSafeString(item.cargo),
+    setor: toSafeString(item.setor),
+    tempo_empresa: toSafeString(item.tempo_empresa),
+    tempo_funcao: toSafeString(item.tempo_funcao),
+    natureza_ocorrencia: rawNatureza === "Aguardando retorno medico" ? "" : rawNatureza,
+    mao_de_obra: toSafeString(item.mao_de_obra),
+    tipo_acidente: toSafeString(item.tipo_acidente),
+    teve_afastamento: teveAfastamento,
+    dias_afastamento: toSafeString(item.dias_afastamento),
+    gravidade: toSafeString(item.gravidade),
+    probabilidade: toSafeString(item.probabilidade),
+    parte_corpo_atingida: toSafeString(item.parte_corpo_atingida),
+    causa_raiz: toSafeString(item.causa_raiz),
+    agente_causador: toSafeString(item.agente_causador),
+    causa_acidente: toSafeString(item.causa_acidente),
+    problema: toSafeString(item.problema),
+    causa_maquinas: toSafeString(item.causa_maquinas),
+    causa_mao_de_obra: toSafeString(item.causa_mao_de_obra),
+    causa_metodos: toSafeString(item.causa_metodos),
+    causa_meio_ambiente: toSafeString(item.causa_meio_ambiente),
+    causa_materiais: toSafeString(item.causa_materiais),
+    causa_medicoes: toSafeString(item.causa_medicoes),
+    cinco_porques: toSafeString(item.cinco_porques),
+    descricao_detalhada: toSafeString(item.descricao_detalhada),
+    observacoes: toSafeString(item.observacoes),
+    investigador: toSafeString(item.investigador),
+    comissao_investigacao: membrosComissao.length > 0,
+    membros_comissao: membrosComissao,
+    attachments,
+  };
+};
+
+const sortInvestigacoes = (items: InvestigacaoRecord[]) =>
+  items.sort((a, b) => {
+    const dateA = new Date(a.data_ocorrencia || a.created_at).getTime();
+    const dateB = new Date(b.data_ocorrencia || b.created_at).getTime();
+    return dateB - dateA;
+  });
+
 const parseInvestigacoes = (): InvestigacaoRecord[] => {
   if (typeof window === "undefined") return [];
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-
-    const normalized = parsed
-      .map((item: any): InvestigacaoRecord | null => {
-        if (!item || typeof item !== "object") return null;
-        const attachments = Array.isArray(item.attachments)
-          ? item.attachments.map((file: any) => ({
-              name: toSafeString(file?.name),
-              size: Number(file?.size) || 0,
-              type: toSafeString(file?.type),
-              data_url: toSafeString(file?.data_url),
-              dataUrl: toSafeString(file?.dataUrl),
-              url: toSafeString(file?.url),
-              preview_url: toSafeString(file?.preview_url),
-            }))
-          : [];
-        const rawNatureza = toSafeString(item.natureza_ocorrencia);
-        const teveAfastamento =
-          rawNatureza === "Aguardando retorno medico"
-            ? "Aguardando retorno medico"
-            : normalizeAfastamentoStatus(item.teve_afastamento);
-        const membrosComissao = Array.isArray(item.membros_comissao)
-          ? item.membros_comissao.map((membro: any) => toSafeString(membro)).filter(Boolean)
-          : [];
-
-        return {
-          id: toSafeString(item.id) || `${Date.now()}-${Math.random()}`,
-          numero_ocorrencia: Number(item.numero_ocorrencia) || 0,
-          created_at: toSafeString(item.created_at),
-          titulo: toSafeString(item.titulo),
-          data_ocorrencia: toSafeString(item.data_ocorrencia),
-          hora: toSafeString(item.hora),
-          turno: toSafeString(item.turno),
-          nome_acidentado: toSafeString(item.nome_acidentado),
-          cargo: toSafeString(item.cargo),
-          setor: toSafeString(item.setor),
-          tempo_empresa: toSafeString(item.tempo_empresa),
-          tempo_funcao: toSafeString(item.tempo_funcao),
-          natureza_ocorrencia:
-            rawNatureza === "Aguardando retorno medico" ? "" : rawNatureza,
-          mao_de_obra: toSafeString(item.mao_de_obra),
-          tipo_acidente: toSafeString(item.tipo_acidente),
-          teve_afastamento,
-          dias_afastamento: toSafeString(item.dias_afastamento),
-          gravidade: toSafeString(item.gravidade),
-          probabilidade: toSafeString(item.probabilidade),
-          parte_corpo_atingida: toSafeString(item.parte_corpo_atingida),
-          causa_raiz: toSafeString(item.causa_raiz),
-          agente_causador: toSafeString(item.agente_causador),
-          causa_acidente: toSafeString(item.causa_acidente),
-          problema: toSafeString(item.problema),
-          causa_maquinas: toSafeString(item.causa_maquinas),
-          causa_mao_de_obra: toSafeString(item.causa_mao_de_obra),
-          causa_metodos: toSafeString(item.causa_metodos),
-          causa_meio_ambiente: toSafeString(item.causa_meio_ambiente),
-          causa_materiais: toSafeString(item.causa_materiais),
-          causa_medicoes: toSafeString(item.causa_medicoes),
-          cinco_porques: toSafeString(item.cinco_porques),
-          descricao_detalhada: toSafeString(item.descricao_detalhada),
-          observacoes: toSafeString(item.observacoes),
-          investigador: toSafeString(item.investigador),
-          comissao_investigacao: membrosComissao.length > 0,
-          membros_comissao: membrosComissao,
-          attachments,
-        };
-      })
-      .filter((item): item is InvestigacaoRecord => Boolean(item));
-
-    return normalized.sort((a, b) => {
-      const dateA = new Date(a.data_ocorrencia || a.created_at).getTime();
-      const dateB = new Date(b.data_ocorrencia || b.created_at).getTime();
-      return dateB - dateA;
-    });
+    return sortInvestigacoes(
+      parsed.map(normalizeInvestigacao).filter((item): item is InvestigacaoRecord => Boolean(item)),
+    );
   } catch (error) {
-    console.error("Erro ao carregar investigacoes:", error);
+    console.error("Erro ao carregar investigacoes locais:", error);
     return [];
+  }
+};
+
+const fetchInvestigacoes = async (): Promise<InvestigacaoRecord[]> => {
+  const localRecords = parseInvestigacoes();
+
+  try {
+    const remoteRecords = (await accidentInvestigationService.getList())
+      .map(normalizeInvestigacao)
+      .filter((item): item is InvestigacaoRecord => Boolean(item));
+    const remoteIds = new Set(remoteRecords.map((item) => item.id));
+    const pendingLocalRecords = localRecords.filter((item) => !remoteIds.has(item.id));
+
+    return sortInvestigacoes([...remoteRecords, ...pendingLocalRecords]);
+  } catch (error) {
+    console.error("Erro ao carregar investigacoes do banco:", error);
+    return localRecords;
   }
 };
 
@@ -551,7 +568,8 @@ const AdminInvestigacoes = () => {
   }, [ocorrenciaFromQuery]);
 
   const loadData = async () => {
-    setInvestigacoes(parseInvestigacoes());
+    const loadedInvestigacoes = await fetchInvestigacoes();
+    setInvestigacoes(loadedInvestigacoes);
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
     const [countMap, planosMap] = await Promise.all([
@@ -1129,6 +1147,7 @@ const AdminInvestigacoes = () => {
     if (!confirmed) return;
 
     try {
+      await accidentInvestigationService.delete(record.id);
       const nextInvestigacoes = investigacoes.filter((item) => item.id !== record.id);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextInvestigacoes));
       window.dispatchEvent(new Event("checklistafm-investigacao-acidente-updated"));

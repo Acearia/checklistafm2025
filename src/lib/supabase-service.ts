@@ -1860,6 +1860,38 @@ const parseNullableInteger = (value: unknown) => {
 };
 
 export const accidentInvestigationService = {
+  async getList(limit = 500) {
+    const { data, error } = await (supabase as any)
+      .from("accident_investigations")
+      .select(`
+        *,
+        accident_investigation_attachments (
+          id,
+          file_name,
+          file_size,
+          file_type,
+          storage_path,
+          created_at
+        )
+      `)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    return (data || []).map((record: any) => ({
+      ...record,
+      attachments: Array.isArray(record.accident_investigation_attachments)
+        ? record.accident_investigation_attachments.map((attachment: any) => ({
+            name: attachment.file_name || "arquivo",
+            size: Number(attachment.file_size) || 0,
+            type: attachment.file_type || "",
+            data_url: attachment.storage_path || "",
+          }))
+        : [],
+    }));
+  },
+
   async getById(id: string) {
     const { data, error } = await (supabase as any)
       .from("accident_investigations")
@@ -1961,6 +1993,15 @@ export const accidentInvestigationService = {
     }
 
     return { syncedIds, failedIds };
+  },
+
+  async delete(id: string) {
+    const { error } = await (supabase as any)
+      .from("accident_investigations")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
   },
 };
 
