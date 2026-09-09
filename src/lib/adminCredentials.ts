@@ -12,6 +12,11 @@ interface AdminAccountRecord {
 
 const ADMIN_TABLE = "admin_users";
 const INVESTIGATOR_ROLES: InvestigatorRole[] = ["investigador", "investigator"];
+const INVESTIGATION_SIGNER_ROLES: SystemRole[] = [
+  ...INVESTIGATOR_ROLES,
+  "seguranca",
+  "tecnico",
+];
 const PRIMARY_INVESTIGATOR_ROLE: InvestigatorRole = "investigador";
 const LOCAL_ACCOUNTS_STORAGE_KEY = "checklistafm-admin-users-local";
 const HIDDEN_ADMIN_USERNAMES = new Set(["teste", "teste@local"]);
@@ -259,7 +264,7 @@ export const verifyInvestigatorCredentials = async (
     .from(ADMIN_TABLE)
     .select("username, role, password_hash")
     .eq("username", normalized)
-    .in("role", INVESTIGATOR_ROLES)
+    .in("role", INVESTIGATION_SIGNER_ROLES)
     .maybeSingle();
 
   if (error || !data) {
@@ -271,7 +276,7 @@ export const verifyInvestigatorCredentials = async (
       username,
       password,
       (role) =>
-        INVESTIGATOR_ROLES.includes(role as InvestigatorRole) || isAdminRole(role),
+        INVESTIGATION_SIGNER_ROLES.includes(role),
     );
     if (!localAuth) return null;
     return {
@@ -388,14 +393,16 @@ export const listInvestigatorAccounts = async (): Promise<
   const { data, error } = await supabase
     .from(ADMIN_TABLE)
     .select("username, role")
-    .in("role", INVESTIGATOR_ROLES)
+    .in("role", INVESTIGATION_SIGNER_ROLES)
     .order("username");
 
   if (!error && data) {
-    return data.map((item) => ({
-      username: item.username,
-      role: PRIMARY_INVESTIGATOR_ROLE,
-    }));
+    return data
+      .filter((item) => !isHiddenOdairUsername(item.username))
+      .map((item) => ({
+        username: item.username,
+        role: PRIMARY_INVESTIGATOR_ROLE,
+      }));
   }
 
   if (!canUseLocalFallback()) {
@@ -403,7 +410,7 @@ export const listInvestigatorAccounts = async (): Promise<
     return [];
   }
 
-  return listLocalAccounts((role) => INVESTIGATOR_ROLES.includes(role as InvestigatorRole))
+  return listLocalAccounts((role) => INVESTIGATION_SIGNER_ROLES.includes(role))
     .filter((item) => !isHiddenOdairUsername(item.username))
     .map((item) => ({
       username: item.username,

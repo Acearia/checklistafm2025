@@ -110,6 +110,29 @@ const isMissingAdminProfileColumnsError = (error: any) => {
   );
 };
 
+const getAdminUserSaveErrorDescription = (error: unknown) => {
+  const errorRecord =
+    error && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : {};
+  const code = String(errorRecord.code || "");
+  const details = String(errorRecord.message || errorRecord.details || "");
+
+  if (code === "23514") {
+    return "O banco ainda não aceita esse perfil. Aplique a migração de perfis administrativos no servidor.";
+  }
+  if (code === "42501") {
+    return "O banco recusou a permissão para salvar esta conta administrativa.";
+  }
+  if (code === "23505") {
+    return "Já existe outra conta usando esta matrícula.";
+  }
+
+  return details
+    ? `Não foi possível atualizar as credenciais administrativas: ${details}`
+    : "Não foi possível atualizar as credenciais administrativas.";
+};
+
 const persistAdminUserRole = async ({
   currentUsername,
   nextUsername,
@@ -665,6 +688,7 @@ const AdminUsers = () => {
         });
 
         if (error) {
+          console.error("Erro ao salvar credencial administrativa:", error);
           toast({
             title: `Erro ao salvar ${
               selectedAdminRole === "investigador"
@@ -675,7 +699,7 @@ const AdminUsers = () => {
                   ? "técnico"
                   : "segurança"
             }`,
-            description: "Não foi possível atualizar as credenciais administrativas.",
+            description: getAdminUserSaveErrorDescription(error),
             variant: "destructive",
           });
           setSaving(false);

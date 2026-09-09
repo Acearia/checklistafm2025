@@ -2094,12 +2094,15 @@ const InvestigacaoAcidente = () => {
             <DialogHeader>
               <DialogTitle>Assinar Checklist</DialogTitle>
               <DialogDescription>
-                Informe o investigador e a senha para preencher a assinatura.
+                Informe o profissional responsável e a senha para preencher a
+                assinatura.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-2">
-              <Label htmlFor="authInvestigator">Investigador</Label>
+              <Label htmlFor="authInvestigator">
+                Investigador / Segurança
+              </Label>
               <Select
                 value={selectedInvestigator || undefined}
                 onValueChange={setSelectedInvestigator}
@@ -2109,8 +2112,8 @@ const InvestigacaoAcidente = () => {
                   <SelectValue
                     placeholder={
                       loadingInvestigators
-                        ? "Carregando investigadores..."
-                        : "Selecione o investigador"
+                        ? "Carregando profissionais..."
+                        : "Selecione o profissional"
                     }
                   />
                 </SelectTrigger>
@@ -2124,7 +2127,8 @@ const InvestigacaoAcidente = () => {
               </Select>
               {!loadingInvestigators && investigators.length === 0 && (
                 <p className="text-xs text-amber-600">
-                  Nenhum investigador cadastrado no administrativo.
+                  Nenhum investigador, usuário da Segurança ou técnico foi
+                  encontrado no administrativo.
                 </p>
               )}
             </div>
