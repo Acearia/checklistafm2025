@@ -13,7 +13,7 @@ import {
   groupProcedureService,
   equipmentGroupService,
 } from "@/lib/supabase-service";
-import { fetchWithOfflineCache } from "@/lib/offlineResourceCache";
+import { fetchWithOfflineCache, readResourceCache } from "@/lib/offlineResourceCache";
 
 const EMPTY_DATA = [];
 
@@ -65,42 +65,56 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
     queries: [
       {
         queryKey: ["operators"],
+        initialData: () => enabledResources.has("operators") ? readResourceCache<any[]>("operators") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("operators", () => operatorService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("operators"),
       },
       {
         queryKey: ["equipment"],
+        initialData: () => enabledResources.has("equipment") ? readResourceCache<any[]>("equipment") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("equipment", () => equipmentService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("equipment"),
       },
       {
         queryKey: ["inspections"],
+        initialData: () => enabledResources.has("inspections") ? readResourceCache<any[]>("inspections") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("inspections", () => inspectionService.getList()),
         staleTime: STALE_TIME_MS / 2,
         enabled: enabledResources.has("inspections"),
       },
       {
         queryKey: ["checklist-items"],
+        initialData: () => enabledResources.has("checklistItems") ? readResourceCache<any[]>("checklist-items") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("checklist-items", () => checklistService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("checklistItems"),
       },
       {
         queryKey: ["sectors"],
+        initialData: () => enabledResources.has("sectors") ? readResourceCache<any[]>("sectors") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("sectors", () => sectorService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("sectors"),
       },
       {
         queryKey: ["leaders"],
+        initialData: () => enabledResources.has("leaders") ? readResourceCache<any[]>("leaders") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("leaders", () => leaderService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("leaders"),
       },
       {
         queryKey: ["sector-leader-assignments"],
+        initialData: () => enabledResources.has("sectorLeaderAssignments") ? readResourceCache<any[]>("sector-leader-assignments") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () =>
           fetchWithOfflineCache("sector-leader-assignments", () =>
             sectorLeaderAssignmentService.getAll(),
@@ -110,24 +124,32 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
       },
       {
         queryKey: ["checklist-groups"],
+        initialData: () => enabledResources.has("groups") ? readResourceCache<any[]>("checklist-groups") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("checklist-groups", () => checklistGroupService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groups"),
       },
       {
         queryKey: ["group-questions"],
+        initialData: () => enabledResources.has("groupQuestions") ? readResourceCache<any[]>("group-questions") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("group-questions", () => groupQuestionService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groupQuestions"),
       },
       {
         queryKey: ["group-procedures"],
+        initialData: () => enabledResources.has("groupProcedures") ? readResourceCache<any[]>("group-procedures") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("group-procedures", () => groupProcedureService.getAll()),
         staleTime: STALE_TIME_MS * 5,
         enabled: enabledResources.has("groupProcedures"),
       },
       {
         queryKey: ["golden-rule-questions"],
+        initialData: () => enabledResources.has("goldenRuleQuestions") ? readResourceCache<any[]>("golden-rule-questions") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () =>
           fetchWithOfflineCache("golden-rule-questions", () =>
             goldenRuleQuestionService.safeGetAllWithFallback(),
@@ -137,6 +159,8 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
       },
       {
         queryKey: ["equipment-groups"],
+        initialData: () => enabledResources.has("equipmentGroups") ? readResourceCache<any[]>("equipment-groups") ?? undefined : undefined,
+        initialDataUpdatedAt: 0,
         queryFn: () => fetchWithOfflineCache("equipment-groups", () => equipmentGroupService.getAll()),
         staleTime: STALE_TIME_MS,
         enabled: enabledResources.has("equipmentGroups"),
@@ -186,5 +210,6 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
     loading,
     error,
     refresh,
+    refreshInspections: () => getQueryResult("inspections").refetch(),
   };
 };

@@ -1,3 +1,4 @@
+import ListPagination, { useListPagination } from "@/components/ListPagination";
 ﻿
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -51,7 +52,7 @@ import { inspectionService } from "@/lib/supabase-service";
 import { isImageAttachment, resolveAttachmentPreviewUrl } from "@/lib/attachmentPreview";
 import { canDeleteAdminRecords } from "@/lib/adminSession";
 import { parseLocalDateValue } from "@/lib/dateHelpers";
-const INSPECTIONS_AUTO_REFRESH_MS = 15000;
+const INSPECTIONS_AUTO_REFRESH_MS = 60000;
 
 const calculateConformitySummary = (answers: any[], problemCount: number) => {
   const totalItems = answers.filter((answer) => {
@@ -102,7 +103,8 @@ const AdminInspections = () => {
     equipment, 
     loading, 
     error, 
-    refresh 
+    refresh,
+    refreshInspections
   } = useSupabaseData([
     "inspections",
     "operators",
@@ -136,7 +138,7 @@ const AdminInspections = () => {
     format(new Date(), "yyyy-MM-dd"),
   );
   const [isAdmUser, setIsAdmUser] = useState<boolean>(canDeleteAdminRecords);
-  const refreshRef = useRef(refresh);
+  const refreshRef = useRef(refreshInspections);
 
   const equipmentById = useMemo(() => {
     return new Map((equipment || []).map((item: any) => [item.id, item]));
@@ -166,8 +168,8 @@ const AdminInspections = () => {
   }, []);
 
   useEffect(() => {
-    refreshRef.current = refresh;
-  }, [refresh]);
+    refreshRef.current = refreshInspections;
+  }, [refreshInspections]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -632,6 +634,8 @@ const AdminInspections = () => {
     return entry.hasOpenOrder ? "bg-yellow-500" : "bg-red-500";
   };
 
+  const { visibleItems, pagination } = useListPagination<any>(filteredInspections, JSON.stringify([searchTerm, filterEquipment, filterOperator, sectorFilter, osFilter, dateFrom, dateTo]));
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -909,6 +913,7 @@ const AdminInspections = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <ListPagination {...pagination} />
           {filteredInspections.length === 0 ? (
             <div className="text-center p-8 border rounded-md bg-gray-50">
               <p className="text-gray-500">Nenhuma inspeção encontrada com os filtros selecionados.</p>
@@ -929,7 +934,7 @@ const AdminInspections = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredInspections.map((inspection, index) => {
+                  {visibleItems.map((inspection, index) => {
                     // Find operator and equipment by IDs for display
                     const inspectionOperator = operators.find(op => op.matricula === inspection.operator_matricula);
                     const inspectionEquipment = equipment.find(eq => eq.id === inspection.equipment_id);

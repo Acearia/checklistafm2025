@@ -470,13 +470,11 @@ const AdminPlanosAcao = () => {
     setLoadError("");
 
     try {
-      try {
-        const rules = await goldenRuleService.safeGetListWithFallback();
+      void goldenRuleService.getList().then(rules => {
         setGoldenRules(Array.isArray(rules) ? rules : []);
-      } catch (error) {
-        console.warn("Erro ao carregar regras de ouro para visualizacao do plano:", error);
-        setGoldenRules([]);
-      }
+      }).catch(error => {
+        console.warn("Falha ao carregar regras vinculadas ao plano:", error);
+      });
 
       const remoteRows = await accidentActionPlanService.getList();
       const remoteRecords = remoteRows

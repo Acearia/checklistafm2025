@@ -1,4 +1,6 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import ListPagination, { useListPagination } from "@/components/ListPagination";
+import { fetchWithOfflineCache, readResourceCache } from "@/lib/offlineResourceCache";
+﻿import React, { useEffect, useMemo, useState, useRef } from "react";
 import { addDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, Eye, FileText, PlusCircle, RefreshCw, Trash2 } from "lucide-react";
@@ -673,53 +675,6 @@ const parseRegrasOuro = (): RegraOuroRecord[] => {
   }
 };
 
-const toLegacyGoldenRulePayload = (record: RegraOuroRecord) => ({
-  id: record.id,
-  numero_inspecao: record.numero_inspecao,
-  created_at: record.created_at,
-  titulo: record.titulo,
-  setor: record.setor,
-  gestor: record.gestor,
-  tecnico_seg: record.tecnico_seg,
-  acompanhante: record.acompanhante,
-  ass_tst: record.ass_tst,
-  ass_gestor: record.ass_gestor,
-  ass_acomp: record.ass_acomp,
-  responses: record.respostas.map((response) => ({
-    codigo: response.codigo,
-    numero: response.numero,
-    pergunta: response.pergunta,
-    resposta: response.resposta,
-    comentario: response.comentario,
-    foto: response.foto
-      ? {
-          name: response.foto.name,
-          size: response.foto.size,
-          type: response.foto.type,
-          data_url: response.foto.data_url || response.foto.dataUrl || response.foto.url || response.foto.preview_url,
-        }
-      : null,
-    evidencias: getResponseEvidences(response).map((evidence) => ({
-      comentario: evidence.comentario,
-      foto: evidence.foto
-        ? {
-            name: evidence.foto.name,
-            size: evidence.foto.size,
-            type: evidence.foto.type,
-            data_url:
-              evidence.foto.data_url || evidence.foto.dataUrl || evidence.foto.url || evidence.foto.preview_url,
-          }
-        : null,
-    })),
-  })),
-  attachments: record.anexos.map((attachment) => ({
-    name: attachment.name,
-    size: attachment.size,
-    type: attachment.type,
-    data_url: attachment.data_url || attachment.dataUrl || attachment.url || attachment.preview_url,
-  })),
-});
-
 const mapSupabaseRegrasOuro = (rows: any[]): RegraOuroRecord[] => {
   const mapped = rows
     .map((row): RegraOuroRecord | null => {
@@ -765,7 +720,7 @@ const AdminRegrasOuro = () => {
     () => buildGoldenRuleQuestionItems(goldenRuleQuestions as any[]),
     [goldenRuleQuestions],
   );
-  const [records, setRecords] = useState<RegraOuroRecord[]>([]);
+  const [records, setRecords] = useState<RegraOuroRecord[]>(() => mapSupabaseRegrasOuro(readResourceCache<any[]>("golden-rules-list") || []));
   const [actionPlans, setActionPlans] = useState<PlanoAcaoSummary[]>([]);
   const [selected, setSelected] = useState<RegraOuroRecord | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -779,91 +734,63 @@ const AdminRegrasOuro = () => {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const loadData = async () => {
+  const loadPromiseRef = useRef<Promise<void> | null>(null);
+  const reloadRequestedRef = useRef(false);
+  const loadData = () => {
+    if (loadPromiseRef.current) {
+      reloadRequestedRef.current = true;
+      return loadPromiseRef.current;
+    }
     const localRecords = parseRegrasOuro();
     const localPlans = parsePlanosAcao();
-
-    try {
-      const remotePlans = (await accidentActionPlanService.safeGetListWithFallback())
-        .map(mapPlanoAcaoSummary)
-        .filter((item): item is PlanoAcaoSummary => Boolean(item));
-      const mergedPlans = new Map<number, PlanoAcaoSummary>();
-      [...localPlans, ...remotePlans].filter(isGoldenRuleActionPlan).forEach((plan) => {
-        const current = mergedPlans.get(plan.numero_ocorrencia);
-        const currentTime = new Date(current?.updated_at || current?.created_at || 0).getTime();
-        const nextTime = new Date(plan.updated_at || plan.created_at || 0).getTime();
-        if (!current || nextTime >= currentTime) {
-          mergedPlans.set(plan.numero_ocorrencia, plan);
-        }
-      });
-      setActionPlans(Array.from(mergedPlans.values()));
-    } catch (error) {
-      if (!isMissingActionPlansTableError(error)) {
-        console.warn("Falha ao carregar planos de acao vinculados:", error);
-      }
-      setActionPlans(localPlans.filter(isGoldenRuleActionPlan));
-    }
-
-    try {
-      let remoteRows = await goldenRuleService.safeGetListWithFallback();
-      let remoteRecords = mapSupabaseRegrasOuro(remoteRows);
-
-      if (localRecords.length > 0) {
-        const remoteById = new Map(remoteRecords.map((item) => [item.id, item]));
-        const pendingLocalSync = localRecords.filter((item) => {
-          if (!item.id) return false;
-          const remoteRecord = remoteById.get(item.id);
-          if (!remoteRecord) return true;
-          return getRecordCompletenessScore(item) > getRecordCompletenessScore(remoteRecord);
-        });
-
-        if (pendingLocalSync.length > 0) {
-          const syncResult = await goldenRuleService.syncLocalRecords(
-            pendingLocalSync.map(toLegacyGoldenRulePayload),
-          );
-
-          if (syncResult.syncedIds.length > 0) {
-            toast({
-              title: "Regras de Ouro sincronizadas",
-              description: `${syncResult.syncedIds.length} registro(s) local(is) foram enviados ao banco.`,
-            });
-          }
-
-          remoteRows = await goldenRuleService.safeGetListWithFallback();
-          remoteRecords = mapSupabaseRegrasOuro(remoteRows);
-        }
-      }
-
-      if (remoteRows.length === 0) {
-        setRecords(localRecords);
-        return;
-      }
-
-      const mergedMap = new Map<string, RegraOuroRecord>();
-      [...remoteRecords, ...localRecords].forEach((item) => {
-        const key = item.id;
-        const current = mergedMap.get(key);
-        mergedMap.set(key, current ? mergeGoldenRuleRecords(current, item) : item);
-      });
-      const mergedRecords = sortRecordsByCreatedAtDesc(Array.from(mergedMap.values()));
-
-      setRecords(mergedRecords);
-
-      // A tela administrativa nao deve sobrescrever o cache local completo com
-      // anexos/base64 do banco. Isso estoura a quota do navegador e derruba a listagem.
+    const loadPlans = async () => {
       try {
-        if (localRecords.length > 0) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(localRecords));
+        const remotePlans = (await accidentActionPlanService.getList())
+          .map(mapPlanoAcaoSummary)
+          .filter((item): item is PlanoAcaoSummary => Boolean(item));
+        const mergedPlans = new Map<number, PlanoAcaoSummary>();
+        [...localPlans, ...remotePlans].filter(isGoldenRuleActionPlan).forEach((plan) => {
+          const current = mergedPlans.get(plan.numero_ocorrencia);
+          const currentTime = new Date(current?.updated_at || current?.created_at || 0).getTime();
+          const nextTime = new Date(plan.updated_at || plan.created_at || 0).getTime();
+          if (!current || nextTime >= currentTime) {
+            mergedPlans.set(plan.numero_ocorrencia, plan);
+          }
+        });
+        setActionPlans(Array.from(mergedPlans.values()));
+      } catch (error) {
+        if (!isMissingActionPlansTableError(error)) {
+          console.warn("Falha ao carregar planos de acao vinculados:", error);
         }
-      } catch (storageError) {
-        console.warn("Falha ao manter cache local das regras de ouro:", storageError);
+        setActionPlans(localPlans.filter(isGoldenRuleActionPlan));
       }
-    } catch (error) {
-      if (!isMissingGoldenRulesTableError(error)) {
-        console.error("Erro ao carregar regras de ouro no Supabase:", error);
+    };
+    const loadRules = async () => {
+      try {
+        const remoteRows = await fetchWithOfflineCache("golden-rules-list", () => goldenRuleService.getList());
+        const mergedMap = new Map<string, RegraOuroRecord>();
+        [...mapSupabaseRegrasOuro(remoteRows), ...localRecords].forEach(item => {
+          const current = mergedMap.get(item.id);
+          mergedMap.set(item.id, current ? mergeGoldenRuleRecords(current, item) : item);
+        });
+        setRecords(sortRecordsByCreatedAtDesc(Array.from(mergedMap.values())));
+      } catch (error) {
+        console.warn("Falha ao carregar regras de ouro:", error);
+        setRecords(previous => previous.length ? previous : localRecords);
       }
-      setRecords(localRecords);
-    }
+    };
+    // Pending uploads are handled globally by OfflineSyncManager, independently
+    // of opening a list. Do not compare complete local files against list summaries.
+    const pending = Promise.all([loadRules(), loadPlans()]).then(() => undefined);
+    loadPromiseRef.current = pending;
+    void pending.finally(() => {
+      loadPromiseRef.current = null;
+      if (reloadRequestedRef.current) {
+        reloadRequestedRef.current = false;
+        void loadData();
+      }
+    });
+    return pending;
   };
 
   useEffect(() => {
@@ -1002,6 +929,8 @@ const AdminRegrasOuro = () => {
     const merged = mergeGoldenRuleRecords(mapped, localFallback);
     return { ...merged, setor: resolveCanonicalSectorName(merged.setor) };
   };
+
+  const { visibleItems, pagination } = useListPagination(filteredRecords, JSON.stringify([searchTerm, setorFilter, tecnicoFilter, dateFrom, dateTo]));
 
   const handleViewDetails = async (record: RegraOuroRecord) => {
     setSelected(record);
@@ -1559,6 +1488,7 @@ const AdminRegrasOuro = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <ListPagination {...pagination} />
           {filteredRecords.length === 0 ? (
             <div className="rounded-md border bg-gray-50 p-8 text-center text-gray-500">
               Não há registros com os filtros selecionados.
@@ -1593,7 +1523,7 @@ const AdminRegrasOuro = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecords.map((item) => {
+                  {visibleItems.map((item) => {
                     const temNaoConformidade = item.respostas.some((response) =>
                       responseHasNonConformityEvidence(response, questionItems),
                     );

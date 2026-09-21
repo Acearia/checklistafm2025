@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Eye, RefreshCw, Trash2 } from "lucide-react";
 import EnvironmentalInspectionDetailsDialog, {
   type EnvironmentalInspectionDetail,
@@ -28,7 +28,6 @@ import { canDeleteAdminRecords } from "@/lib/adminSession";
 import {
   ENVIRONMENTAL_INSPECTION_STORAGE_EVENT,
   readLocalEnvironmentalInspections,
-  removeLocalEnvironmentalInspections,
   type EnvironmentalInspectionLocalRecord,
 } from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService } from "@/lib/supabase-service";
@@ -125,22 +124,13 @@ const AdminInspecoesAmbientais = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const canDeleteRecords = canDeleteAdminRecords();
 
+  const loadingRef = useRef(false);
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     try {
-      let localRecords = readLocalEnvironmentalInspections();
-      if (localRecords.length > 0) {
-        const syncResult = await environmentalInspectionService.syncLocalRecords(localRecords);
-        if (syncResult.syncedIds.length > 0) {
-          removeLocalEnvironmentalInspections(syncResult.syncedIds);
-          localRecords = readLocalEnvironmentalInspections();
-          toast({
-            title: "Inspecoes ambientais sincronizadas",
-            description: `${syncResult.syncedIds.length} registro(s) local(is) foram enviados ao banco.`,
-          });
-        }
-      }
-
+      const localRecords = readLocalEnvironmentalInspections();
+      // OfflineSyncManager uploads pending records without blocking this list.
       const data = await environmentalInspectionService.safeGetAllWithFallback();
       const remoteRecords = (Array.isArray(data) ? data : []).map((item: any) => ({
         ...item,
@@ -166,6 +156,7 @@ const AdminInspecoesAmbientais = () => {
         variant: "destructive",
       });
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   }, [toast]);

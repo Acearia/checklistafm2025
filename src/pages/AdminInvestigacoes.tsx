@@ -449,9 +449,9 @@ const parsePlanosByOcorrencia = (): Record<string, PlanoAcaoResumo[]> => {
   }
 };
 
-const fetchPlanoCountByOcorrencia = async (): Promise<Record<string, number>> => {
+const fetchPlanoCountByOcorrencia = async (rowsPromise: Promise<any[]>): Promise<Record<string, number>> => {
   try {
-    const rows = await accidentActionPlanService.safeGetAllWithFallback();
+    const rows = await rowsPromise;
     if (rows.length === 0) {
       return parsePlanoCountByOcorrencia();
     }
@@ -492,9 +492,9 @@ const formatDateTimeFull = (value?: string) => {
   return format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
 };
 
-const fetchPlanosByOcorrencia = async (): Promise<Record<string, PlanoAcaoResumo[]>> => {
+const fetchPlanosByOcorrencia = async (rowsPromise: Promise<any[]>): Promise<Record<string, PlanoAcaoResumo[]>> => {
   try {
-    const rows = await accidentActionPlanService.safeGetAllWithFallback();
+    const rows = await rowsPromise;
     return rows.reduce((accumulator: Record<string, PlanoAcaoResumo[]>, item: any) => {
       const numeroOcorrencia = Number(item?.numero_ocorrencia) || 0;
       if (numeroOcorrencia <= 0) return accumulator;
@@ -572,9 +572,10 @@ const AdminInvestigacoes = () => {
     setInvestigacoes(loadedInvestigacoes);
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
+    const rowsPromise = accidentActionPlanService.getList(1000);
     const [countMap, planosMap] = await Promise.all([
-      fetchPlanoCountByOcorrencia(),
-      fetchPlanosByOcorrencia(),
+      fetchPlanoCountByOcorrencia(rowsPromise),
+      fetchPlanosByOcorrencia(rowsPromise),
     ]);
     setPlanoCountByOcorrencia(countMap);
     setPlanosByOcorrencia(planosMap);

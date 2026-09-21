@@ -3,7 +3,7 @@ const CACHE_PREFIX = "checklistafm-resource-cache-v1:";
 const canUseStorage = () =>
   typeof window !== "undefined" && typeof localStorage !== "undefined";
 
-const readCache = <T>(resource: string): T | null => {
+export const readResourceCache = <T>(resource: string): T | null => {
   if (!canUseStorage()) return null;
   try {
     const raw = localStorage.getItem(`${CACHE_PREFIX}${resource}`);
@@ -27,7 +27,7 @@ export const fetchWithOfflineCache = async <T>(
   resource: string,
   fetchRemote: () => Promise<T>,
 ): Promise<T> => {
-  const cached = readCache<T>(resource);
+  const cached = readResourceCache<T>(resource);
   const offline = typeof navigator !== "undefined" && !navigator.onLine;
 
   if (offline) {

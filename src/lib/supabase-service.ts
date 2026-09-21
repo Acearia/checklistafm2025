@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mapConcurrent, readAllPages } from "@/lib/pagedLoad";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
 import { normalizeQuestion } from "@/lib/alertRules";
@@ -511,20 +512,12 @@ export const checklistService = {
 // Inspections
 export const inspectionService = {
   async getList(limit?: number) {
-    const inspections: any[] = [];
     const requestedLimit = Number(limit || 0);
     const hasLimit = Number.isFinite(requestedLimit) && requestedLimit > 0;
-
-    for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
-      const remaining = hasLimit ? requestedLimit - inspections.length : SUPABASE_PAGE_SIZE;
-      if (hasLimit && remaining <= 0) break;
-
-      const pageSize = hasLimit ? Math.min(SUPABASE_PAGE_SIZE, remaining) : SUPABASE_PAGE_SIZE;
-      const to = from + pageSize - 1;
-
-      const { data, error } = await supabase
-        .from("inspections")
-        .select(`
+    const pageSize = hasLimit ? Math.min(SUPABASE_PAGE_SIZE, requestedLimit) : SUPABASE_PAGE_SIZE;
+    const loadPage = (from: number, to: number, count = false) => supabase
+      .from("inspections")
+      .select(`
           id,
           created_at,
           updated_at,
@@ -536,19 +529,31 @@ export const inspectionService = {
           comments,
           operator:operators!inspections_operator_matricula_fkey(id, name, matricula),
           equipment:equipment(id, name, kp, sector, type)
-        `)
-        .order("created_at", { ascending: false })
-        .order("id", { ascending: false })
-        .range(from, to);
-
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-
-      inspections.push(...data);
-      if (data.length < pageSize) break;
+        `, count ? { count: "exact" } : {})
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+    const first = await loadPage(0, pageSize - 1, true);
+    if (first.error) throw first.error;
+    const rows = first.data || [];
+    if (first.count === null && rows.length === pageSize && (!hasLimit || rows.length < requestedLimit)) {
+      const remaining = await readAllPages<any>((from, to) => {
+        const start = rows.length + from;
+        if (hasLimit && start >= requestedLimit) return Promise.resolve({ data: [], error: null });
+        return loadPage(start, hasLimit ? Math.min(rows.length + to, requestedLimit - 1) : rows.length + to);
+      });
+      return [...rows, ...remaining];
     }
-
-    return inspections;
+    const total = hasLimit ? Math.min(first.count ?? rows.length, requestedLimit) : first.count ?? rows.length;
+    const actualPageSize = rows.length || pageSize;
+    const offsets = [];
+    for (let from = rows.length; from < total; from += actualPageSize) offsets.push(from);
+    const pages = await mapConcurrent(offsets, async from => {
+      const { data, error } = await loadPage(from, Math.min(from + actualPageSize, total) - 1);
+      if (error) throw error;
+      return data || [];
+    });
+    return [...rows, ...pages.flat()];
   },
 
   async getAll() {
@@ -1272,24 +1277,18 @@ export const goldenRuleService = {
     const questionLookup = buildGoldenRuleQuestionLookup(questionTemplates);
 
     try {
-      for (const batchIds of chunkArray(ruleIds, 5)) {
-        const { data: responseRows, error: responsesError } = await supabase
+      const batches = await mapConcurrent(chunkArray(ruleIds, 20), async batchIds =>
+        readAllPages<any>((from, to) => supabase
           .from("golden_rule_responses")
-          .select(
-            includeResponseImageData
-              ? "*"
-              : "id,regra_id,codigo,numero,pergunta,resposta,comentario,foto_name,foto_size,foto_type,created_at",
-          )
+          .select(includeResponseImageData
+            ? "*"
+            : "id,regra_id,codigo,numero,pergunta,resposta,comentario,foto_name,foto_size,foto_type,created_at")
           .in("regra_id", batchIds)
-          .order("numero", { ascending: true });
-
-        if (responsesError) {
-          if (!relationMissingError(responsesError, "golden_rule_responses")) {
-            console.warn("[goldenRuleService] Falha ao carregar respostas das regras de ouro:", responsesError);
-          }
-          continue;
-        }
-
+          .order("numero", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, to)),
+      );
+      for (const responseRows of batches) {
         (responseRows || []).forEach((response: any) => {
           const codigo = String(response?.codigo || "").trim().toLowerCase();
           const numero = String(response?.numero || "").trim().replace(/^0+/, "") || String(response?.numero || "").trim();
@@ -1310,6 +1309,7 @@ export const goldenRuleService = {
       }
     } catch (error) {
       console.warn("[goldenRuleService] Erro ao hidratar respostas das regras de ouro:", error);
+      if (!relationMissingError(error, "golden_rule_responses")) throw error;
     }
 
     if (includeAttachments) {
@@ -1388,7 +1388,7 @@ export const goldenRuleService = {
   async getList(limit = 300) {
     const { data, error } = await supabase
       .from("golden_rules")
-      .select("id, numero_inspecao, titulo, setor, gestor, tecnico_seg, acompanhante, ass_tst, ass_gestor, ass_acomp, created_at, updated_at")
+      .select("id, numero_inspecao, titulo, setor, gestor, tecnico_seg, acompanhante, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(limit);
 
