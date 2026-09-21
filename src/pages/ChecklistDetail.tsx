@@ -262,7 +262,13 @@ const ChecklistDetail = () => {
         });
 
         if (foundSupabaseInspection) {
-          const normalized = normalizeSupabaseInspection(foundSupabaseInspection);
+          // List rows intentionally omit signatures and photos. Always hydrate
+          // the selected inspection before presenting its complete details.
+          const detail = await inspectionService.getById(id);
+          if (!detail) {
+            throw new Error("Não foi possível carregar os detalhes da inspeção.");
+          }
+          const normalized = normalizeSupabaseInspection({ ...foundSupabaseInspection, ...detail });
           setInspection(normalized);
           setObservations(normalized.observations || "");
           setArchived(false);
