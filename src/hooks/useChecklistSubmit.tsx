@@ -11,6 +11,7 @@ import {
   createLocalInspectionId,
   removeLocalInspections,
   upsertLocalInspection,
+  toInspectionPayload,
 } from "@/lib/inspectionOffline";
 import type { ChecklistAlert } from "@/lib/types";
 import { isDeviceOnline } from "@/lib/connectivity";
@@ -177,6 +178,7 @@ export const useChecklistSubmit = () => {
       const updatedInspections = [formData, ...existingInspections];
       localStorage.setItem('checklistafm-inspections', JSON.stringify(updatedInspections));
 
+      let savedRemotely = false;
       // Try to save to Supabase
       try {
         if (!(await isDeviceOnline())) {
@@ -190,31 +192,12 @@ export const useChecklistSubmit = () => {
           equipmentService.getAll()
         ]);
 
-        const operatorMatch = operators.find(op => op.name === currentState.operator?.name);
-        const equipmentMatch = equipment.find(eq => eq.name === currentState.equipment?.name);
+        const inspectionPayload = toInspectionPayload({
+          id: payloadId, legacy: formData, _sync_status: "pending",
+          _saved_local_at: formData.submissionDate,
+        }, operators, equipment);
 
-        if (operatorMatch && equipmentMatch) {
-          const operatorMatricula = operatorMatch.matricula || operatorMatch.id;
-          const sanitizedChecklistAnswers = (currentState.checklist || []).map((item) => ({
-            id: item.id,
-            question: item.question,
-            answer: item.answer,
-            alertOnYes: item.alertOnYes ?? false,
-            alertOnNo: item.alertOnNo ?? false,
-          }));
-
-          const inspectionPayload = {
-            id: payloadId,
-            operator_matricula: operatorMatricula,
-            equipment_id: equipmentMatch.id,
-            inspection_date: inspectionDate,
-            submission_date: new Date().toISOString(),
-            comments: currentState.comments || '',
-            signature,
-            photos: currentState.photos || [],
-            checklist_answers: sanitizedChecklistAnswers
-          };
-
+        if (inspectionPayload) {
           upsertLocalInspection({
             id: payloadId,
             payload: inspectionPayload,
@@ -223,6 +206,7 @@ export const useChecklistSubmit = () => {
 
           await inspectionService.create(inspectionPayload);
           removeLocalInspections([payloadId]);
+          savedRemotely = true;
 
           toast({
             title: "Dados sincronizados",
@@ -240,35 +224,19 @@ export const useChecklistSubmit = () => {
         });
       }
 
-      // Check if there's a leader for this equipment's sector
-      try {
-        const savedLeaders = localStorage.getItem('checklistafm-leaders');
-        if (savedLeaders) {
-          const leaders = JSON.parse(savedLeaders);
-          const sectorLeaders = leaders.filter(leader => leader.sector === currentState.equipment?.sector);
-          
-          if (sectorLeaders.length > 0) {
-            // If we have leaders for this sector, simulate sending email notification
-            toast({
-              title: "Notificação enviada",
-              description: `${sectorLeaders.length} líder(es) do setor ${currentState.equipment?.sector} foram notificados`,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error processing leader notifications:", error);
-      }
-
       toast({
-        title: "Checklist enviado com sucesso!",
-        description: `Inspeção do equipamento ${currentState.equipment?.name} registrada`,
-        variant: "default",
+        title: savedRemotely ? "Checklist enviado com sucesso!" : "Checklist salvo neste aparelho",
+        description: savedRemotely
+          ? "Inspeção registrada no banco de dados."
+          : "Envio pendente. Ainda não aparece no painel administrativo. Mantenha o aplicativo aberto com internet para sincronizar.",
+        variant: savedRemotely ? "default" : "destructive",
       });
 
-      if (alertsGenerated > 0) {
+      if (alertsGenerated > 0 && !savedRemotely) {
         toast({
-          title: "Alerta de segurança emitido",
-          description: `${alertsGenerated} alerta(s) foram enviados para acompanhamento pelo administrativo e líderes.`,
+          title: "Alertas aguardando envio",
+          description: "Os alertas também dependem da sincronização deste checklist.",
+          variant: "destructive",
         });
       }
 

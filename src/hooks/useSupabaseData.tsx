@@ -15,6 +15,8 @@ import {
 } from "@/lib/supabase-service";
 import { fetchWithOfflineCache } from "@/lib/offlineResourceCache";
 
+const EMPTY_DATA = [];
+
 const STALE_TIME_MS = 1000 * 60; // 1 minute
 
 const RESOURCE_LIST = [
@@ -169,18 +171,18 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
     );
 
   return {
-    operators: getQueryResult("operators").data ?? [],
-    equipment: getQueryResult("equipment").data ?? [],
-    inspections: getQueryResult("inspections").data ?? [],
-    checklistItems: getQueryResult("checklistItems").data ?? [],
-    sectors: getQueryResult("sectors").data ?? [],
-    leaders: getQueryResult("leaders").data ?? [],
-    sectorLeaderAssignments: getQueryResult("sectorLeaderAssignments").data ?? [],
-    groups: getQueryResult("groups").data ?? [],
-    groupQuestions: getQueryResult("groupQuestions").data ?? [],
-    groupProcedures: getQueryResult("groupProcedures").data ?? [],
-    goldenRuleQuestions: getQueryResult("goldenRuleQuestions").data ?? [],
-    equipmentGroups: getQueryResult("equipmentGroups").data ?? [],
+    operators: getQueryResult("operators").data ?? EMPTY_DATA,
+    equipment: getQueryResult("equipment").data ?? EMPTY_DATA,
+    inspections: getQueryResult("inspections").data ?? EMPTY_DATA,
+    checklistItems: getQueryResult("checklistItems").data ?? EMPTY_DATA,
+    sectors: getQueryResult("sectors").data ?? EMPTY_DATA,
+    leaders: getQueryResult("leaders").data ?? EMPTY_DATA,
+    sectorLeaderAssignments: getQueryResult("sectorLeaderAssignments").data ?? EMPTY_DATA,
+    groups: getQueryResult("groups").data ?? EMPTY_DATA,
+    groupQuestions: getQueryResult("groupQuestions").data ?? EMPTY_DATA,
+    groupProcedures: getQueryResult("groupProcedures").data ?? EMPTY_DATA,
+    goldenRuleQuestions: getQueryResult("goldenRuleQuestions").data ?? EMPTY_DATA,
+    equipmentGroups: getQueryResult("equipmentGroups").data ?? EMPTY_DATA,
     loading,
     error,
     refresh,

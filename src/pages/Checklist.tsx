@@ -92,6 +92,7 @@ const Checklist = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [submissionSynced, setSubmissionSynced] = useState(false);
   const [successEquipmentName, setSuccessEquipmentName] = useState<string | null>(null);
   const [highlightUnanswered, setHighlightUnanswered] = useState(false);
   const [hasInteractedWithChecklist, setHasInteractedWithChecklist] = useState(false);
@@ -675,7 +676,7 @@ const Checklist = () => {
         console.warn("[Checklist] Banco indisponivel durante envio. Checklist salvo na fila local.", syncError);
       }
 
-      if (selectedEquipment?.sector) {
+      if (savedRemotely && selectedEquipment?.sector) {
         try {
           const savedLeaders = localStorage.getItem('checklistafm-leaders');
           if (savedLeaders) {
@@ -698,7 +699,7 @@ const Checklist = () => {
         title: savedRemotely ? "Checklist enviado com sucesso!" : "Checklist salvo neste aparelho",
         description: savedRemotely
           ? `Inspeção do equipamento ${selectedEquipment!.name} registrada`
-          : "A conexão oscilou. O registro será enviado automaticamente quando a internet estabilizar.",
+          : "Ainda não aparece no painel administrativo. Mantenha este aplicativo aberto com internet para sincronizar.",
         variant: savedRemotely ? "default" : "destructive",
       });
 
@@ -719,6 +720,7 @@ const Checklist = () => {
         signature: null,
       });
       setSuccessEquipmentName(equipmentName);
+      setSubmissionSynced(savedRemotely);
       setSubmissionSuccess(true);
 
       setTimeout(() => {
@@ -805,9 +807,11 @@ const Checklist = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-green-700/95 px-6 text-white">
           <div className="flex max-w-md flex-col items-center gap-4 text-center">
             <CheckCircle size={64} className="text-white" />
-            <h2 className="text-2xl font-bold">Inspeção enviada!</h2>
+            <h2 className="text-2xl font-bold">{submissionSynced ? "Inspeção enviada!" : "Inspeção salva neste aparelho"}</h2>
             <p className="text-sm text-green-100">
-              {successEquipmentName
+              {!submissionSynced
+                ? "Envio pendente. Ainda não aparece no painel administrativo. Mantenha o aplicativo aberto com internet para sincronizar."
+                : successEquipmentName
                 ? `A inspeção do equipamento ${successEquipmentName} foi registrada com sucesso.`
                 : "Inspeção registrada com sucesso."}
               {" "}Você será redirecionado para a tela inicial em instantes.

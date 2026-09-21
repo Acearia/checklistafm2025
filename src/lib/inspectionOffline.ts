@@ -64,7 +64,8 @@ export const getPendingLocalInspections = () =>
 const findByName = <T extends { name?: string | null }>(items: T[], name?: string | null) => {
   const normalizedName = String(name || "").trim().toLocaleLowerCase("pt-BR");
   if (!normalizedName) return null;
-  return items.find((item) => String(item.name || "").trim().toLocaleLowerCase("pt-BR") === normalizedName) || null;
+  const matches = items.filter((item) => String(item.name || "").trim().toLocaleLowerCase("pt-BR") === normalizedName);
+  return matches.length === 1 ? matches[0] : null;
 };
 
 export const toInspectionPayload = (
@@ -82,8 +83,12 @@ export const toInspectionPayload = (
   const legacy = record.legacy;
   if (!legacy) return null;
 
-  const operator = findByName(operators, legacy.operator?.name);
-  const equipmentMatch = findByName(equipment, legacy.equipment?.name);
+  const operator = operators.find(item => item.matricula === legacy.operator?.matricula)
+    || operators.find(item => item.id === legacy.operator?.id)
+    || findByName(operators, legacy.operator?.name);
+  const equipmentMatch = equipment.find(item => item.id === legacy.equipment?.id)
+    || equipment.find(item => Boolean(legacy.equipment?.kp) && item.kp === legacy.equipment.kp)
+    || findByName(equipment, legacy.equipment?.name);
   if (!operator || !equipmentMatch) return null;
 
   return {

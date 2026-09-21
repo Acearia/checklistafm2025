@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -40,6 +40,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { parseLocalDateValue } from "@/lib/dateHelpers";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { shouldTriggerAlert } from "@/lib/alertRules";
 import { initializeDefaultData } from "@/lib/checklistStore";
 import { loadChecklistAlerts, markAlertSeenByAdmin } from "@/lib/checklistTemplate";
 import {
@@ -124,6 +126,20 @@ const weekDays = [
 const AdminChecklistsOverview = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { inspections: remoteInspections, equipment: remoteEquipment, refresh } =
+    useSupabaseData(["inspections", "equipment"]);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  useEffect(() => {
+    const runRefresh = () => { if (!document.hidden) void refreshRef.current(); };
+    const interval = window.setInterval(runRefresh, 15000);
+    window.addEventListener("focus", runRefresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", runRefresh);
+    };
+  }, []);
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>("alertas");
@@ -241,38 +257,35 @@ const AdminChecklistsOverview = () => {
     
     const fetchInspections = () => {
       try {
-        // Carregar equipamentos primeiro, pois precisamos deles para os agendamentos
-        const storedEquipments = localStorage.getItem('checklistafm-equipments');
-        if (storedEquipments) {
-          try {
-            const parsedEquipments = JSON.parse(storedEquipments);
-            console.log(`Loaded ${parsedEquipments.length} equipments from localStorage for admin view`);
-            
-            // Transformar para o formato esperado pelo componente
-            const formattedEquipments = parsedEquipments.map((eq) => ({
-              id: eq.id,
-              name: eq.name,
-              sector: eq.sector,
-              bridgeNumber: eq.bridgeNumber || eq.kp || "N/A"
-            }));
-            
-            setEquipmentList(formattedEquipments);
-            console.log("Equipment list set:", formattedEquipments);
-          } catch (error) {
-            console.error("Error parsing equipments:", error);
-            setEquipmentList([]);
-          }
-        } else {
-          console.warn("No equipment data found in localStorage");
-          setEquipmentList([]);
-        }
+        setEquipmentList(remoteEquipment.map(eq => ({
+          id: eq.id, name: eq.name, sector: eq.sector, bridgeNumber: eq.kp || eq.id,
+        })));
 
-        const storedInspections = localStorage.getItem('checklistafm-inspections');
         const storedMaintenanceOrders = loadMaintenanceOrders();
         setMaintenanceOrders(storedMaintenanceOrders);
 
-        if (storedInspections) {
-          const parsedInspections: Inspection[] = JSON.parse(storedInspections);
+        {
+          const parsedInspections: Inspection[] = remoteInspections.map(inspection => ({
+            id: inspection.id,
+            equipment: {
+              id: inspection.equipment_id,
+              name: inspection.equipment?.name || "Equipamento não encontrado",
+              sector: inspection.equipment?.sector || "Sem setor",
+              bridgeNumber: inspection.equipment?.kp || inspection.equipment_id,
+            },
+            operator: {
+              id: inspection.operator?.id || inspection.operator_matricula,
+              name: inspection.operator?.name || inspection.operator_matricula,
+            },
+            submissionDate: inspection.submission_date || inspection.created_at,
+            observations: inspection.comments || "",
+            answers: Object.fromEntries(
+              (Array.isArray(inspection.checklist_answers) ? inspection.checklist_answers : [])
+                .map((answer, index) => [String(index), !shouldTriggerAlert(answer.question, answer.answer, {
+                  onYes: answer.alertOnYes, onNo: answer.alertOnNo,
+                })]),
+            ),
+          }));
           
           const enrichedInspections = parsedInspections.map((inspection) => {
             const maintenanceOrder =
@@ -380,7 +393,7 @@ const AdminChecklistsOverview = () => {
     };
 
     fetchInspections();
-  }, [toast, activeTab]);
+  }, [toast, activeTab, remoteInspections, remoteEquipment]);
 
   const getStatusClass = (inspection: Inspection) => {
     // Check if all answers are true (OK)
