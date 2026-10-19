@@ -114,6 +114,7 @@ const AdminInspecoesAmbientais = () => {
   const { sectors } = useSupabaseData(["sectors"]);
   const [records, setRecords] = useState<EnvironmentalInspectionListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -148,7 +149,9 @@ const AdminInspecoesAmbientais = () => {
       });
 
       setRecords(Array.from(mergedRecords.values()));
+      setLoadError(false);
     } catch (error) {
+      setLoadError(true);
       console.error("[AdminInspecoesAmbientais] Erro ao carregar inspeções ambientais:", error);
       toast({
         title: "Erro",
@@ -170,10 +173,16 @@ const AdminInspecoesAmbientais = () => {
 
     window.addEventListener(ENVIRONMENTAL_INSPECTION_STORAGE_EVENT, handleLocalUpdate);
     window.addEventListener("online", handleLocalUpdate);
+    window.addEventListener("focus", handleLocalUpdate);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadData();
+    }, 60_000);
 
     return () => {
       window.removeEventListener(ENVIRONMENTAL_INSPECTION_STORAGE_EVENT, handleLocalUpdate);
       window.removeEventListener("online", handleLocalUpdate);
+      window.removeEventListener("focus", handleLocalUpdate);
+      window.clearInterval(interval);
     };
   }, [loadData]);
 
@@ -290,6 +299,12 @@ const AdminInspecoesAmbientais = () => {
         </Button>
       </div>
 
+      {loadError && (
+        <div role="alert" className="rounded-md border border-destructive p-4 text-destructive">
+          Não foi possível consultar as inspeções ambientais no servidor. Os dados abaixo podem estar desatualizados.
+          Tente Atualizar. Se o erro continuar, contate o administrador.
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
@@ -373,7 +388,7 @@ const AdminInspecoesAmbientais = () => {
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="rounded-md border bg-muted/40 p-8 text-center text-muted-foreground">
-              Nenhuma inspeção ambiental encontrada.
+              {loadError ? "Consulta indisponível. Não foi possível confirmar os registros." : "Nenhuma inspeção ambiental encontrada."}
             </div>
           ) : (
             <div className="overflow-x-auto">

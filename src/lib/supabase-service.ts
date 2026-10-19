@@ -1658,26 +1658,30 @@ export const goldenRuleService = {
 
 export const environmentalInspectionService = {
   async getAll() {
-    const { data, error } = await (supabase as any)
+    const inspections = await readAllPages<any>((from, to) => (supabase as any)
       .from("environmental_inspections")
       .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    const inspections = data || [];
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to));
     const inspectionIds = inspections.map((item: any) => item.id).filter(Boolean);
 
     if (inspectionIds.length === 0) {
       return inspections;
     }
 
-    const { data: responses, error: responsesError } = await (supabase as any)
+    const batches: string[][] = [];
+    for (let i = 0; i < inspectionIds.length; i += 20) {
+      batches.push(inspectionIds.slice(i, i + 20));
+    }
+    const responsePages = await mapConcurrent(batches, ids => readAllPages<any>((from, to) => (supabase as any)
       .from("environmental_inspection_responses")
       .select("*")
-      .in("environmental_inspection_id", inspectionIds)
-      .order("numero", { ascending: true });
-
-    if (responsesError) throw responsesError;
+      .in("environmental_inspection_id", ids)
+      .order("numero", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)));
+    const responses = responsePages.flat();
 
     const responsesByInspection = new Map<string, any[]>();
     (responses || []).forEach((response: any) => {
@@ -1695,15 +1699,9 @@ export const environmentalInspectionService = {
   },
 
   async safeGetAllWithFallback() {
-    try {
-      return await this.getAll();
-    } catch (error) {
-      if (relationMissingError(error, "environmental_inspections")) {
-        return [];
-      }
-      console.warn("[environmentalInspectionService] Falha ao carregar inspeções ambientais:", error);
-      return [];
-    }
+    // A failed query is not an empty history. Let callers preserve existing
+    // records and explain that the server could not be read.
+    return this.getAll();
   },
 
   async getById(id: string) {
