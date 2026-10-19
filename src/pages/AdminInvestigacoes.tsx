@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { fetchWithOfflineCache } from "@/lib/offlineResourceCache";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Download, Eye, RefreshCw, Trash2 } from "lucide-react";
@@ -309,7 +310,7 @@ const fetchInvestigacoes = async (): Promise<InvestigacaoRecord[]> => {
   const localRecords = parseInvestigacoes();
 
   try {
-    const remoteRecords = (await accidentInvestigationService.getList())
+    const remoteRecords = (await fetchWithOfflineCache("investigations", () => accidentInvestigationService.getList()))
       .map(normalizeInvestigacao)
       .filter((item): item is InvestigacaoRecord => Boolean(item));
     const remoteIds = new Set(remoteRecords.map((item) => item.id));
@@ -572,7 +573,7 @@ const AdminInvestigacoes = () => {
     setInvestigacoes(loadedInvestigacoes);
     setCausasByOcorrencia(parseAnaliseCausasByOcorrencia());
     setPdfAssinadoByOcorrencia(parsePdfAssinadoByOcorrencia());
-    const rowsPromise = accidentActionPlanService.getList(1000);
+    const rowsPromise = accidentActionPlanService.getList();
     const [countMap, planosMap] = await Promise.all([
       fetchPlanoCountByOcorrencia(rowsPromise),
       fetchPlanosByOcorrencia(rowsPromise),

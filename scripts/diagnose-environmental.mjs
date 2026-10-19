@@ -16,6 +16,12 @@ const checks = [
   ['environmental_inspections', 'id,gestor,assinatura_realizado_por,assinatura_acompanhante,assinatura_gestor'],
   ['environmental_inspection_responses', 'id,environmental_inspection_id'],
 ];
+if (process.argv.includes('--all')) {
+  for (const table of ['inspections', 'golden_rules', 'golden_rule_responses',
+    'accident_investigations', 'accident_action_plans', 'work_permits']) {
+    checks.push([table, 'id']);
+  }
+}
 for (const [table, columns] of checks) {
   try {
     const url = new URL(`${base.replace(/\/$/, '')}/rest/v1/${table}`);

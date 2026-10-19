@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { mapConcurrent, readAllPages } from "@/lib/pagedLoad";
+import { readHistory, reportResourceHealth } from "@/lib/resourceHealth";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
 import { normalizeQuestion } from "@/lib/alertRules";
@@ -1309,7 +1310,8 @@ export const goldenRuleService = {
       }
     } catch (error) {
       console.warn("[goldenRuleService] Erro ao hidratar respostas das regras de ouro:", error);
-      if (!relationMissingError(error, "golden_rule_responses")) throw error;
+      reportResourceHealth("golden-rules-list", false);
+      throw error;
     }
 
     if (includeAttachments) {
@@ -1371,12 +1373,12 @@ export const goldenRuleService = {
   },
 
   async getAll() {
-    const { data, error } = await supabase
+    const data = await readHistory<any>("golden-rules-list", (from, to) => supabase
       .from("golden_rules")
       .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to));
     return this.hydrateRulesWithRelations(data || [], {
       includeAttachments: false,
       includeEvidencePayloads: false,
@@ -1385,14 +1387,13 @@ export const goldenRuleService = {
     });
   },
 
-  async getList(limit = 300) {
-    const { data, error } = await supabase
+  async getList(limit?: number) {
+    const data = await readHistory<any>("golden-rules-list", (from, to) => supabase
       .from("golden_rules")
       .select("id, numero_inspecao, titulo, setor, gestor, tecnico_seg, acompanhante, created_at, updated_at")
       .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
+      .order("id", { ascending: false })
+      .range(from, to), limit);
     return this.hydrateRulesWithRelations(data || [], {
       includeAttachments: false,
       includeEvidencePayloads: false,
@@ -1619,16 +1620,14 @@ export const goldenRuleService = {
     try {
       return await this.getAll();
     } catch (error) {
-      if (relationMissingError(error, "golden_rules")) return [];
       throw error;
     }
   },
 
-  async safeGetListWithFallback(limit = 300) {
+  async safeGetListWithFallback(limit?: number) {
     try {
       return await this.getList(limit);
     } catch (error) {
-      if (relationMissingError(error, "golden_rules")) return [];
       throw error;
     }
   },
@@ -1858,8 +1857,8 @@ const parseNullableInteger = (value: unknown) => {
 };
 
 export const accidentInvestigationService = {
-  async getList(limit = 500) {
-    const { data, error } = await (supabase as any)
+  async getList(limit?: number) {
+    const data = await readHistory<any>("investigations", (from, to) => (supabase as any)
       .from("accident_investigations")
       .select(`
         *,
@@ -1873,11 +1872,10 @@ export const accidentInvestigationService = {
         )
       `)
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("id", { ascending: false })
+      .range(from, to), limit);
 
-    if (error) throw error;
-
-    return (data || []).map((record: any) => ({
+    return data.map((record: any) => ({
       ...record,
       attachments: Array.isArray(record.accident_investigation_attachments)
         ? record.accident_investigation_attachments.map((attachment: any) => ({
@@ -2004,8 +2002,8 @@ export const accidentInvestigationService = {
 };
 
 export const accidentActionPlanService = {
-  async getList(limit = 400) {
-    const { data, error } = await supabase
+  async getList(limit?: number) {
+    const data = await readHistory<any>("action-plans", (from, to) => supabase
       .from("accident_action_plans")
       .select(`
         id,
@@ -2033,35 +2031,21 @@ export const accidentActionPlanService = {
         observacao_eficacia
       `)
       .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
+      .order("id", { ascending: false })
+      .range(from, to), limit);
     return data || [];
   },
 
   async getAll() {
-    const withComments = await supabase
+    return readHistory<any>("action-plans", (from, to) => supabase
       .from("accident_action_plans")
       .select(`
         *,
         comments:accident_action_plan_comments(*)
       `)
-      .order("created_at", { ascending: false });
-
-    if (!withComments.error) return withComments.data || [];
-
-    console.warn(
-      "[accidentActionPlanService] Falha ao carregar comentarios; tentando carregar planos sem comentarios:",
-      withComments.error,
-    );
-
-    const { data, error } = await supabase
-      .from("accident_action_plans")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to));
   },
 
   async getById(id: string) {
@@ -2187,16 +2171,14 @@ export const accidentActionPlanService = {
     try {
       return await this.getAll();
     } catch (error) {
-      if (relationMissingError(error, "accident_action_plans")) return [];
       throw error;
     }
   },
 
-  async safeGetListWithFallback(limit = 400) {
+  async safeGetListWithFallback(limit?: number) {
     try {
       return await this.getList(limit);
     } catch (error) {
-      if (relationMissingError(error, "accident_action_plans")) return [];
       throw error;
     }
   },

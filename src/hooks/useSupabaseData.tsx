@@ -183,8 +183,8 @@ export const useSupabaseData = (resources?: readonly SupabaseDataResource[]) => 
   }).find(Boolean);
 
   const error =
-    errorResult && errorResult.error instanceof Error
-      ? errorResult.error.message
+    errorResult
+      ? String((errorResult.error as any)?.message || "Não foi possível consultar o servidor.")
       : null;
 
   const refresh = () =>

@@ -1,3 +1,4 @@
+import { reportResourceHealth } from "./resourceHealth";
 const CACHE_PREFIX = "checklistafm-resource-cache-v1:";
 
 const canUseStorage = () =>
@@ -31,15 +32,18 @@ export const fetchWithOfflineCache = async <T>(
   const offline = typeof navigator !== "undefined" && !navigator.onLine;
 
   if (offline) {
+    reportResourceHealth(resource, false);
     if (cached !== null) return cached;
     throw new Error(`Sem conexão e sem dados locais para ${resource}.`);
   }
 
   try {
     const fresh = await fetchRemote();
+    reportResourceHealth(resource, true);
     writeCache(resource, fresh);
     return fresh;
   } catch (error) {
+    reportResourceHealth(resource, false);
     if (cached !== null) {
       console.warn(`[offlineResourceCache] Usando cache local de ${resource}.`, error);
       return cached;

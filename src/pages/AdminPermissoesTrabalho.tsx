@@ -117,7 +117,11 @@ const AdminPermissoesTrabalho = () => {
       setRecords(Array.from(merged.values()));
     } catch (error) {
       console.error("Erro ao carregar permissões de trabalho:", error);
-      setRecords(readLocalWorkPermits());
+      setRecords(current => {
+        const merged = new Map(current.map(item => [item.id, item]));
+        readLocalWorkPermits().forEach(item => { if (!merged.has(item.id)) merged.set(item.id, item); });
+        return [...merged.values()];
+      });
       toast({ title: "Não foi possível consultar o banco", description: "Os registros pendentes deste aparelho continuam disponíveis.", variant: "destructive" });
     } finally {
       setLoading(false);

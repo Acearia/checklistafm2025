@@ -27,6 +27,7 @@ import { canAccessAdminSettings } from "@/lib/adminSession";
 import logoUrl from "@/assets/afm-logo.png";
 import ThemeToggle from "@/components/ThemeToggle";
 import AppFooter from "@/components/AppFooter";
+import ResourceHealthNotice from "@/components/ResourceHealthNotice";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -156,6 +157,7 @@ const AdminLayout = () => {
         {/* Main content */}
         <main className="admin-layout-main flex-1 overflow-auto bg-white/80 p-3 backdrop-blur-md dark:bg-slate-900/65 sm:p-4 lg:p-3">
           <div className="mx-auto w-full max-w-[1880px] space-y-4">
+            <ResourceHealthNotice />
             <Outlet />
           </div>
         </main>

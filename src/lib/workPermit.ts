@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { readHistory } from "@/lib/resourceHealth";
 import type { Json, TablesInsert } from "@/integrations/supabase/types";
 
 export type WorkPermitAnswer = "Sim" | "N/A" | "";
@@ -205,11 +206,12 @@ const toDatabaseRow = (record: WorkPermitRecord): TablesInsert<"work_permits"> =
 
 export const workPermitService = {
   async getAll() {
-    const { data, error } = await supabase
+    const data = await readHistory<any>("work-permits", (from, to) => supabase
       .from("work_permits")
       .select("*")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to));
     return (data || []) as unknown as WorkPermitRecord[];
   },
 
