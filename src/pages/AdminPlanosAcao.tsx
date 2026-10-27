@@ -531,7 +531,7 @@ const AdminPlanosAcao = () => {
   }, [investigacoes]);
 
   const selectedInvestigacao = useMemo(() => {
-    if (!viewPlano) return null;
+    if (!viewPlano || ["regra de ouro", "inspeção ambiental"].includes(viewPlano.origem.trim().toLowerCase())) return null;
     return investigacaoByOcorrencia.get(viewPlano.numero_ocorrencia) || null;
   }, [viewPlano, investigacaoByOcorrencia]);
 
@@ -651,7 +651,9 @@ const AdminPlanosAcao = () => {
         String(linked?.setor || "").toLowerCase().includes(normalizedSearch);
       const matchesOcorrencia =
         !ocorrenciaFilter.trim() ||
-        String(item.numero_ocorrencia).includes(ocorrenciaFilter.trim());
+        (origemFromQuery
+          ? Number(item.numero_ocorrencia) === Number(ocorrenciaFilter.trim())
+          : String(item.numero_ocorrencia).includes(ocorrenciaFilter.trim()));
 
       const matchesStatus =
         statusFilter === "all" ||

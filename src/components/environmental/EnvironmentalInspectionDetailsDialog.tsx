@@ -137,6 +137,8 @@ interface EnvironmentalInspectionDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   inspection: EnvironmentalInspectionDetail | null;
   loading?: boolean;
+  onActionPlan?: () => void;
+  actionPlanLoading?: boolean;
 }
 
 const EnvironmentalInspectionDetailsDialog = ({
@@ -144,6 +146,8 @@ const EnvironmentalInspectionDetailsDialog = ({
   onOpenChange,
   inspection,
   loading = false,
+  onActionPlan,
+  actionPlanLoading = false,
 }: EnvironmentalInspectionDetailsDialogProps) => {
   const responses = Array.isArray(inspection?.responses) ? inspection.responses : [];
   const irregularResponses = responses.filter((item) => Boolean(item.irregular));
@@ -160,6 +164,11 @@ const EnvironmentalInspectionDetailsDialog = ({
             Registro {formatNumber(inspection?.numero_inspecao)} - {formatDateOnly(inspection?.data_inspecao)}
           </DialogDescription>
         </DialogHeader>
+        {onActionPlan && inspection && (
+          <Button variant="outline" disabled={loading || actionPlanLoading} onClick={onActionPlan}>
+            {actionPlanLoading ? "Abrindo plano..." : "Plano de ação"}
+          </Button>
+        )}
 
         {loading ? (
           <div className="rounded-md border bg-muted/40 p-8 text-center text-muted-foreground">

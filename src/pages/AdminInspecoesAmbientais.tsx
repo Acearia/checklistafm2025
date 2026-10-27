@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Eye, RefreshCw, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { buildEnvironmentalActionPlanContext, ENVIRONMENTAL_PLAN_ORIGIN } from "@/lib/environmentalActionPlan";
+import { getPendingLocalActionPlans } from "@/lib/actionPlanOffline";
 import EnvironmentalInspectionDetailsDialog, {
   type EnvironmentalInspectionDetail,
 } from "@/components/environmental/EnvironmentalInspectionDetailsDialog";
@@ -30,7 +33,7 @@ import {
   readLocalEnvironmentalInspections,
   type EnvironmentalInspectionLocalRecord,
 } from "@/lib/environmentalInspectionOffline";
-import { environmentalInspectionService } from "@/lib/supabase-service";
+import { environmentalInspectionService, accidentActionPlanService } from "@/lib/supabase-service";
 
 const FILTER_ALL = "all";
 
@@ -110,6 +113,8 @@ const mapLocalEnvironmentalInspection = (
 });
 
 const AdminInspecoesAmbientais = () => {
+  const navigate = useNavigate();
+  const [openingPlan, setOpeningPlan] = useState(false);
   const { toast } = useToast();
   const { sectors } = useSupabaseData(["sectors"]);
   const [records, setRecords] = useState<EnvironmentalInspectionListItem[]>([]);
@@ -248,6 +253,35 @@ const AdminInspecoesAmbientais = () => {
     },
     [],
   );
+
+  const handleActionPlan = async (record: EnvironmentalInspectionDetail) => {
+    if (openingPlan) return;
+    setOpeningPlan(true);
+    try {
+      if (!record.id || !Number(record.numero_inspecao)) {
+        throw new Error("Aguarde a sincronização da inspeção antes de abrir o plano de ação.");
+      }
+      const plans = [...await accidentActionPlanService.getList(), ...getPendingLocalActionPlans()];
+      const params = new URLSearchParams({
+        ocorrencia: String(record.numero_inspecao), origemFiltro: ENVIRONMENTAL_PLAN_ORIGIN,
+      });
+      const exists = plans.some(plan => plan.origem?.trim().toLowerCase() === ENVIRONMENTAL_PLAN_ORIGIN.toLowerCase()
+        && Number(plan.numero_ocorrencia) === Number(record.numero_inspecao));
+      if (exists) {
+        navigate(`/admin/planos-acao?${params}`);
+        return;
+      }
+      const detail = await environmentalInspectionService.getById(record.id);
+      if (!detail) throw new Error("Não foi possível carregar a inspeção ambiental.");
+      const context = buildEnvironmentalActionPlanContext(detail);
+      sessionStorage.setItem("checklistafm-plano-acao-context", JSON.stringify(context));
+      navigate(`/plano-acao-acidente?${new URLSearchParams({origem: "admin", fonte: "ambiental", registro: record.id, ocorrencia: String(record.numero_inspecao)})}`);
+    } catch (error) {
+      toast({title: "Não foi possível abrir o plano", description: String((error as any)?.message || "Tente novamente."), variant: "destructive"});
+    } finally {
+      setOpeningPlan(false);
+    }
+  };
 
   const handleDelete = useCallback(
     async (record: EnvironmentalInspectionListItem) => {
@@ -443,6 +477,9 @@ const AdminInspecoesAmbientais = () => {
                               <Eye className="mr-2 h-4 w-4" />
                               Ver
                             </Button>
+                            <Button variant="outline" size="sm" disabled={openingPlan} onClick={() => void handleActionPlan(record)}>
+                              Plano de ação
+                            </Button>
                             {canDeleteRecords ? (
                               <Button
                                 variant="ghost"
@@ -475,6 +512,8 @@ const AdminInspecoesAmbientais = () => {
         }}
         inspection={selectedInspection}
         loading={detailsLoading}
+        onActionPlan={selectedInspection ? () => void handleActionPlan(selectedInspection) : undefined}
+        actionPlanLoading={openingPlan}
       />
     </div>
   );

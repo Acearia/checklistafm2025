@@ -1071,7 +1071,7 @@ const AdminRegrasOuro = () => {
   const handleStartPlanoAcao = (record: RegraOuroRecord) => {
     const existingPlan = actionPlanByOccurrence.get(Number(record.numero_inspecao) || 0);
     if (existingPlan) {
-      navigate(`/admin/planos-acao?ocorrencia=${record.numero_inspecao}`);
+      navigate(`/admin/planos-acao?ocorrencia=${record.numero_inspecao}&origemFiltro=${encodeURIComponent("Regra de Ouro")}`);
       return;
     }
 

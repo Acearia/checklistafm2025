@@ -1,5 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ClipboardCheck, MessageSquarePlus, Save } from "lucide-react";
+import { useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,7 +51,7 @@ interface InvestigacaoResumo {
 }
 
 interface PlanoAcaoContext {
-  fonte: "regra-ouro";
+  fonte: "regra-ouro" | "ambiental";
   registro_id: string;
   numero_referencia: number;
   data_referencia: string;
@@ -340,14 +341,14 @@ const parsePlanoAcaoContext = (): PlanoAcaoContext | null => {
       const raw = storage.getItem(PLANO_ACAO_CONTEXT_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || parsed.fonte !== "regra-ouro") return null;
+      if (!parsed || !["regra-ouro", "ambiental"].includes(parsed.fonte)) return null;
 
       if (clearAfterRead) {
         storage.removeItem(PLANO_ACAO_CONTEXT_KEY);
       }
 
       return {
-        fonte: "regra-ouro" as const,
+        fonte: parsed.fonte as PlanoAcaoContext["fonte"],
         registro_id: String(parsed.registro_id || ""),
         numero_referencia: Number(parsed.numero_referencia) || 0,
         data_referencia: normalizeDateInput(String(parsed.data_referencia || "")),
@@ -431,6 +432,7 @@ const PlanoAcaoAcidente = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingNumeroPlano, setEditingNumeroPlano] = useState<number | null>(null);
   const [form, setForm] = useState<PlanoAcaoForm>(INITIAL_FORM);
+  const appliedContext = useRef("");
   const [novoComentario, setNovoComentario] = useState("");
   const [autorComentario, setAutorComentario] = useState("");
   const [comentarios, setComentarios] = useState<ComentarioPlano[]>([]);
@@ -527,7 +529,11 @@ const PlanoAcaoAcidente = () => {
     const raw = searchParams.get("origem");
     return raw ? raw.trim().toLowerCase() : "";
   }, [searchParams]);
-  const planoContext = useMemo(() => parsePlanoAcaoContext(), []);
+  const planoContext = useMemo(() => {
+    const context = parsePlanoAcaoContext();
+    return context?.fonte === fonteParam && (!registroParam || context.registro_id === registroParam) ? context : null;
+  }, [fonteParam, registroParam]);
+  const isInspectionSource = fonteParam === "regra-ouro" || fonteParam === "ambiental";
   const cameFromAdmin = origemParam === "admin";
   const isAdminAuthenticated =
     typeof window !== "undefined" &&
@@ -543,24 +549,13 @@ const PlanoAcaoAcidente = () => {
     navigate("/admin/login?redirect=/admin/planos-acao", { replace: true });
   }, [canAccessPlanoAcao, isAdminAuthenticated, navigate]);
 
-  if (!canAccessPlanoAcao) {
-    return null;
-  }
-
   useEffect(() => {
-    if (fonteParam !== "regra-ouro" || !planoContext) return;
+    if (!isInspectionSource || !planoContext || planoContext.fonte !== fonteParam) return;
     if (registroParam && planoContext.registro_id && planoContext.registro_id !== registroParam) return;
     if (editingId) return;
-    if (
-      Number(form.numero_ocorrencia) === planoContext.numero_referencia &&
-      form.origem === planoContext.origem &&
-      form.descricao_ocorrencia === planoContext.descricao_ocorrencia &&
-      form.descricao_resumida_acao ===
-        (planoContext.descricao_resumida_acao ||
-          `Tratar irregularidade da pergunta ${planoContext.question_numero || ""}`.trim())
-    ) {
-      return;
-    }
+    const contextKey = `${planoContext.fonte}:${planoContext.registro_id}`;
+    if (appliedContext.current === contextKey) return;
+    appliedContext.current = contextKey;
 
       setForm((previous) => ({
         ...previous,
@@ -585,7 +580,7 @@ const PlanoAcaoAcidente = () => {
   ]);
 
   useEffect(() => {
-    if (!ocorrenciaParam || investigacoes.length === 0) return;
+    if (isInspectionSource || !ocorrenciaParam || investigacoes.length === 0) return;
     if (form.numero_ocorrencia === ocorrenciaParam) return;
 
     const investigacao = investigacoes.find((item) => item.numero_ocorrencia === ocorrenciaParam);
@@ -648,8 +643,8 @@ const PlanoAcaoAcidente = () => {
 
   const selectedInvestigacao = useMemo(
     () =>
-      investigacoes.find((item) => item.numero_ocorrencia === Number(form.numero_ocorrencia)) || null,
-    [investigacoes, form.numero_ocorrencia],
+      isInspectionSource ? null : investigacoes.find((item) => item.numero_ocorrencia === Number(form.numero_ocorrencia)) || null,
+    [investigacoes, form.numero_ocorrencia, isInspectionSource],
   );
 
   const selectedInvestigacaoImagens = useMemo(() => {
@@ -686,13 +681,13 @@ const PlanoAcaoAcidente = () => {
     const nextParams = new URLSearchParams();
     nextParams.set("origem", "admin");
 
-    if (fonteParam === "regra-ouro") {
+    if (isInspectionSource) {
       if (registroParam) nextParams.set("registro", registroParam);
       if (ocorrenciaParam) nextParams.set("ocorrencia", String(ocorrenciaParam));
       if (planoContext?.question_id || planoContext?.question_numero) {
         nextParams.set("pergunta", planoContext.question_id || planoContext.question_numero || "");
       }
-      nextParams.set("fonte", "regra-ouro");
+      nextParams.set("fonte", fonteParam);
     } else if (ocorrenciaParam) {
       nextParams.set("ocorrencia", String(ocorrenciaParam));
     }
@@ -706,27 +701,27 @@ const PlanoAcaoAcidente = () => {
     setForm({
       ...INITIAL_FORM,
       numero_ocorrencia:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? planoContext?.numero_referencia || 0
           : ocorrenciaParam || 0,
       data_ocorrencia:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? normalizeDateInput(planoContext?.data_referencia || "")
           : "",
       descricao_ocorrencia:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? planoContext?.descricao_ocorrencia || planoContext?.descricao_acao || ""
           : "",
       origem:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? planoContext?.origem || "Regra de Ouro"
           : INITIAL_FORM.origem,
       descricao_resumida_acao:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? planoContext?.descricao_resumida_acao || "Tratar irregularidade da Regra de Ouro"
           : "",
       descricao_acao:
-        fonteParam === "regra-ouro"
+        isInspectionSource
           ? planoContext?.descricao_acao || ""
           : "",
     });
@@ -737,6 +732,9 @@ const PlanoAcaoAcidente = () => {
   };
 
   const validate = () => {
+    if (isInspectionSource && !planoContext && !editingId) {
+      return "Abra o plano novamente a partir da inspeção para carregar o vínculo de origem.";
+    }
     console.log("[PlanoAcao] Validando formulario:", {
       origem: form.origem,
       descricao_resumida_acao: form.descricao_resumida_acao,
@@ -926,6 +924,8 @@ const PlanoAcaoAcidente = () => {
     }
   };
 
+  if (!canAccessPlanoAcao) return null;
+
   return (
     <div className="mx-auto w-full max-w-7xl space-y-5 px-3 pb-16 sm:px-4 lg:px-6">
       <Card className="border-blue-100 bg-gradient-to-br from-white via-white to-blue-50/40">
@@ -956,9 +956,9 @@ const PlanoAcaoAcidente = () => {
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {fonteParam === "regra-ouro" && planoContext && (
+          {isInspectionSource && planoContext && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="font-medium">Plano iniciado a partir de Regra de Ouro</p>
+              <p className="font-medium">Plano iniciado a partir de {planoContext.origem}</p>
               <p>
                 Registro #{formatNumero(planoContext.numero_referencia)} - {planoContext.titulo || "Sem titulo"}
               </p>
@@ -979,8 +979,8 @@ const PlanoAcaoAcidente = () => {
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <div className="space-y-2">
-              <Label>{fonteParam === "regra-ouro" ? "Registro" : "Ocorrencia"}</Label>
-              {fonteParam === "regra-ouro" ? (
+              <Label>{isInspectionSource ? "Registro" : "Ocorrencia"}</Label>
+              {isInspectionSource ? (
                 <Input
                   value={
                     form.numero_ocorrencia
@@ -1030,7 +1030,7 @@ const PlanoAcaoAcidente = () => {
             </div>
             <div className="space-y-2">
               <Label>Origem *</Label>
-              <Input value={form.origem} onChange={(e) => updateField("origem", e.target.value)} />
+              <Input value={form.origem} readOnly={isInspectionSource} onChange={(e) => updateField("origem", e.target.value)} />
             </div>
           </div>
 
