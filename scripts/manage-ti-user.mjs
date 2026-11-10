@@ -4,7 +4,7 @@ import {emitKeypressEvents} from 'node:readline';
 import {createClient} from '@supabase/supabase-js';
 import {loadTiServerConfig} from './lib/ti-server-config.mjs';
 
-async function passwordPrompt(label = 'Senha inicial (mínimo de 12 caracteres): ') {
+async function passwordPrompt(label = 'Senha inicial (6 a 8 caracteres): ') {
   if (!process.stdin.isTTY) throw new Error('Use um terminal interativo para definir a senha.');
   process.stdout.write(label);
   emitKeypressEvents(process.stdin);
@@ -64,7 +64,7 @@ try {
     let passwordForVerification = null;
     if (!user || values['reset-password']) {
       const password = await passwordPrompt(values.administrator ? 'Defina a senha única do administrador (mínimo de 12 caracteres): ' : undefined);
-      if (password.length < 12 || password.length > 128) throw new Error('A senha deve ter entre 12 e 128 caracteres.');
+      if (values.administrator ? password.length < 12 || password.length > 128 : password.length < 6 || password.length > 8) throw new Error(values.administrator ? 'A senha do administrador deve ter entre 12 e 128 caracteres.' : 'A senha do analista deve ter entre 6 e 8 caracteres.');
       const confirmation = await passwordPrompt('Confirme a senha: ');
       if (confirmation !== password) throw new Error('As senhas não coincidem. Nenhuma senha foi alterada. Execute novamente.');
       const {data, error} = user

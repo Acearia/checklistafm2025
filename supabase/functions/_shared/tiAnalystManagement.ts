@@ -26,7 +26,7 @@ const requiredText = (value: unknown, label: string, maximum: number) => {
   return value.trim();
 };
 const validPassword = (value: unknown) => {
-  if (typeof value !== "string" || value.length < 12 || value.length > 128) throw new ApiError(400, "A senha deve ter entre 12 e 128 caracteres.");
+  if (typeof value !== "string" || value.length < 6 || value.length > 8) throw new ApiError(400, "A senha deve ter entre 6 e 8 caracteres.");
   return value;
 };
 async function readBody(req: Request) {
@@ -57,7 +57,7 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (req.method === "OPTIONS") return new Response(null, {status: 204, headers});
     if (req.method !== "POST") throw new ApiError(405, "Método não permitido.");
     const body = await readBody(req);
-    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 4});
+    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 5});
     if (body.action === "analyst_login") {
       const badge = normalizeBadge(body.badge)!;
       const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";
