@@ -33,7 +33,32 @@ Para uma conta Auth já existente, o script libera o acesso sem alterar a senha.
 node scripts/manage-ti-user.mjs --email analista@empresa.com.br --deactivate
 ```
 
-O cadastro e a liberação de contas são feitos no servidor. A aba Analistas mostra as contas autorizadas; o login administrativo antigo não libera o módulo automaticamente. O cadastro público no Supabase Auth, se habilitado, também não concede acesso ao TI.
+O cadastro público no Supabase Auth, se habilitado, não concede acesso ao TI.
+
+## Gestão dos acessos no administrativo
+
+A seção **Analistas do TI** aparece em **Administrativo → Usuários** somente quando o usuário administrativo é `administrador` e seu perfil é `admin`. A seção permite criar analistas, vincular contas existentes, editar nomes, ativar/bloquear acesso e redefinir senhas. A aba Analistas dentro de `/ti` continua sendo uma consulta dos membros.
+
+O administrativo legado mantém sua sessão no navegador; ela não serve como credencial para a API de criação de contas. Por isso, a seção exige autenticação adicional com uma conta gestora do TI, validada pelo Supabase Auth e pela tabela privada `ti_account_managers`. Outros analistas, perfis administrativos e sessões locais forjadas não recebem privilégios de gestão. A chave service-role fica exclusivamente na função do servidor. O cadastro e alteração das próprias contas gestoras continuam restritos ao terminal do servidor.
+
+Ativação inicial na VM:
+
+```bash
+cd /opt/app &&
+git pull --ff-only origin main &&
+npm ci &&
+bash scripts/activate-ti-management.sh &&
+npm run build &&
+pm2 restart checklist-frontend
+```
+
+O script aplica somente as migrações ainda ausentes, usando o contêiner `supabase_db_opt`. Copia a função para a instância Supabase em `/opt/supabase` e inicia `supabase functions serve manage-ti-analysts --workdir /opt` pelo PM2 (`checklist-ti-functions`). Não executa deploy em um projeto Supabase Cloud. Para caminhos diferentes, definir `TI_DB_CONTAINER` e `TI_SUPABASE_WORKDIR`. O script verifica a configuração e a instância antes de copiar os arquivos. É necessário o CLI Supabase e o PM2 no PATH do servidor.
+
+O ativador solicita e-mail e nome da conta gestora (nome padrão: Administrador). Também aceita esses dois valores como argumentos. A conta gestora usa e-mail e senha próprios. Para conta nova, o terminal solicita uma senha com pelo menos 12 caracteres. Para conta já existente, a senha é mantida; o comando `manage-ti-user.mjs --reset-password` permite redefini-la. Na tela, o usuário `administrador` informa essas credenciais em **Autorizar gestão do TI**, depois cadastra os analistas sem precisar do terminal. Não reutilizar credenciais do administrativo legado para esta autorização.
+
+Se a chave privada não estiver em `/opt/supabase/.env`, o script tenta obtê-la internamente com `supabase status --workdir /opt --output env`, sem imprimir essa saída. A função aceita por padrão a origem `https://checklist.afm.com.br`; para outra origem, configurar `TI_ALLOWED_ORIGIN` no ambiente das funções. A operação segue o fluxo local do [CLI Supabase](https://supabase.com/docs/reference/cli/supabase-functions-serve).
+
+O ativador aguarda a função responder e verifica que uma credencial anônima é recusada pelo próprio manipulador da API. Uma resposta HTML ou um erro genérico do gateway não é tratado como serviço pronto. No primeiro uso, o CLI pode precisar baixar a imagem do runtime; se houver demora ou falha, consultar `pm2 logs checklist-ti-functions --lines 30` e repetir a ativação depois de corrigir. O teste local cobre o manipulador da API, as permissões no banco e a interface; a ativação do runtime na VM precisa ser conferida no ambiente real.
 
 ## Checklist de formatação
 
@@ -49,6 +74,7 @@ Os registros de troca de turno continuam na aba Registros. Eventuais checklists 
 node --import tsx --test scripts/test-ti-handover.ts
 node --import tsx --test scripts/test-ti-computer-checklist.ts
 node scripts/test-ti-database.mjs
+node --import tsx --test scripts/test-ti-analyst-management.ts
 ```
 
 Testar na VM o login de um analista autorizado, a criação de registro e checklist e o bloqueio de uma conta Auth que não pertença ao TI. A migração usa `auth.users`, `auth.uid()` e os papéis anon/authenticated/service_role do Supabase; não é uma migração para PostgreSQL sem Supabase.

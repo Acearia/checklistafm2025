@@ -76,4 +76,14 @@ try{
  assert.equal((await db.query("update ti_computer_checklists set notes='Other member' where id=$1 returning id",[computer.id])).rows.length,0);
  await assert.rejects(db.query('delete from ti_computer_checklists'));
  console.log('PASS other TI members can view computer checklists but only the creator can edit; no delete permission');
+ await db.exec('reset role');
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261110160000_create_ti_account_managers.sql', import.meta.url),'utf8'));
+ await db.query('insert into ti_account_managers(user_id) values($1)',[member]);
+ await db.exec(`set role authenticated; set request.jwt.claim.sub='${outsider}'`);
+ await assert.rejects(db.query('select * from ti_account_managers'),/permission denied/);
+ await assert.rejects(db.query('insert into ti_account_managers(user_id) values($1)',[outsider]),/permission denied/);
+ await assert.rejects(db.query('update ti_account_managers set active=false'),/permission denied/);
+ await db.exec(`set request.jwt.claim.sub='${member}'`);
+ await assert.rejects(db.query('select * from ti_account_managers'),/permission denied/);
+ console.log('PASS manager grants cannot be read or changed by browser roles, including TI members');
 }finally{await db.close();}

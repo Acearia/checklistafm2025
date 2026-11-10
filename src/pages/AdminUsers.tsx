@@ -14,7 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { canDeleteAdminRecords } from "@/lib/adminSession";
+import { canDeleteAdminRecords, canManageTiAnalysts } from "@/lib/adminSession";
+import TiAnalystManagement from "@/components/ti/TiAnalystManagement";
 import {
   Table,
   TableBody,
@@ -1060,6 +1061,7 @@ const AdminUsers = () => {
         </Button>
       </div>
 
+      {canManageTiAnalysts() && <TiAnalystManagement />}
       <Card>
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>

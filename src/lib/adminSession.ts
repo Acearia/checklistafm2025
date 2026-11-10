@@ -6,6 +6,9 @@ export interface AdminSessionRecord {
 export const ADMIN_AUTH_STORAGE_KEY = "checklistafm-admin-auth";
 export const ADMIN_SESSION_STORAGE_KEY = "checklistafm-admin-session";
 
+export const canManageTiAnalysts = (session: AdminSessionRecord | null = getStoredAdminSession()) =>
+  session?.username.trim().toLowerCase() === "administrador" && session.role.trim().toLowerCase() === "admin";
+
 const normalizeAdminSessionValue = (value: unknown) =>
   String(value ?? "")
     .trim()
