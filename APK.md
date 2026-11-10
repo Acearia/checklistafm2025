@@ -2,6 +2,15 @@
 
 O projeto Android usa a interface atual do repositório, empacotada localmente. Atualizar a VM não atualiza o APK instalado. O aplicativo não depende de carregar o site para abrir, mas precisa de conexão para buscar dados ainda não armazenados e sincronizar os registros pendentes.
 
+## Arquivo verificado em 10/11/2026
+
+- Arquivo: `Checklist-AFM-1.1.0.apk`, versionCode 2, Capacitor 6.2.3.
+- Código de compilação: `4b629a8ea81a656fcd0b73f8b9afeb52eb1478de`.
+- Tamanho assinado: 2.173.297 bytes (2,07 MiB), 57,8% menor que o APK anterior deste workspace.
+- SHA-256: `0245edf723cd525c57b73fdde6574d3d82eef856c6baf8708666c58d343ed300`.
+- Assinaturas v1/v2/v3 verificadas; certificado igual ao APK anterior; alinhamento verificado; pacote de release sem depuração.
+- 39 testes de lógica passaram. Testes no navegador cobriram painel, tema, datas e retomada de envio parcial da inspeção ambiental. Não havia aparelho ou emulador Android conectado para testar instalação e câmera.
+
 O identificador continua `br.com.afm.checklist`, com origem `https://localhost`. Preservar esses valores e a chave de assinatura permite atualizar a instalação existente sem mudar a origem dos dados offline. Não desinstalar o aplicativo para atualizar, especialmente quando houver registros aguardando envio.
 
 ## Compilar
