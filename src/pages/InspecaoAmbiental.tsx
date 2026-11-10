@@ -24,6 +24,8 @@ import {
 } from "@/lib/environmentalInspectionOffline";
 import { environmentalInspectionService, operatorService } from "@/lib/supabase-service";
 import { isDeviceOnline } from "@/lib/connectivity";
+import QuestionActionPlans from "@/components/environmental/QuestionActionPlans";
+import { createQuestionActionPlanDraft, validateEnvironmentalIrregularity, type QuestionActionPlanDraft } from "@/lib/environmentalQuestionPlans";
 
 type EnvironmentalAnswer = "Sim" | "Não" | "N/A" | "";
 
@@ -37,6 +39,7 @@ interface EnvironmentalPhoto {
 interface EnvironmentalEvidence {
   comentario: string;
   fotos: EnvironmentalPhoto[];
+  planos?: QuestionActionPlanDraft[];
 }
 
 interface EnvironmentalQuestion {
@@ -212,6 +215,7 @@ const InspecaoAmbiental = () => {
       ),
   );
   const [evidences, setEvidences] = useState<Record<string, EnvironmentalEvidence>>({});
+  const [openActionPlanQuestionId, setOpenActionPlanQuestionId] = useState<string | null>(null);
   const [assinaturaAcompanhante, setAssinaturaAcompanhante] = useState("");
   const [assinaturaRealizadoPor, setAssinaturaRealizadoPor] = useState("");
   const [assinaturaGestor, setAssinaturaGestor] = useState("");
@@ -328,7 +332,13 @@ const InspecaoAmbiental = () => {
 
   const handleAnswerChange = (question: EnvironmentalQuestion, answer: EnvironmentalAnswer) => {
     setAnswers((current) => ({ ...current, [question.id]: answer }));
+    if (answer && answer !== "N/A" && answer !== question.expected) {
+      const plans = evidences[question.id]?.planos;
+      if (!plans?.length) updateEvidence(question.id, {planos: [createQuestionActionPlanDraft(question.number, realizadoPor)]});
+      setOpenActionPlanQuestionId(question.id);
+    }
     if (!answer || answer === "N/A" || answer === question.expected) {
+      setOpenActionPlanQuestionId(current => current === question.id ? null : current);
       setEvidences((current) => {
         const existing = current[question.id];
         if (!existing) return current;
@@ -337,6 +347,7 @@ const InspecaoAmbiental = () => {
           [question.id]: {
             ...existing,
             fotos: [],
+            planos: [],
           },
         };
       });
@@ -563,14 +574,14 @@ const InspecaoAmbiental = () => {
       return;
     }
 
-    const missingEvidence = irregularQuestions.find((question) => {
+    const irregularityErrors = irregularQuestions.map((question) => {
       const evidence = evidences[question.id];
-      return !evidence?.comentario?.trim() && (evidence?.fotos || []).length === 0;
-    });
-    if (missingEvidence) {
+      return validateEnvironmentalIrregularity(question.number, evidence?.comentario || "", evidence?.fotos || [], evidence?.planos || []);
+    }).filter(Boolean);
+    if (irregularityErrors.length) {
       toast({
-        title: "Evidência obrigatória",
-        description: `Informe comentário ou foto para a pergunta ${String(missingEvidence.number).padStart(2, "0")}.`,
+        title: "Irregularidade incompleta",
+        description: irregularityErrors[0],
         variant: "destructive",
       });
       return;
@@ -617,6 +628,7 @@ const InspecaoAmbiental = () => {
           resposta: answers[question.id] as "Sim" | "Não" | "N/A",
           resposta_esperada: question.expected,
           irregular: answers[question.id] !== "N/A" && answers[question.id] !== question.expected,
+          action_plans: answers[question.id] !== "N/A" && answers[question.id] !== question.expected ? evidence.planos || [] : [],
           comentario: serializeEnvironmentalComment(evidence.comentario || "", photos.slice(1)),
           foto: photos[0] || null,
           };
@@ -635,7 +647,7 @@ const InspecaoAmbiental = () => {
       });
 
       if (await isDeviceOnline()) try {
-        saved = await environmentalInspectionService.create(payload);
+        saved = await environmentalInspectionService.saveQueuedRecord(payload);
         removeLocalEnvironmentalInspections([payloadId]);
         savedRemotely = true;
       } catch (error) {
@@ -646,11 +658,12 @@ const InspecaoAmbiental = () => {
       }
 
       const savedNumber = Number((saved as any)?.numero_inspecao) || 0;
+      const planCount = payload.responses.reduce((total, response) => total + response.action_plans.length, 0);
       toast({
         title: savedRemotely ? "Inspeção ambiental salva" : "Inspeção ambiental salva neste aparelho",
         description: savedRemotely
-          ? `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados.`
-          : "O servidor não confirmou o envio. O registro ficou guardado neste aparelho e ainda não está disponível no administrativo. O sistema tentará enviar novamente.",
+          ? `Registro ambiental ${String(savedNumber).padStart(3, "0")} salvo no banco de dados. ${planCount} plano(s) de ação gerado(s).`
+          : "O envio da inspeção e dos planos ainda não foi concluído. Os dados estão guardados neste aparelho e serão reenviados automaticamente.",
       });
       setSuccessInspectionNumber(savedNumber || null);
       setSuccessSavedRemotely(savedRemotely);
@@ -688,7 +701,7 @@ const InspecaoAmbiental = () => {
             <p className="text-sm text-green-100">
               {successSavedRemotely
                 ? `O registro ambiental ${String(successInspectionNumber).padStart(3, "0")} foi salvo com sucesso.`
-                : "A inspeção ficou guardada neste aparelho, mas o servidor ainda não confirmou o envio. Ela aparecerá no administrativo após a sincronização."}
+                : "O envio da inspeção e dos planos ainda está pendente. Os dados estão guardados neste aparelho para sincronização automática."}
               {" Voc\u00ea ser\u00e1 redirecionado para a tela inicial em instantes."}
             </p>
           </div>
@@ -851,7 +864,7 @@ const InspecaoAmbiental = () => {
           <CardHeader>
             <CardTitle>Checklist Ambiental</CardTitle>
             <CardDescription>
-              Quando a resposta fugir do padrão, informe comentário ou foto da irregularidade.
+              Quando a resposta fugir do padrão, registre a irregularidade com comentário, foto e pelo menos um plano de ação.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -902,7 +915,7 @@ const InspecaoAmbiental = () => {
                     </div>
 
                     <div className="mt-4 space-y-2">
-                      <Label>Alguma observação?</Label>
+                      <Label>{isIrregular ? "Descrição da irregularidade *" : "Alguma observação?"}</Label>
                       <Textarea
                         value={evidence.comentario}
                         onChange={(event) => updateEvidence(question.id, { comentario: event.target.value })}
@@ -914,7 +927,7 @@ const InspecaoAmbiental = () => {
                       <div className="mt-4 rounded-lg border border-red-100 bg-white p-4">
                         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-red-700">
                           <Camera className="h-4 w-4" />
-                          Foto da irregularidade
+                          Foto da irregularidade *
                         </div>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-2">
@@ -995,6 +1008,17 @@ const InspecaoAmbiental = () => {
                         </div>
                       </div>
                     )}
+                    {isIrregular && <>
+                      <Button type="button" variant="outline" className="mt-4" onClick={() => setOpenActionPlanQuestionId(current => current === question.id ? null : question.id)}>
+                        Plano de ação ({evidence.planos?.length || 0})
+                      </Button>
+                      {openActionPlanQuestionId === question.id && <QuestionActionPlans
+                        plans={evidence.planos || []}
+                        people={sortedPeople.map(person => person.name)}
+                        onChange={planos => updateEvidence(question.id, {planos})}
+                        onAdd={() => updateEvidence(question.id, {planos: [...(evidence.planos || []), createQuestionActionPlanDraft(question.number, realizadoPor)]})}
+                      />}
+                    </>}
                   </div>
                 </React.Fragment>
               );

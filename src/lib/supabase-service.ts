@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { mapConcurrent, readAllPages } from "@/lib/pagedLoad";
 import { readHistory, reportResourceHealth } from "@/lib/resourceHealth";
+import { buildEnvironmentalQuestionPlans, type QuestionActionPlanDraft } from "@/lib/environmentalQuestionPlans";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { buildStoredPassword, parseStoredPassword } from "@/lib/password-utils";
 import { normalizeQuestion } from "@/lib/alertRules";
@@ -233,6 +234,7 @@ export interface EnvironmentalInspectionRecordPayload {
     resposta: "Sim" | "Não" | "Nao" | "N/A";
     resposta_esperada: "Sim" | "Não" | "Nao";
     irregular: boolean;
+    action_plans?: QuestionActionPlanDraft[];
     comentario?: string | null;
     foto?: {
       name?: string;
@@ -1655,7 +1657,36 @@ export const goldenRuleService = {
   },
 };
 
+const environmentalSaves = new Map<string, Promise<any>>();
 export const environmentalInspectionService = {
+  async saveQueuedRecord(record: EnvironmentalInspectionRecordPayload) {
+    if (!record.id) throw new Error("Inspeção sem identificação para sincronizar.");
+    const current = environmentalSaves.get(record.id);
+    if (current) return current;
+    const task = (async () => {
+      const existing = await this.getById(record.id!);
+      if (existing && existing.responses.length >= record.responses.length) {
+        await this.saveQuestionPlans(record, existing.numero_inspecao);
+        return existing;
+      }
+      if (existing) await this.delete(record.id!);
+      return this.create(record);
+    })();
+    environmentalSaves.set(record.id, task);
+    try { return await task; } finally { environmentalSaves.delete(record.id); }
+  },
+
+  async saveQuestionPlans(record: EnvironmentalInspectionRecordPayload, numero: number) {
+    // Legacy inspections have no drafts; their existing sync behavior is kept.
+    if (!record.responses.some(response => response.irregular && response.action_plans?.length)) return;
+    for (const plan of buildEnvironmentalQuestionPlans(record, Number(numero))) {
+      const existing = await accidentActionPlanService.getById(plan.id!);
+      // A previously completed upload must not overwrite later edits to a plan.
+      const comments = (existing as any)?.comments;
+      if (existing && Array.isArray(comments) && comments.length > 0) continue;
+      await accidentActionPlanService.upsertFromLegacy(plan);
+    }
+  },
   async getAll() {
     const inspections = await readAllPages<any>((from, to) => (supabase as any)
       .from("environmental_inspections")
@@ -1771,7 +1802,6 @@ export const environmentalInspectionService = {
         if (responsesError) throw responsesError;
       }
 
-      return this.getById(savedInspection.id);
     } catch (error) {
       const { error: rollbackError } = await (supabase as any)
         .from("environmental_inspections")
@@ -1784,6 +1814,10 @@ export const environmentalInspectionService = {
 
       throw error;
     }
+    // Plan failures keep the already-saved inspection and its local queue.
+    // Retries reuse inspection and plan UUIDs instead of creating duplicates.
+    await this.saveQuestionPlans(payload, savedInspection.numero_inspecao);
+    return this.getById(savedInspection.id);
   },
 
   async delete(id: string) {
@@ -1808,22 +1842,7 @@ export const environmentalInspectionService = {
 
     for (const record of records) {
       try {
-        if (record.id) {
-          const existing = await this.getById(record.id).catch(() => null);
-          const existingResponses = Array.isArray((existing as any)?.responses) ? (existing as any).responses : [];
-          const expectedResponses = Array.isArray(record.responses) ? record.responses : [];
-
-          if (existing && existingResponses.length >= expectedResponses.length) {
-            syncedIds.push(record.id);
-            continue;
-          }
-
-          if (existing) {
-            await this.delete(record.id);
-          }
-        }
-
-        const saved = await this.create(record);
+        const saved = await this.saveQueuedRecord(record);
         const savedId = String((saved as any)?.id || record.id || "").trim();
         if (savedId) {
           syncedIds.push(savedId);

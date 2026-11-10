@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, Outlet, Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Toaster } from "@/components/ui/toaster";
 import { 
   BarChart3, 
   ClipboardList, 
@@ -163,7 +162,6 @@ const AdminLayout = () => {
         </main>
       </div>
       <AppFooter />
-      <Toaster />
     </div>
   );
 };

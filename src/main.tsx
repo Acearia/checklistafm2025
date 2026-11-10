@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.tsx";
+import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/theme-provider.tsx";
 import { installProductionConsoleGuard } from "./lib/productionConsole.ts";
 import "./index.css";
@@ -21,6 +22,7 @@ createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} storageKey="checklistafm-theme">
       <App />
+      <Toaster />
     </ThemeProvider>
   </QueryClientProvider>
 );
