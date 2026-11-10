@@ -38,6 +38,7 @@ import SignatureCanvas from "@/components/SignatureCanvas";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { applyAlertRuleToItem, shouldTriggerAlert } from "@/lib/alertRules";
 import { inspectionService } from "@/lib/supabase-service";
+import InspectionPhotos from "@/components/inspection/InspectionPhotos";
 
 interface ChecklistItem {
   id: string;
@@ -67,6 +68,7 @@ interface Inspection {
   checklist: ChecklistItem[];
   observations: string;
   signature?: string;
+  photos?: unknown[];
   status: "completed" | "archived" | "draft";
   hasIssues: boolean;
 }
@@ -194,6 +196,7 @@ const ChecklistDetail = () => {
       checklist,
       observations: String(rawInspection?.comments ?? ""),
       signature: rawInspection?.signature || undefined,
+      photos: Array.isArray(rawInspection?.photos) ? rawInspection.photos : [],
       status: "completed",
       hasIssues: checklist.some((item) => item.triggersAlert),
     };
@@ -630,6 +633,7 @@ const ChecklistDetail = () => {
             </Table>
           </div>
           
+          <InspectionPhotos key={inspection.id} photos={inspection.photos} />
           <div className="mb-6">
             <h3 className="font-semibold mb-2">Observações</h3>
             <Textarea 

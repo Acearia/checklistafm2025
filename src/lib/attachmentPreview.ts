@@ -3,6 +3,7 @@ export interface AttachmentLike {
   type?: string | null;
   data_url?: string | null;
   dataUrl?: string | null;
+  data?: string | null;
   url?: string | null;
   preview_url?: string | null;
 }
@@ -19,7 +20,7 @@ export const isImageAttachment = (file: AttachmentLike) => {
 };
 
 export const resolveAttachmentPreviewUrl = (file: AttachmentLike) =>
-  String(file?.data_url || file?.dataUrl || file?.preview_url || file?.url || "").trim();
+  String(file?.data_url || file?.dataUrl || file?.preview_url || file?.url || file?.data || "").trim();
 
 const readFileAsDataUrl = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
