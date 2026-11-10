@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import SupabaseStatus from "@/components/SupabaseStatus";
 import AppFooter from "@/components/AppFooter";
+import { showTiDesktopShortcut } from "@/lib/tiDesktopShortcut";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { saveChecklistState } from "@/lib/checklistState";
@@ -31,6 +32,14 @@ const Index = () => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [showTiShortcut, setShowTiShortcut] = useState(showTiDesktopShortcut);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
+    const update = () => setShowTiShortcut(showTiDesktopShortcut());
+    window.addEventListener("resize", update);
+    media.addEventListener("change", update);
+    return () => {window.removeEventListener("resize", update); media.removeEventListener("change", update);};
+  }, []);
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === "undefined") return false;
     const ua = navigator.userAgent || "";
@@ -371,7 +380,6 @@ const Index = () => {
               <button type="button" onClick={() => setActiveDesktopTab("home")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "home" ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100")}>Início</button>
               <button type="button" onClick={() => setActiveDesktopTab("leader")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "leader" ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100")}>Líderes</button>
               <button type="button" onClick={() => navigate("/admin/login?redirect=/admin/permissoes-trabalho")} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100">Administrativo</button>
-              <button type="button" onClick={() => navigate("/ti")} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100">Troca de Turnos TI</button>
               <button type="button" onClick={() => setActiveDesktopTab("investigacao")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "investigacao" ? "bg-amber-700 text-white" : "text-amber-800 hover:bg-amber-50")}>Investigação</button>
               <button type="button" onClick={() => setActiveDesktopTab("regras-ouro")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "regras-ouro" ? "bg-blue-700 text-white" : "text-blue-800 hover:bg-blue-50")}>Regras de Ouro</button>
               <button type="button" onClick={() => setActiveDesktopTab("ambiental")} className={cn("rounded-md px-3 py-2 text-sm font-semibold transition-colors", activeDesktopTab === "ambiental" ? "bg-emerald-700 text-white" : "text-emerald-800 hover:bg-emerald-50")}>Ambiental</button>
@@ -623,6 +631,11 @@ const Index = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {showTiShortcut && <div className="mx-auto w-full max-w-7xl px-4 py-4 text-right sm:px-6">
+        <Link to="/ti" className="inline-flex rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+          Troca de Turnos TI
+        </Link>
+      </div>}
       <AppFooter className="border-white/40 bg-white/88" />
     </div>
   );
