@@ -29,3 +29,6 @@ select exists(select 1 from information_schema.columns where table_schema='publi
 \else
 \ir migrations/20261110200000_add_ti_analyst_badge.sql
 \endif
+
+-- Idempotent function update; original dates and authors remain immutable.
+\ir migrations/20261110220000_allow_ti_occurrence_date.sql

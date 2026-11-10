@@ -39,3 +39,30 @@ export const filterTiRecords = (records: TiRecord[], filters: TiFilters) => reco
     && (!filters.status || record.status === filters.status)
     && (!filters.from || day >= filters.from) && (!filters.to || day <= filters.to);
 });
+
+export const tiTodayFilters = (date = new Date()): TiFilters => ({analyst: "", location: "", from: tiLocalDate(date.toISOString()), to: tiLocalDate(date.toISOString()), status: ""});
+export const tiMonthRange = (month: string) => {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error("Selecione um mês válido.");
+  const [year, value] = month.split("-").map(Number);
+  return {from: `${month}-01`, to: `${month}-${new Date(year, value, 0).getDate()}`};
+};
+export const tiOccurrenceTimestamp = (day: string, now = new Date()) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("Informe a data do ocorrido.");
+  const date = new Date(`${day}T12:00:00`);
+  if (Number.isNaN(date.getTime()) || tiLocalDate(date.toISOString()) !== day) throw new Error("Informe uma data válida.");
+  date.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), 0);
+  return date.toISOString();
+};
+export const tiMonthlySummary = (records: TiRecord[], members: TiMember[], month: string) => {
+  const range = tiMonthRange(month);
+  const rows = filterTiRecords(records, {...range, analyst: "", location: "", status: ""});
+  const emptyCounts = () => ({Aberto: 0, "Em andamento": 0, Pendente: 0, Resolvido: 0});
+  const people = new Map(members.map(person => [person.user_id, {...person, counts: emptyCounts(), total: 0}]));
+  const counts = emptyCounts();
+  for (const record of rows) {
+    let person = people.get(record.created_by);
+    if (!person) {person = {user_id: record.created_by, name: record.analyst_name, active: false, counts: emptyCounts(), total: 0}; people.set(person.user_id, person);}
+    person.counts[record.status]++; person.total++; counts[record.status]++;
+  }
+  return {counts, total: rows.length, analysts: [...people.values()].sort((a,b) => b.total-a.total || a.name.localeCompare(b.name,"pt-BR"))};
+};

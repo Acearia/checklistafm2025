@@ -87,3 +87,26 @@ Testar na VM o login de um analista autorizado, a criação de registro e checkl
 O teste de banco usa PostgreSQL em memória com PGlite, sem conexão com a VM. Ele valida a migração, as políticas RLS, a autoria e o bloqueio por desativação. PGlite é uma dependência de desenvolvimento e não entra no aplicativo publicado.
 
 As senhas novas dos analistas, no cadastro e na redefinição pela tela ou CLI, devem ter entre 6 e 8 caracteres. Senhas antigas mais longas continuam aceitas na entrada. A senha do administrador definida no ativador continua com 12 a 128 caracteres.
+
+## Painel mensal, data do ocorrido e aparência
+
+A entrada do TI abre o Painel com o mês atual. Os cartões e a tabela por analista contam os registros pela **data do ocorrido**, usando a situação atual: Aberto, Em andamento, Pendente e Fechado (status `Resolvido` no banco). Não são contagens de transições ou da data de fechamento. Analistas inativos com histórico continuam visíveis; a identificação usa o ID da conta, mesmo quando os nomes coincidem. Selecionar uma quantidade abre os registros com os filtros do mês, analista e situação correspondentes.
+
+A data atual aparece no cabeçalho. Na primeira abertura de Registros, os dois filtros de data vêm com o dia atual; Limpar permite consultar todo o histórico. O formulário Novo Registro vem com a conta conectada e a data atual. O analista pode escolher outra data do ocorrido. A criação continua com horário do servidor, e a autoria e a data original não podem ser alteradas depois do envio. A migração `20261110220000_allow_ti_occurrence_date.sql` atualiza a função de validação sem reescrever registros e pode ser aplicada novamente.
+
+O botão Modo claro/Modo escuro vale para a área TI, inclusive checklist, login e detalhes do registro. Apenas a preferência de aparência fica no localStorage; a sessão continua separada em sessionStorage.
+
+Para atualizar uma instalação já ativada, sem redefinir a senha do administrador:
+
+```bash
+cd /opt/app &&
+git pull --ff-only origin main &&
+npm ci &&
+bash scripts/install-ti-database.sh &&
+bash scripts/install-ti-management.sh /opt &&
+node scripts/check-ti-management.mjs /opt &&
+npm run build &&
+pm2 restart checklist-frontend
+```
+
+O instalador do banco usa `supabase_db_opt` (ou `TI_DB_CONTAINER`), copia os arquivos de migração para o contêiner e executa `psql` com interrupção em caso de erro, sem solicitar senha pelo host. A ativação inicial usa o mesmo instalador.

@@ -1,0 +1,46 @@
+.ti-workspace[data-ti-theme] {
+  --background: 210 25% 97%; --foreground: 222 32% 16%;
+  --card: 0 0% 100%; --card-foreground: 222 32% 16%;
+  --popover: 0 0% 100%; --popover-foreground: 222 32% 16%;
+  --primary: 194 88% 30%; --primary-foreground: 0 0% 100%;
+  --secondary: 210 25% 93%; --secondary-foreground: 222 32% 22%;
+  --muted: 210 25% 95%; --muted-foreground: 215 18% 42%;
+  --accent: 194 40% 93%; --accent-foreground: 194 88% 25%;
+  --border: 214 22% 87%; --input: 214 22% 80%; --ring: 194 88% 35%;
+  --destructive: 0 72% 43%; --destructive-foreground: 0 0% 100%;
+  color-scheme: light;
+  color: hsl(var(--foreground)); background: hsl(var(--background));
+}
+.ti-workspace[data-ti-theme="dark"] {
+  --background: 222 40% 8%; --foreground: 210 30% 94%;
+  --card: 222 32% 12%; --card-foreground: 210 30% 94%;
+  --popover: 222 32% 12%; --popover-foreground: 210 30% 94%;
+  --primary: 189 78% 58%; --primary-foreground: 222 40% 8%;
+  --secondary: 220 27% 19%; --secondary-foreground: 210 30% 94%;
+  --muted: 220 27% 16%; --muted-foreground: 215 20% 70%;
+  --accent: 215 30% 21%; --accent-foreground: 189 78% 70%;
+  --border: 220 24% 24%; --input: 220 24% 34%; --ring: 189 78% 58%;
+  color-scheme: dark;
+}
+.ti-workspace .ti-panel { border: 1px solid hsl(var(--border)); border-radius: 14px; background: hsl(var(--card)); padding: 1.25rem; box-shadow: 0 2px 6px #00000004; }
+.ti-workspace .ti-field { height: 2.75rem; width: 100%; border: 1px solid hsl(var(--input)); border-radius: 8px; background: hsl(var(--background)); padding: 0 .75rem; font-size: .875rem; color: hsl(var(--foreground)); }
+.ti-workspace textarea { background: hsl(var(--background)); color: hsl(var(--foreground)); border-color: hsl(var(--input)); min-height: 7rem; }
+.ti-workspace .ti-header { background: hsl(var(--card)); border-bottom: 1px solid hsl(var(--border)); }
+.ti-workspace .ti-eyebrow { font-size: .65rem; letter-spacing: .18em; font-weight: 700; color: hsl(var(--primary)); }
+.ti-workspace .ti-table thead { background: hsl(var(--muted)); color: hsl(var(--muted-foreground)); }
+.ti-workspace .ti-table tbody tr:hover { background: hsl(var(--muted) / .65); }
+.ti-workspace .ti-table th:first-child { border-radius: 8px 0 0 8px; }
+.ti-workspace .ti-table th:last-child { border-radius: 0 8px 8px 0; }
+.ti-workspace .ti-tone-total { --tone: 194 85% 42%; }
+.ti-workspace .ti-tone-open { --tone: 216 90% 58%; }
+.ti-workspace .ti-tone-progress { --tone: 37 90% 48%; }
+.ti-workspace .ti-tone-pending { --tone: 272 75% 63%; }
+.ti-workspace .ti-tone-closed { --tone: 157 70% 40%; }
+.ti-workspace .ti-stat { border-top: 3px solid hsl(var(--tone)); }
+.ti-workspace .ti-stat-icon { color: hsl(var(--tone)); }
+.ti-workspace .ti-workload { background: hsl(var(--muted)); }
+.ti-workspace .ti-segment { background: hsl(var(--tone)); }
+.ti-workspace .ti-status { background: hsl(var(--tone) / .12); color: hsl(var(--foreground)); border: 1px solid hsl(var(--tone) / .35); border-radius: 99px; padding: .25rem .6rem; white-space: nowrap; font-size: .75rem; }
+.ti-workspace .ti-error { border: 1px solid hsl(var(--destructive) / .5); background: hsl(var(--destructive) / .08); color: hsl(var(--foreground)); border-radius: 8px; padding: 1rem; }
+/* Switch themes atomically so controls never retain colors from the other theme. */
+.ti-workspace .transition-colors { transition-property: none; }

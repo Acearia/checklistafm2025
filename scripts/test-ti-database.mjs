@@ -106,4 +106,17 @@ try{
  await db.exec(`set role authenticated; set request.jwt.claim.sub='${outsider}'`);
  await assert.rejects(db.query('update ti_members set badge=$1 where user_id=$2',['FAKE',outsider]),/permission denied/);
  console.log('PASS badges preserve leading zeroes, remain unique and cannot be changed directly by browser roles');
+ await db.exec('reset role');
+ const dateMigration=fs.readFileSync(new URL('../supabase/migrations/20261110220000_allow_ti_occurrence_date.sql', import.meta.url),'utf8');
+ await db.exec(dateMigration); await db.exec(dateMigration);
+ await db.exec(`set role authenticated; set request.jwt.claim.sub='${member}'`);
+ const {rows:[dated]}=await db.query("insert into ti_handover_records(created_by,analyst_name,location,problem,occurred_at) values($1,'spoof','CPD','Previous day occurrence','2026-10-31T18:25:00Z') returning *",[member]);
+ assert.equal(new Date(dated.occurred_at).toISOString(),'2026-10-31T18:25:00.000Z');
+ assert.equal(dated.analyst_name,'Analista QA');
+ assert.notEqual(new Date(dated.created_at).toISOString(),new Date(dated.occurred_at).toISOString());
+ await assert.rejects(db.query("update ti_handover_records set occurred_at=now() where id=$1",[dated.id]));
+ await assert.rejects(db.query("update ti_handover_records set created_by=$1 where id=$2",[outsider,dated.id]));
+ await db.query("update ti_handover_records set status='Resolvido' where id=$1",[dated.id]);
+ assert.equal(new Date((await db.query('select occurred_at from ti_handover_records where id=$1',[dated.id])).rows[0].occurred_at).toISOString(),'2026-10-31T18:25:00.000Z');
+ console.log('PASS date migration can be reapplied, preserves selected occurrence date and server creation time; date and author remain immutable');
 }finally{await db.close();}
