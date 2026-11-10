@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { canDeleteAdminRecords, canManageTiAnalysts } from "@/lib/adminSession";
 import TiAnalystManagement from "@/components/ti/TiAnalystManagement";
+import {useLocation} from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -228,6 +229,12 @@ const saveSecurityRoleTags = (tags: Record<string, UnifiedRole[]>) => {
 };
 
 const AdminUsers = () => {
+  const {hash} = useLocation();
+  useEffect(() => {
+    if (hash === "#analistas-ti" && canManageTiAnalysts()) {
+      document.getElementById("analistas-ti")?.scrollIntoView({behavior: "smooth", block: "start"});
+    }
+  }, [hash]);
   const { toast } = useToast();
   const { operators, leaders, sectors, sectorLeaderAssignments, loading, refresh } = useSupabaseData([
     "operators",
@@ -1061,7 +1068,7 @@ const AdminUsers = () => {
         </Button>
       </div>
 
-      {canManageTiAnalysts() && <TiAnalystManagement />}
+      {canManageTiAnalysts() && <section id="analistas-ti" className="scroll-mt-6"><TiAnalystManagement /></section>}
       <Card>
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>

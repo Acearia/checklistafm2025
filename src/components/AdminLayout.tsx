@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { canAccessAdminSettings } from "@/lib/adminSession";
+import { canAccessAdminSettings, canManageTiAnalysts } from "@/lib/adminSession";
 import logoUrl from "@/assets/afm-logo.png";
 import ThemeToggle from "@/components/ThemeToggle";
 import AppFooter from "@/components/AppFooter";
@@ -142,6 +142,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/inspecoes-ambientais" icon={<Leaf size={20} />} label="Inspeção Ambiental" />
               <SidebarLink to="/admin/permissoes-trabalho" icon={<HardHat size={20} />} label="Permissões de Trabalho" />
               <SidebarLink to="/admin/users" icon={<Users size={20} />} label="Usuários" />
+              {canManageTiAnalysts(session) && <SidebarLink to="/admin/users#analistas-ti" icon={<Users size={20} />} label="Analistas TI" />}
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />
