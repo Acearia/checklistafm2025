@@ -23,3 +23,9 @@ select to_regclass('public.ti_administrator_login') is not null as ti_login_inst
 \else
 \ir migrations/20261110180000_unify_ti_administrator_login.sql
 \endif
+select exists(select 1 from information_schema.columns where table_schema='public' and table_name='ti_members' and column_name='badge') as ti_badge_installed \gset
+\if :ti_badge_installed
+\echo 'Crachás do TI já instalados; preservando cadastros.'
+\else
+\ir migrations/20261110200000_add_ti_analyst_badge.sql
+\endif

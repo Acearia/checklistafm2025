@@ -95,4 +95,15 @@ try{
  await db.exec(`set request.jwt.claim.sub='${member}'`);
  await assert.rejects(db.query('select * from ti_administrator_login'),/permission denied/);
  console.log('PASS administrator login mapping is private and cannot be forged by browser roles');
+ await db.exec('reset role');
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261110200000_add_ti_analyst_badge.sql', import.meta.url),'utf8'));
+ await db.query('update ti_members set badge=$1 where user_id=$2',['001234',member]);
+ await db.query('update ti_members set badge=$1 where user_id=$2',['1234',outsider]);
+ assert.equal((await db.query('select user_id from ti_members where badge=$1',['001234'])).rows[0].user_id,member);
+ assert.equal((await db.query('select user_id from ti_members where badge=$1',['1234'])).rows[0].user_id,outsider);
+ await assert.rejects(db.query('update ti_members set badge=$1 where user_id=$2',['001234',outsider]));
+ await assert.rejects(db.query('update ti_members set badge=$1 where user_id=$2',[' lower-case ',outsider]));
+ await db.exec(`set role authenticated; set request.jwt.claim.sub='${outsider}'`);
+ await assert.rejects(db.query('update ti_members set badge=$1 where user_id=$2',['FAKE',outsider]),/permission denied/);
+ console.log('PASS badges preserve leading zeroes, remain unique and cannot be changed directly by browser roles');
 }finally{await db.close();}

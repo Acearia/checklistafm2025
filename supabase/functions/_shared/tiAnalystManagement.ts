@@ -1,17 +1,25 @@
-export type ManagedTiAnalyst = {user_id: string; name: string; email: string; active: boolean; manager: boolean};
+export type ManagedTiAnalyst = {user_id: string; name: string; email: string; badge: string | null; active: boolean; manager: boolean};
 export interface TiManagementStore {
   administratorLogin(password: string): Promise<{configured: boolean; session: {access_token: string; refresh_token: string; user: {id: string}} | null}>;
+  analystLogin(badge: string, password: string): Promise<{access_token: string; refresh_token: string; user: {id: string}} | null>;
+  badgeOwner(badge: string): Promise<string | null>;
   authenticate(token: string): Promise<string | null>;
   authorized(userId: string): Promise<boolean>;
   list(): Promise<ManagedTiAnalyst[]>;
   findUser(email: string): Promise<string | null>;
   createUser(email: string, password: string): Promise<string>;
-  link(userId: string, name: string): Promise<void>;
+  link(userId: string, name: string, badge: string): Promise<void>;
   member(userId: string): Promise<{manager: boolean} | null>;
-  update(userId: string, name: string, active: boolean): Promise<void>;
+  update(userId: string, name: string, active: boolean, badge: string | null): Promise<void>;
   resetPassword(userId: string, password: string): Promise<void>;
 }
 class ApiError extends Error {constructor(public status: number, message: string) {super(message);}}
+const normalizeBadge = (value: unknown, required = true): string | null => {
+  const badge = typeof value === "string" ? value.trim().toUpperCase() : "";
+  if (!badge && !required) return null;
+  if (!/^[A-Z0-9._-]{1,40}$/.test(badge)) throw new ApiError(400, "Informe o número do crachá (até 40 letras ou números, ponto, hífen ou sublinhado).");
+  return badge;
+};
 const requiredText = (value: unknown, label: string, maximum: number) => {
   if (typeof value !== "string" || !value.trim() || value.trim().length > maximum) throw new ApiError(400, `Informe ${label} válido.`);
   return value.trim();
@@ -48,7 +56,14 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (req.method === "OPTIONS") return new Response(null, {status: 204, headers});
     if (req.method !== "POST") throw new ApiError(405, "Método não permitido.");
     const body = await readBody(req);
-    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 2});
+    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 3});
+    if (body.action === "analyst_login") {
+      const badge = normalizeBadge(body.badge)!;
+      const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";
+      const session = password ? await store.analystLogin(badge, password) : null;
+      if (!session) throw new ApiError(401, "Crachá ou senha incorretos, ou acesso ao TI não autorizado.");
+      return reply(200, {session});
+    }
     if (body.action === "administrator_login") {
       if (typeof body.username !== "string" || body.username.trim().toLowerCase() !== "administrador") throw new ApiError(401, "Usuário ou senha incorretos.");
       const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";
@@ -67,6 +82,8 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (body.action === "create" || body.action === "link_existing") {
       const name = requiredText(body.name, "um nome", 120);
       const email = requiredText(body.email, "um e-mail", 254).toLowerCase();
+      const badge = normalizeBadge(body.badge)!;
+      if (await store.badgeOwner(badge)) throw new ApiError(409, "Este crachá já está vinculado a outro analista.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, "Informe um e-mail válido.");
       const password = body.action === "create" ? validPassword(body.password) : "";
       let userId = await store.findUser(email);
@@ -76,23 +93,27 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
       } else if (!userId) throw new ApiError(404, "Não existe uma conta com este e-mail.");
       const existing = await store.member(userId!);
       if (existing) throw new ApiError(409, "Esta conta já pertence ao TI. Use a lista para administrá-la.");
-      try {await store.link(userId!, name);} catch {throw new ApiError(500, "A conta existe, mas o acesso ao TI não foi liberado. Tente Vincular conta existente.");}
+      try {await store.link(userId!, name, badge);} catch {throw new ApiError(500, "A conta existe, mas o acesso ao TI não foi liberado. Confira o crachá e tente Vincular conta existente.");}
       return reply(200, {ok: true});
     }
     if (body.action === "update" || body.action === "reset_password") {
       const userId = requiredText(body.user_id, "um analista", 100);
       const target = await store.member(userId);
       if (!target) throw new ApiError(404, "Analista não encontrado.");
-      if (target.manager) throw new ApiError(403, "Contas gestoras são administradas somente no servidor.");
+      if (target.manager && (body.action !== "update" || userId !== actor || body.active !== true)) throw new ApiError(403, "A conta do administrador não pode ser bloqueada nem ter a senha alterada nesta tela.");
       if (body.action === "update") {
         const name = requiredText(body.name, "um nome", 120);
         if (typeof body.active !== "boolean") throw new ApiError(400, "Informe a situação do acesso.");
-        await store.update(userId, name, body.active);
+        const badge = normalizeBadge(body.badge, body.active);
+        const owner = badge ? await store.badgeOwner(badge) : null;
+        if (owner && owner !== userId) throw new ApiError(409, "Este crachá já está vinculado a outro analista.");
+        await store.update(userId, name, body.active, badge);
       } else await store.resetPassword(userId, validPassword(body.password));
       return reply(200, {ok: true});
     }
     throw new ApiError(400, "Operação inválida.");
   } catch (error) {
+    if ((error as {code?: string})?.code === "23505") return reply(409, {error: "O crachá já está em uso. Atualize a lista e confira o cadastro."});
     return error instanceof ApiError ? reply(error.status, {error: error.message}) : reply(500, {error: "Não foi possível concluir a operação. Tente novamente."});
   }
 };

@@ -10,17 +10,19 @@ test("only the administrador admin account sees analyst management", () => {
   assert(!canManageTiAnalysts(null));
 });
 const fixture = () => {
-  const rows: ManagedTiAnalyst[] = [{user_id:"owner",name:"Gestor",email:"owner@qa.test",active:true,manager:true}];
+  const rows: ManagedTiAnalyst[] = [{user_id:"owner",name:"Gestor",email:"owner@qa.test",badge:null,active:true,manager:true}];
   const passwords = new Map<string,string>();let writes=0;
   const store: TiManagementStore = {
     async administratorLogin(password) {return {configured:true,session:password==="administrator-password"?{access_token:"owner-token",refresh_token:"owner-refresh",user:{id:"owner"}}:null};},
+    async analystLogin(badge,password) {const row=rows.find(item=>item.badge===badge&&item.active);return row&&passwords.get(row.email)===password?{access_token:"analyst-token",refresh_token:"analyst-refresh",user:{id:row.user_id}}:null;},
+    async badgeOwner(badge) {return rows.find(row=>row.badge===badge)?.user_id || null;},
     async authenticate(token) {return token === "owner-token" ? "owner" : token === "analyst-token" ? "analyst" : null;},
     async authorized(userId) {return userId === "owner";}, async list() {return rows.map(row=>({...row}));},
     async findUser(email) {return rows.find(row=>row.email===email)?.user_id || (email==="existing@qa.test"?"existing":null);},
     async createUser(email,password) {writes++;passwords.set(email,password);return "new-analyst";},
-    async link(userId,name) {writes++;rows.push({user_id:userId,name,email:userId==="existing"?"existing@qa.test":"new@qa.test",active:true,manager:false});},
+    async link(userId,name,badge) {writes++;rows.push({user_id:userId,name,badge,email:userId==="existing"?"existing@qa.test":"new@qa.test",active:true,manager:false});},
     async member(userId) {const row=rows.find(row=>row.user_id===userId);return row?{manager:row.manager}:null;},
-    async update(userId,name,active) {writes++;Object.assign(rows.find(row=>row.user_id===userId)!,{name,active});},
+    async update(userId,name,active,badge) {writes++;Object.assign(rows.find(row=>row.user_id===userId)!,{name,active,badge});},
     async resetPassword(userId,password) {writes++;passwords.set(userId,password);},
   };
   const handler=createTiManagementHandler(store,"https://checklist.afm.com.br");
@@ -50,9 +52,9 @@ test("administrator login establishes the server session once and never falls ba
 });
 test("authorized manager creates access, updates name/status and resets password without exposing credentials", async () => {
   const {call,rows,passwords}=fixture();
-  assert.equal((await call({action:"create",name:"Novo TI",email:" NEW@qa.test ",password:"long-password-123",manager:true})).status,200);
+  assert.equal((await call({action:"create",name:"Novo TI",email:" NEW@qa.test ",badge:"001234",password:"long-password-123",manager:true})).status,200);
   assert.equal(rows[1].manager,false);
-  assert.equal((await call({action:"update",user_id:"new-analyst",name:"Novo nome",active:false,manager:true})).status,200);
+  assert.equal((await call({action:"update",user_id:"new-analyst",name:"Novo nome",badge:"001234",active:false,manager:true})).status,200);
   assert.equal(rows[1].active,false);assert.equal(rows[1].manager,false);
   assert.equal((await call({action:"reset_password",user_id:"new-analyst",password:"new-password-123"})).status,200);
   assert.equal(passwords.get("new-analyst"),"new-password-123");
@@ -62,18 +64,37 @@ test("authorized manager creates access, updates name/status and resets password
 });
 test("existing accounts must be linked explicitly and manager accounts cannot be modified through the UI API", async () => {
   const {call,passwords}=fixture();
-  assert.equal((await call({action:"create",name:"QA",email:"existing@qa.test",password:"long-password-123"})).status,409);
-  assert.equal((await call({action:"link_existing",name:"QA",email:"existing@qa.test"})).status,200);
+  assert.equal((await call({action:"create",name:"QA",email:"existing@qa.test",badge:"001234",password:"long-password-123"})).status,409);
+  assert.equal((await call({action:"link_existing",name:"QA",email:"existing@qa.test",badge:"001234"})).status,200);
   assert.equal(passwords.size,0);
   assert.equal((await call({action:"reset_password",user_id:"owner",password:"long-password-123"})).status,403);
   assert.equal((await call({action:"update",user_id:"owner",name:"QA",active:false})).status,403);
 });
 test("invalid input, unsupported methods and unexpected origins never create accounts", async () => {
   const {call,handler,writes}=fixture();
-  assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",password:"short"})).status,400);
-  assert.equal((await call({action:"create",name:"QA",email:"invalid",password:"long-password-123"})).status,400);
+  assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"001234",password:"short"})).status,400);
+  assert.equal((await call({action:"create",name:"QA",email:"invalid",badge:"001234",password:"long-password-123"})).status,400);
   assert.equal((await call({action:"list"},"owner-token","https://other.test")).status,403);
   assert.equal((await handler(new Request("https://qa.test"))).status,405);
   assert.equal((await call({action:"create",name:"x".repeat(17000)})).status,413);
   assert.equal(writes(),0);
+});
+test("badge login preserves leading zeroes, requires password and denies blocked analysts", async () => {
+  const {call}=fixture();
+  assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"001234",password:"long-password-123"})).status,200);
+  const result=await call({action:"analyst_login",badge:" 001234 ",password:"long-password-123"},"public-token");
+  assert.equal(result.status,200);assert.equal((await result.json()).session.user.id,"new-analyst");
+  assert.equal((await call({action:"analyst_login",badge:"1234",password:"long-password-123"},"public-token")).status,401);
+  assert.equal((await call({action:"analyst_login",badge:"001234",password:"wrong"},"public-token")).status,401);
+  await call({action:"update",user_id:"new-analyst",name:"QA",badge:"001234",active:false});
+  assert.equal((await call({action:"analyst_login",badge:"001234",password:"long-password-123"},"public-token")).status,401);
+});
+test("duplicate badge is rejected before creating an Auth account; administrator may set own badge without disabling own access", async () => {
+  const {call,writes,rows}=fixture();
+  assert.equal((await call({action:"update",user_id:"owner",name:"Administrador",badge:"000001",active:true})).status,200);
+  assert.equal(rows[0].badge,"000001");
+  const before=writes();
+  assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"000001",password:"long-password-123"})).status,409);
+  assert.equal(writes(),before);
+  assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:1234,password:"long-password-123"})).status,400);
 });

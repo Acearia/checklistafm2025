@@ -25,6 +25,7 @@ async function passwordPrompt(label = 'Senha inicial (mínimo de 12 caracteres):
 try {
   const {values} = parseArgs({options: {
     email: {type: 'string'}, name: {type: 'string'}, env: {type: 'string'},
+    badge: {type: 'string'},
     deactivate: {type: 'boolean', default: false}, 'reset-password': {type: 'boolean', default: false},
     manager: {type: 'boolean', default: false},
     administrator: {type: 'boolean', default: false},
@@ -50,6 +51,16 @@ try {
     if (error) throw error;
     console.log('Acesso ao módulo de TI bloqueado. Os registros foram preservados.');
   } else {
+    const existing = user ? await client.from('ti_members').select('badge').eq('user_id', user.id).maybeSingle() : {data: null, error: null};
+    if (existing.error) throw existing.error;
+    const badge = values.badge === undefined ? existing.data?.badge || null : values.badge.trim().toUpperCase();
+    if (badge && !/^[A-Z0-9._-]{1,40}$/.test(badge)) throw new Error('Crachá inválido. Use até 40 letras ou números, ponto, hífen ou sublinhado.');
+    if (!badge && (!values.manager || values.badge !== undefined)) throw new Error('Informe o crachá do analista com --badge, preservando os zeros à esquerda.');
+    if (badge) {
+      const {data: owner, error: badgeError} = await client.from('ti_members').select('user_id').eq('badge', badge).maybeSingle();
+      if (badgeError) throw badgeError;
+      if (owner && owner.user_id !== user?.id) throw new Error('Este crachá já está vinculado a outro analista. Nenhuma conta foi alterada.');
+    }
     let passwordForVerification = null;
     if (!user || values['reset-password']) {
       const password = await passwordPrompt(values.administrator ? 'Defina a senha única do administrador (mínimo de 12 caracteres): ' : undefined);
@@ -63,7 +74,7 @@ try {
       user = data.user;
       passwordForVerification = password;
     }
-    const {error} = await client.from('ti_members').upsert({user_id: user.id, name: values.name.trim(), active: true});
+    const {error} = await client.from('ti_members').upsert({user_id: user.id, name: values.name.trim(), active: true, ...(badge ? {badge} : {})});
     if (error) throw error;
     if (values.manager) {
       const {error: managerError} = await client.from('ti_account_managers').upsert({user_id: user.id, active: true});
@@ -78,20 +89,22 @@ try {
       const {error: signInError} = await auth.auth.signInWithPassword({email, password: passwordForVerification});
       if (signInError) throw new Error(`A conta foi salva, mas o teste de entrada no TI falhou: ${signInError.message}`);
       await auth.auth.signOut({scope: 'local'});
-      console.log('Entrada por e-mail e senha verificada no Supabase local.');
-      if (values.administrator) {
+      console.log('Autenticação da conta verificada no Supabase local.');
+      const verifyEntry = async (input, label) => {
         const response = await fetch(`${url}/functions/v1/manage-ti-analysts`, {
           method: 'POST', headers: {apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json'},
-          body: JSON.stringify({action: 'administrator_login', username: 'administrador', password: passwordForVerification}), signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({...input, password: passwordForVerification}), signal: AbortSignal.timeout(20000),
         });
         const result = await response.json().catch(() => ({}));
-        if (!response.ok || result.session?.user?.id !== user.id) throw new Error('A conta foi salva, mas o login administrativo ainda não foi confirmado. Confira o serviço checklist-ti-functions.');
+        if (!response.ok || result.session?.user?.id !== user.id) throw new Error(`A conta foi salva, mas ${label} ainda não foi confirmado. Confira o serviço checklist-ti-functions.`);
         // Discard the temporary verification session without persisting tokens.
         await fetch(`${url}/auth/v1/logout?scope=local`, {method: 'POST', headers: {apikey: anonKey, Authorization: `Bearer ${result.session.access_token}`}, signal: AbortSignal.timeout(5000)}).catch(() => {});
-        console.log('Login administrativo verificado: usuário administrador e a senha definida agora.');
-      }
+        console.log(`${label} verificado com a senha definida agora.`);
+      };
+      if (badge) await verifyEntry({action: 'analyst_login', badge}, 'Login do TI por crachá');
+      if (values.administrator) await verifyEntry({action: 'administrator_login', username: 'administrador'}, 'Login administrativo (usuário administrador)');
     }
-    console.log('Analista autorizado. Acesso: /ti, usando o e-mail e a senha da conta de TI.');
+    console.log(badge ? 'Analista autorizado. Entrada no TI por crachá e senha.' : 'Administrador configurado. Para entrar também no TI, cadastre seu crachá em Editar acesso TI.');
     if (values.manager) console.log('Conta preparada para gestão no servidor.');
   }
 } catch (error) {

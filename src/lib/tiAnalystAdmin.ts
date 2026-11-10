@@ -1,6 +1,6 @@
 import {createClient} from "@supabase/supabase-js";
 import {SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY} from "@/integrations/supabase/client";
-export type ManagedTiAnalyst = {user_id: string; name: string; email: string; active: boolean; manager: boolean};
+export type ManagedTiAnalyst = {user_id: string; name: string; email: string; badge: string | null; active: boolean; manager: boolean};
 export class TiAdminRequestError extends Error {constructor(message: string, public status: number) {super(message);}}
 const storageKey = "checklistafm-ti-management-session";
 export const tiManagerClient = createClient(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY, {

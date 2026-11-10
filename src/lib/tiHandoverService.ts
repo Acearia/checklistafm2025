@@ -5,6 +5,16 @@ import type { TiMember, TiRecord, TiStatus, TiChecklistAnswer } from "./tiHandov
 export const tiClient = createClient(SUPABASE_URL!, SUPABASE_PUBLISHABLE_KEY, {
   auth: {storage: sessionStorage, storageKey: "checklistafm-ti-session", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false},
 });
+export async function signInTiWithBadge(badge: string, password: string) {
+  const response = await fetch(`${SUPABASE_URL!.replace(/\/$/, "")}/functions/v1/manage-ti-analysts`, {
+    method: "POST", headers: {"Content-Type": "application/json", apikey: SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`},
+    body: JSON.stringify({action: "analyst_login", badge: badge.trim().toUpperCase(), password}), signal: AbortSignal.timeout(30000),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || !body.session?.access_token || !body.session?.refresh_token) throw new Error(typeof body.error === "string" ? body.error : "O serviço de entrada do TI não está disponível. Verifique a ativação no servidor.");
+  const {error} = await tiClient.auth.setSession({access_token: body.session.access_token, refresh_token: body.session.refresh_token});
+  if (error) throw new Error("Não foi possível validar a sessão do TI. Entre novamente.");
+}
 
 export const tiHandoverService = {
   async member(userId: string): Promise<TiMember | null> {

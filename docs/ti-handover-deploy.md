@@ -1,6 +1,6 @@
 # Troca de turnos do TI
 
-Endereço: `/ti`. Login próprio por e-mail e senha, via Supabase Auth. A área possui registros de troca de turno, filtros, PDF dos registros, atualização de status, lista de analistas e checklist de formatação de computadores. Apenas contas ativas em `ti_members` conseguem ler ou gravar os dados; a restrição é aplicada no banco por RLS. A sessão fica em sessionStorage e os registros não são guardados no cache público do checklist.
+Endereço: `/ti`. Entrada por **crachá e senha**. O servidor identifica a conta Auth pelo crachá e valida a senha; o analista não informa e-mail para entrar. A área possui registros de troca de turno, filtros, PDF dos registros, atualização de status, lista de analistas e checklist de formatação de computadores. Apenas contas ativas em `ti_members` conseguem ler ou gravar os dados; a restrição é aplicada no banco por RLS. A sessão fica em sessionStorage e os registros não são guardados no cache público do checklist.
 
 ## Instalação na VM
 
@@ -22,7 +22,7 @@ No terminal da VM, cadastrar cada analista:
 
 ```bash
 cd /opt/app
-node scripts/manage-ti-user.mjs --email analista@empresa.com.br --name "Nome do analista"
+node scripts/manage-ti-user.mjs --email analista@empresa.com.br --name "Nome do analista" --badge "001234"
 ```
 
 Por padrão, o script obtém `API_URL`, `SERVICE_ROLE_KEY` e `ANON_KEY` juntos com `supabase status --workdir /opt --output env`, sem exibir a saída. Não utiliza as chaves antigas de `.env`, `.env.local` ou do ambiente do processo para completar essa configuração. Para uma configuração explicitamente diferente, `--env /caminho/arquivo-privado` deve conter a URL e as duas chaves correspondentes à mesma instância. A senha é solicitada sem eco e deve ser confirmada. A chave privada nunca deve ser salva em variáveis `VITE_*`, no código, em comandos enviados por chat ou no Git.
@@ -34,6 +34,8 @@ node scripts/manage-ti-user.mjs --email analista@empresa.com.br --deactivate
 ```
 
 O cadastro público no Supabase Auth, se habilitado, não concede acesso ao TI.
+
+O crachá é texto, preservando zeros à esquerda (`001234` é diferente de `1234`). É único e aceita até 40 letras/números, ponto, hífen ou sublinhado. Contas existentes não recebem crachás inventados: o administrador deve preencher esse campo em **Analistas TI → Editar acesso TI**. O e-mail permanece no cadastro para identificar a conta Auth; a entrada diária usa crachá e senha. O administrador também pode cadastrar seu próprio crachá pela tela se quiser usar `/ti`, sem mudar seu login administrativo por nome de usuário. Uma conta bloqueada pode ter o crachá removido para liberar uma reassociação explícita.
 
 ## Gestão dos acessos no administrativo
 
@@ -58,9 +60,9 @@ O ativador solicita e-mail e nome do administrador (nome padrão: Administrador)
 
 A configuração administrativa vem exclusivamente da instância local selecionada, evitando misturar a chave de um projeto antigo com a URL atual. A função aceita por padrão a origem `https://checklist.afm.com.br`; para outra origem, configurar `TI_ALLOWED_ORIGIN` no ambiente das funções. A operação segue o fluxo local do [CLI Supabase](https://supabase.com/docs/reference/cli/supabase-functions-serve).
 
-O ativador aguarda a versão 2 da função (com suporte ao login único) e verifica que uma credencial anônima é recusada para listar contas. Uma resposta HTML, a versão anterior ou um erro genérico do gateway não é tratado como serviço pronto. No primeiro uso, o CLI pode precisar baixar a imagem do runtime; se houver demora ou falha, consultar `pm2 logs checklist-ti-functions --lines 30` e repetir a ativação depois de corrigir. O teste local cobre o manipulador da API, as permissões no banco e a interface; a ativação do runtime na VM precisa ser conferida no ambiente real.
+O ativador aguarda a versão 3 da função (com entrada por crachá e login único do administrador) e verifica que uma credencial anônima é recusada para listar contas. Uma resposta HTML, a versão anterior ou um erro genérico do gateway não é tratado como serviço pronto. No primeiro uso, o CLI pode precisar baixar a imagem do runtime; se houver demora ou falha, consultar `pm2 logs checklist-ti-functions --lines 30` e repetir a ativação depois de corrigir. O teste local cobre o manipulador da API, as permissões no banco e a interface; a ativação do runtime na VM precisa ser conferida no ambiente real.
 
-Antes de pedir a senha, o cadastro consulta o Auth com a credencial administrativa selecionada. Se ela for recusada, o script para informando que nenhuma conta foi criada ou alterada. Após criar/redefinir a senha e liberar o acesso, ele testa a entrada por e-mail no Auth. Para o administrador, testa também o login administrativo pela função e só então confirma a conclusão. Contas existentes aprovadas pelo administrador têm seu e-mail confirmado nesse provisionamento, assim como as novas; nenhuma senha, JWT ou chave é exibida nos testes de entrada.
+Antes de pedir a senha, o cadastro consulta o Auth com a credencial administrativa selecionada. Se ela for recusada, o script para informando que nenhuma conta foi criada ou alterada. Após criar/redefinir a senha e liberar o acesso, ele testa a autenticação no Auth e a entrada por crachá quando cadastrado. Para o administrador, testa também o login administrativo pela função e só então confirma a conclusão. Contas existentes aprovadas pelo administrador têm seu e-mail confirmado nesse provisionamento, assim como as novas; nenhuma senha, JWT ou chave é exibida nos testes de entrada.
 
 ## Checklist de formatação
 

@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import ListPagination, { useListPagination } from "@/components/ListPagination";
-import { tiClient, tiHandoverService, exportTiRecordsPdf } from "@/lib/tiHandoverService";
+import { tiClient, tiHandoverService, exportTiRecordsPdf, signInTiWithBadge } from "@/lib/tiHandoverService";
 import { filterTiRecords, TI_STATUSES, type TiFilters, type TiRecord, type TiMember, type TiStatus } from "@/lib/tiHandover";
 import TiComputerChecklists from "@/components/ti/TiComputerChecklists";
 
@@ -28,7 +28,7 @@ export default function TiHandover() {
   const [error, setError] = useState("");
   const [loginError, setLoginError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [badge, setBadge] = useState(""); const [password, setPassword] = useState("");
   const [draftFilters, setDraftFilters] = useState(emptyFilters); const [filters, setFilters] = useState(emptyFilters);
   const [location, setLocation] = useState(""); const [problem, setProblem] = useState(""); const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<TiStatus>("Aberto");
@@ -87,10 +87,9 @@ export default function TiHandover() {
   const login = async (event: React.FormEvent) => {
     event.preventDefault(); setBusy(true); setLoginError("");
     try {
-      const {error: authError} = await tiClient.auth.signInWithPassword({email: email.trim(), password});
-      if (authError) throw authError;
+      await signInTiWithBadge(badge, password);
       setPassword("");
-    } catch {setLoginError("Não foi possível entrar. Confira seu e-mail e senha ou procure o responsável pelo TI.");}
+    } catch (e) {setLoginError(errorMessage(e));}
     finally {setBusy(false);}
   };
   const save = async (event: React.FormEvent) => {
@@ -132,7 +131,7 @@ export default function TiHandover() {
   if (!session) return <main className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-slate-100">
     <form onSubmit={login} className={`${panelClass} w-full max-w-md space-y-4`}>
       <h1 className="text-2xl font-bold">AFM Troca de Turnos — TI</h1><p className="text-sm text-slate-300">Acesso exclusivo aos analistas autorizados.</p>
-      <div><Label htmlFor="ti-email">E-mail</Label><Input className={fieldClass} id="ti-email" type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} /></div>
+      <div><Label htmlFor="ti-badge">Crachá</Label><Input className={fieldClass} id="ti-badge" type="text" autoComplete="username" autoCapitalize="characters" maxLength={40} placeholder="Número do crachá" required value={badge} onChange={e => setBadge(e.target.value)} /></div>
       <div><Label htmlFor="ti-password">Senha</Label><Input className={fieldClass} id="ti-password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></div>
       {loginError && <p role="alert" className="text-red-300">{loginError}</p>}
       <Button type="submit" disabled={busy}>{busy ? "Entrando..." : "Entrar"}</Button>
