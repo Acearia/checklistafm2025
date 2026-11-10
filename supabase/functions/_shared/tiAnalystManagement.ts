@@ -48,16 +48,18 @@ async function readBody(req: Request) {
   } catch {throw new ApiError(400, "Pedido inválido.");}
 }
 
-export const createTiManagementHandler = (store: TiManagementStore, allowedOrigin: string) => async (req: Request): Promise<Response> => {
-  const headers = {"Content-Type": "application/json", "Access-Control-Allow-Origin": allowedOrigin,
+export const createTiManagementHandler = (store: TiManagementStore, allowedOrigin: string, additionalOrigins: string[] = []) => async (req: Request): Promise<Response> => {
+  const origin = req.headers.get("origin");
+  const permitted = new Set([allowedOrigin, ...additionalOrigins]);
+  const headers = {"Content-Type": "application/json", "Access-Control-Allow-Origin": origin && permitted.has(origin) ? origin : allowedOrigin,
     "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin", "Cache-Control": "no-store"};
   const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), {status, headers});
   try {
-    if (req.headers.get("origin") && req.headers.get("origin") !== allowedOrigin) throw new ApiError(403, "Origem não autorizada.");
+    if (origin && !permitted.has(origin)) throw new ApiError(403, "Origem não autorizada.");
     if (req.method === "OPTIONS") return new Response(null, {status: 204, headers});
     if (req.method !== "POST") throw new ApiError(405, "Método não permitido.");
     const body = await readBody(req);
-    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 5});
+    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 6});
     if (body.action === "analyst_login") {
       const badge = normalizeBadge(body.badge)!;
       const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";

@@ -139,3 +139,15 @@ test("existing longer passwords remain usable at login", async () => {
   passwords.set("legacy@qa.test","previous-long-password");
   assert.equal((await call({action:"analyst_login",badge:"000099",password:"previous-long-password"},"public-token")).status,200);
 });
+
+test("native HTTPS origin is explicitly allowed while authentication and manager checks remain required", async () => {
+  const {store}=fixture();
+  const handler=createTiManagementHandler(store,"https://checklist.afm.com.br",["https://localhost"]);
+  const call=(origin:string,token:string,body:unknown)=>handler(new Request("https://qa.test/manage",{method:"POST",headers:{origin,authorization:`Bearer ${token}`},body:JSON.stringify(body)}));
+  const denied=await call("https://localhost","public",{action:"list"});
+  assert.equal(denied.status,401);assert.equal(denied.headers.get("access-control-allow-origin"),"https://localhost");
+  assert.equal((await call("https://localhost","analyst-token",{action:"list"})).status,403);
+  assert.equal((await call("https://localhost","owner-token",{action:"list"})).status,200);
+  assert.equal((await call("https://evil.test","owner-token",{action:"list"})).status,403);
+  assert.equal((await call("http://localhost","owner-token",{action:"list"})).status,403);
+});

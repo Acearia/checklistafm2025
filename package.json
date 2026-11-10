@@ -11,9 +11,14 @@
     "preview": "vite preview",
     "reset:operators": "node scripts/resetOperators.mjs",
     "seed:leaders": "node scripts/seed-leaders.mjs",
-    "sync:checklist": "tsx scripts/sync-checklist-items.ts"
+    "sync:checklist": "tsx scripts/sync-checklist-items.ts",
+    "build:apk": "node scripts/build-apk-web.mjs",
+    "apk:sync": "npm run build:apk && cap sync android",
+    "apk:open": "cap open android"
   },
   "dependencies": {
+    "@capacitor/android": "6.2.3",
+    "@capacitor/core": "6.2.3",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -68,6 +73,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@capacitor/cli": "6.2.3",
     "@electric-sql/pglite": "0.5.16",
     "@eslint/js": "^9.9.0",
     "@tailwindcss/typography": "^0.5.15",

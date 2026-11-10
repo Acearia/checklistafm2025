@@ -17,7 +17,7 @@ try {
       });
       const health = await request('health');
       const version = await health.json().catch(() => ({}));
-      if (health.status !== 200 || version.service !== 'ti-analyst-management' || version.protocol !== 5) throw new Error('Aguardando a versão com entrada por crachá.');
+      if (health.status !== 200 || version.service !== 'ti-analyst-management' || version.protocol !== 6) throw new Error('Aguardando a versão com suporte ao APK e entrada por crachá.');
       const response = await request('list');
       const body = await response.json().catch(() => ({}));
       // The function itself must deny an anonymous credential. A generic

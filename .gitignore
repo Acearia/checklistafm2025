@@ -27,3 +27,15 @@ dist-ssr
 *.sw?
 build.out
 apply-migration.sh
+
+# Android: generated output and machine-specific signing/configuration
+*.apk
+*.aab
+*.jks
+*.keystore
+android/.gradle/
+android/.idea/
+android/**/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/

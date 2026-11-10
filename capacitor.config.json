@@ -1,0 +1,12 @@
+{
+  "appId": "br.com.afm.checklist",
+  "appName": "Checklist AFM",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

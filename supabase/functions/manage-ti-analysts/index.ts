@@ -72,4 +72,4 @@ Deno.serve(createTiManagementHandler({
   },
   async update(userId, name, active, badge) {assertOk(await client.from("ti_members").update({name, active, badge}).eq("user_id", userId));},
   async resetPassword(userId, password) {assertOk(await client.auth.admin.updateUserById(userId, {password}));},
-}, Deno.env.get("TI_ALLOWED_ORIGIN") || "https://checklist.afm.com.br"));
+}, Deno.env.get("TI_ALLOWED_ORIGIN") || "https://checklist.afm.com.br", ["https://localhost"]));
