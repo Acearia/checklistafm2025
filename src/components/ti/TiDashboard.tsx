@@ -21,7 +21,7 @@ export default function TiDashboard({records, members, month, onMonthChange, onO
   const summary = useMemo(() => tiMonthlySummary(records, members, month), [records, members, month]);
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
-      <div><p className="ti-eyebrow">VISÃO GERAL</p><h2 className="mt-1 text-2xl font-bold tracking-tight">O mês da equipe, em um só lugar.</h2><p className="mt-2 text-sm text-muted-foreground">Registros pela data do ocorrido e situação atual. Fechado corresponde a resolvido.</p></div>
+      <div><p className="ti-eyebrow">VISÃO GERAL</p><h2 className="mt-1 text-2xl font-bold tracking-tight">Painel do TI</h2><p className="mt-2 text-sm text-muted-foreground">Registros pela data do ocorrido e situação atual. Fechado corresponde a resolvido.</p></div>
       <div><Label htmlFor="ti-dashboard-month">Mês de referência</Label><Input id="ti-dashboard-month" className="ti-field mt-1 w-48" type="month" min="2000-01" max="2100-12" value={month} onChange={e => {if (/^\d{4}-(0[1-9]|1[0-2])$/.test(e.target.value)) onMonthChange(e.target.value);}} /></div>
     </div>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{cards.map(({status,label,icon: Icon,tone}) => <button key={label} className={`ti-panel ti-stat ti-tone-${tone} text-left transition-transform hover:-translate-y-0.5`} onClick={() => onOpen("", status)} aria-label={`Ver ${label.toLowerCase()}`}>
