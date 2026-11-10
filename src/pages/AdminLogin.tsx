@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, LogIn, ArrowLeft } from "lucide-react";
+import {administratorSignIn} from "@/lib/tiAnalystAdmin";
 import {
   ensureDefaultAdminAccounts,
   isLocalCredentialFallbackEnabled,
@@ -42,7 +43,9 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      const result = await verifyAdminCredentials(username, password);
+      const result = username.trim().toLowerCase() === "administrador"
+        ? await administratorSignIn(username, password)
+        : await verifyAdminCredentials(username, password);
 
       if (result) {
         sessionStorage.setItem("checklistafm-admin-auth", "true");
@@ -60,9 +63,7 @@ const AdminLogin = () => {
       } else {
         toast({
           title: "Falha no login",
-          description: showLocalHint
-            ? "Usuário ou senha incorretos. Em modo local, use administrador / admin123."
-            : "Usuário ou senha incorretos",
+          description: "Usuário ou senha incorretos",
           variant: "destructive",
         });
       }
@@ -70,7 +71,7 @@ const AdminLogin = () => {
       console.error("Erro no login administrativo:", error);
       toast({
         title: "Erro inesperado",
-        description: "Não foi possível realizar o login agora. Tente novamente.",
+        description: username.trim().toLowerCase() === "administrador" && error instanceof Error ? error.message : "Não foi possível realizar o login agora. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -124,7 +125,7 @@ const AdminLogin = () => {
             </div>
             {showLocalHint && (
               <p className="text-xs text-amber-700">
-                Ambiente local detectado. Credencial padrão: administrador / admin123
+                Ambiente local detectado. Utilize as credenciais cadastradas.
               </p>
             )}
           </CardContent>

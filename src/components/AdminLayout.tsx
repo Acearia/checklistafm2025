@@ -56,7 +56,8 @@ const AdminLayout = () => {
     }
   }, [isMobile]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await import("@/lib/tiAnalystAdmin").then(module => module.lockTiManagement()).catch(() => {});
     sessionStorage.removeItem("checklistafm-admin-auth");
     sessionStorage.removeItem("checklistafm-admin-session");
     setSession(null);
@@ -142,7 +143,7 @@ const AdminLayout = () => {
               <SidebarLink to="/admin/inspecoes-ambientais" icon={<Leaf size={20} />} label="Inspeção Ambiental" />
               <SidebarLink to="/admin/permissoes-trabalho" icon={<HardHat size={20} />} label="Permissões de Trabalho" />
               <SidebarLink to="/admin/users" icon={<Users size={20} />} label="Usuários" />
-              {canManageTiAnalysts(session) && <SidebarLink to="/admin/users#analistas-ti" icon={<Users size={20} />} label="Analistas TI" />}
+              {canManageTiAnalysts(session) && <SidebarLink to="/admin/analistas-ti" icon={<Users size={20} />} label="Analistas TI" />}
               <SidebarLink to="/admin/equipment" icon={<Wrench size={20} />} label="Equipamentos" />
               <SidebarLink to="/admin/groups" icon={<ClipboardList size={20} />} label="Grupos" />
               <SidebarLink to="/admin/sectors" icon={<Database size={20} />} label="Setores" />

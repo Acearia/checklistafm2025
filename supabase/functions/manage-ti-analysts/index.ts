@@ -18,21 +18,36 @@ async function rows(table: string) {
     all.push(...data);
   }
 }
+async function authorizedAdministrator(userId: string) {
+  const login = assertOk(await client.from("ti_administrator_login").select("user_id").eq("username", "administrador").maybeSingle());
+  if (login?.user_id !== userId) return false;
+  const manager = assertOk(await client.from("ti_account_managers").select("active").eq("user_id", userId).maybeSingle());
+  if (!manager?.active) return false;
+  const member = assertOk(await client.from("ti_members").select("active").eq("user_id", userId).maybeSingle());
+  return !!member?.active;
+}
 Deno.serve(createTiManagementHandler({
+  async administratorLogin(password) {
+    const login = assertOk(await client.from("ti_administrator_login").select("user_id").eq("username", "administrador").maybeSingle());
+    if (!login) return {configured: false, session: null};
+    if (!await authorizedAdministrator(login.user_id)) return {configured: true, session: null};
+    const account = assertOk(await client.auth.admin.getUserById(login.user_id)).user;
+    if (!account?.email) return {configured: true, session: null};
+    const auth = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {auth: {persistSession: false, autoRefreshToken: false}});
+    const {data, error} = await auth.auth.signInWithPassword({email: account.email, password});
+    return {configured: true, session: !error && data.user?.id === login.user_id ? data.session : null};
+  },
   async authenticate(token) {
     const {data, error} = await client.auth.getUser(token);
     return error ? null : data.user?.id || null;
   },
   async authorized(userId) {
-    const manager = assertOk(await client.from("ti_account_managers").select("active").eq("user_id", userId).maybeSingle());
-    if (!manager?.active) return false;
-    const member = assertOk(await client.from("ti_members").select("active").eq("user_id", userId).maybeSingle());
-    return !!member?.active;
+    return authorizedAdministrator(userId);
   },
   async list() {
-    const [members, managers, users] = await Promise.all([rows("ti_members"), rows("ti_account_managers"), allUsers()]);
+    const [members, administrators, users] = await Promise.all([rows("ti_members"), rows("ti_administrator_login"), allUsers()]);
     const emails = new Map(users.map(user => [user.id, user.email || ""]));
-    const managerIds = new Set(managers.map(manager => manager.user_id));
+    const managerIds = new Set(administrators.map(administrator => administrator.user_id));
     return members.map(member => ({user_id: member.user_id, name: member.name, active: member.active, email: emails.get(member.user_id) || "", manager: managerIds.has(member.user_id)})).sort((a,b) => a.name.localeCompare(b.name, "pt-BR"));
   },
   async findUser(email) {return (await allUsers()).find(user => user.email?.toLowerCase() === email)?.id || null;},
@@ -41,7 +56,7 @@ Deno.serve(createTiManagementHandler({
   async member(userId) {
     const member = assertOk(await client.from("ti_members").select("user_id").eq("user_id", userId).maybeSingle());
     if (!member) return null;
-    const manager = assertOk(await client.from("ti_account_managers").select("user_id").eq("user_id", userId).maybeSingle());
+    const manager = assertOk(await client.from("ti_administrator_login").select("user_id").eq("user_id", userId).maybeSingle());
     return {manager: !!manager};
   },
   async update(userId, name, active) {assertOk(await client.from("ti_members").update({name, active}).eq("user_id", userId));},

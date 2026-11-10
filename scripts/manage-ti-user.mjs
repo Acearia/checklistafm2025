@@ -6,9 +6,9 @@ import {execFileSync} from 'node:child_process';
 import dotenv from 'dotenv';
 import {createClient} from '@supabase/supabase-js';
 
-async function passwordPrompt() {
+async function passwordPrompt(label = 'Senha inicial (mínimo de 12 caracteres): ') {
   if (!process.stdin.isTTY) throw new Error('Use um terminal interativo para definir a senha.');
-  process.stdout.write('Senha inicial (mínimo de 12 caracteres): ');
+  process.stdout.write(label);
   emitKeypressEvents(process.stdin);
   process.stdin.setRawMode(true); process.stdin.resume();
   return new Promise((resolve, reject) => {
@@ -29,9 +29,13 @@ try {
     email: {type: 'string'}, name: {type: 'string'}, env: {type: 'string'},
     deactivate: {type: 'boolean', default: false}, 'reset-password': {type: 'boolean', default: false},
     manager: {type: 'boolean', default: false},
+    administrator: {type: 'boolean', default: false},
     stack: {type: 'string', default: '/opt'},
   }});
   if (!values.email || (!values.deactivate && !values.name)) throw new Error('Use --email email@empresa.com --name "Nome do analista". Para bloquear: --email email@empresa.com --deactivate.');
+  if (values.administrator && (!values.manager || values.deactivate)) throw new Error('A configuração do administrador exige --manager e uma conta ativa.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) throw new Error('Informe um e-mail válido.');
+  if (!values.deactivate && (!values.name.trim() || values.name.trim().length > 120)) throw new Error('O nome deve ter entre 1 e 120 caracteres.');
   let config = {};
   for (const path of ['.env', '.env.local', values.env || '/opt/supabase/.env']) {
     try {config = {...config, ...dotenv.parse(readFileSync(path))};} catch (error) {if (error.code !== 'ENOENT') throw error;}
@@ -63,8 +67,8 @@ try {
     console.log('Acesso ao módulo de TI bloqueado. Os registros foram preservados.');
   } else {
     if (!user || values['reset-password']) {
-      const password = await passwordPrompt();
-      if (password.length < 12) throw new Error('A senha precisa ter pelo menos 12 caracteres.');
+      const password = await passwordPrompt(values.administrator ? 'Defina a senha única do administrador (mínimo de 12 caracteres): ' : undefined);
+      if (password.length < 12 || password.length > 128) throw new Error('A senha deve ter entre 12 e 128 caracteres.');
       const {data, error} = user
         ? await client.auth.admin.updateUserById(user.id, {password})
         : await client.auth.admin.createUser({email, password, email_confirm: true});
@@ -77,8 +81,13 @@ try {
       const {error: managerError} = await client.from('ti_account_managers').upsert({user_id: user.id, active: true});
       if (managerError) throw managerError;
     }
+    if (values.administrator) {
+      const {error: loginError} = await client.from('ti_administrator_login').upsert({username: 'administrador', user_id: user.id, updated_at: new Date().toISOString()});
+      if (loginError) throw loginError;
+      console.log('Login administrativo configurado: usuário administrador e a senha definida nesta ativação.');
+    }
     console.log('Analista autorizado. Acesso: /ti, usando o e-mail e a senha da conta de TI.');
-    if (values.manager) console.log('Gestão de contas liberada para esta conta. Use-a na seção Analistas do TI do usuário administrador.');
+    if (values.manager) console.log('Conta preparada para gestão no servidor.');
   }
 } catch (error) {
   console.error(error.message || 'Falha no cadastro do analista.');

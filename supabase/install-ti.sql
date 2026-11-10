@@ -17,3 +17,9 @@ select to_regclass('public.ti_account_managers') is not null as ti_managers_inst
 \else
 \ir migrations/20261110160000_create_ti_account_managers.sql
 \endif
+select to_regclass('public.ti_administrator_login') is not null as ti_login_installed \gset
+\if :ti_login_installed
+\echo 'Login único do administrador já instalado; preservando configuração.'
+\else
+\ir migrations/20261110180000_unify_ti_administrator_login.sql
+\endif

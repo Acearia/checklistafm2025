@@ -15,8 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { canDeleteAdminRecords, canManageTiAnalysts } from "@/lib/adminSession";
-import TiAnalystManagement from "@/components/ti/TiAnalystManagement";
-import {useLocation} from "react-router-dom";
+import {Link, Navigate, useLocation} from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -230,11 +229,6 @@ const saveSecurityRoleTags = (tags: Record<string, UnifiedRole[]>) => {
 
 const AdminUsers = () => {
   const {hash} = useLocation();
-  useEffect(() => {
-    if (hash === "#analistas-ti" && canManageTiAnalysts()) {
-      document.getElementById("analistas-ti")?.scrollIntoView({behavior: "smooth", block: "start"});
-    }
-  }, [hash]);
   const { toast } = useToast();
   const { operators, leaders, sectors, sectorLeaderAssignments, loading, refresh } = useSupabaseData([
     "operators",
@@ -1053,6 +1047,7 @@ const AdminUsers = () => {
     }
   };
 
+  if (hash === "#analistas-ti" && canManageTiAnalysts()) return <Navigate to="/admin/analistas-ti" replace />;
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1068,7 +1063,7 @@ const AdminUsers = () => {
         </Button>
       </div>
 
-      {canManageTiAnalysts() && <section id="analistas-ti" className="scroll-mt-6"><TiAnalystManagement /></section>}
+      {canManageTiAnalysts() && <Link className="inline-flex rounded border px-4 py-2 text-sm font-medium" to="/admin/analistas-ti">Gerenciar analistas TI</Link>}
       <Card>
         <CardHeader>
           <CardTitle>Novo usuário</CardTitle>

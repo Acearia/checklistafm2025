@@ -1,5 +1,6 @@
 export type ManagedTiAnalyst = {user_id: string; name: string; email: string; active: boolean; manager: boolean};
 export interface TiManagementStore {
+  administratorLogin(password: string): Promise<{configured: boolean; session: {access_token: string; refresh_token: string; user: {id: string}} | null}>;
   authenticate(token: string): Promise<string | null>;
   authorized(userId: string): Promise<boolean>;
   list(): Promise<ManagedTiAnalyst[]>;
@@ -46,12 +47,22 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (req.headers.get("origin") && req.headers.get("origin") !== allowedOrigin) throw new ApiError(403, "Origem não autorizada.");
     if (req.method === "OPTIONS") return new Response(null, {status: 204, headers});
     if (req.method !== "POST") throw new ApiError(405, "Método não permitido.");
+    const body = await readBody(req);
+    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 2});
+    if (body.action === "administrator_login") {
+      if (typeof body.username !== "string" || body.username.trim().toLowerCase() !== "administrador") throw new ApiError(401, "Usuário ou senha incorretos.");
+      const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";
+      if (!password) throw new ApiError(401, "Usuário ou senha incorretos.");
+      const result = await store.administratorLogin(password);
+      if (!result.configured) throw new ApiError(503, "O login único do administrador precisa ser ativado no servidor.");
+      if (!result.session || !await store.authorized(result.session.user.id)) throw new ApiError(401, "Usuário ou senha incorretos.");
+      return reply(200, {session: result.session});
+    }
     const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
-    if (!token) throw new ApiError(401, "Entre com a conta gestora do TI.");
+    if (!token) throw new ApiError(401, "Entre novamente como administrador.");
     const actor = await store.authenticate(token);
     if (!actor) throw new ApiError(401, "Sessão inválida. Entre novamente.");
     if (!await store.authorized(actor)) throw new ApiError(403, "Esta conta não tem permissão para gerenciar os analistas do TI.");
-    const body = await readBody(req);
     if (body.action === "list") return reply(200, {analysts: await store.list()});
     if (body.action === "create" || body.action === "link_existing") {
       const name = requiredText(body.name, "um nome", 120);

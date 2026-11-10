@@ -13,6 +13,7 @@ const fixture = () => {
   const rows: ManagedTiAnalyst[] = [{user_id:"owner",name:"Gestor",email:"owner@qa.test",active:true,manager:true}];
   const passwords = new Map<string,string>();let writes=0;
   const store: TiManagementStore = {
+    async administratorLogin(password) {return {configured:true,session:password==="administrator-password"?{access_token:"owner-token",refresh_token:"owner-refresh",user:{id:"owner"}}:null};},
     async authenticate(token) {return token === "owner-token" ? "owner" : token === "analyst-token" ? "analyst" : null;},
     async authorized(userId) {return userId === "owner";}, async list() {return rows.map(row=>({...row}));},
     async findUser(email) {return rows.find(row=>row.email===email)?.user_id || (email==="existing@qa.test"?"existing":null);},
@@ -34,6 +35,17 @@ test("forged local administrator identity and regular TI tokens cannot provision
     const result=await call({action:"create",admin_username:"administrador",role:"admin",email:"new@qa.test",name:"QA",password:"long-password"},token);
     assert.equal(result.status,expected);
   }
+  assert.equal(writes(),0);
+});
+test("administrator login establishes the server session once and never falls back to a local password", async () => {
+  const {call,writes,store}=fixture();
+  const success=await call({action:"administrator_login",username:"administrador",password:"administrator-password"},"public-token");
+  assert.equal(success.status,200);
+  assert.equal((await success.json()).session.access_token,"owner-token");
+  assert.equal((await call({action:"administrator_login",username:"administrador",password:"admin123"},"public-token")).status,401);
+  assert.equal((await call({action:"administrator_login",username:"admin",password:"administrator-password"},"public-token")).status,401);
+  store.administratorLogin=async()=>({configured:false,session:null});
+  assert.equal((await call({action:"administrator_login",username:"administrador",password:"administrator-password"},"public-token")).status,503);
   assert.equal(writes(),0);
 });
 test("authorized manager creates access, updates name/status and resets password without exposing credentials", async () => {

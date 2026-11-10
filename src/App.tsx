@@ -22,6 +22,7 @@ const AdminPlanosAcao = lazy(() => import("./pages/AdminPlanosAcao"));
 const AdminRegrasOuro = lazy(() => import("./pages/AdminRegrasOuro"));
 const AdminInspecoesAmbientais = lazy(() => import("./pages/AdminInspecoesAmbientais"));
 const AdminUsers = lazy(() => import("./pages/AdminUsers"));
+const AdminTiAnalysts = lazy(() => import("./pages/AdminTiAnalysts"));
 const InvestigacaoAcidente = lazy(() => import("./pages/InvestigacaoAcidente"));
 const InvestigacaoAcidente2 = lazy(() => import("./pages/InvestigacaoAcidente2"));
 const InspecaoAmbiental = lazy(() => import("./pages/InspecaoAmbiental"));
@@ -86,6 +87,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="operators" element={<Navigate to="/admin/users" replace />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="analistas-ti" element={<AdminTiAnalysts />} />
             <Route path="equipment" element={<AdminEquipment />} />
             <Route path="inspections" element={<AdminInspections />} />
             <Route path="investigacoes" element={<AdminInvestigacoes />} />

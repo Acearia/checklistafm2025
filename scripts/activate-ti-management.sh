@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ $# -eq 0 ]]; then
-  read -r -p 'E-mail da conta gestora do TI: ' manager_email
-  read -r -p 'Nome da conta gestora [Administrador]: ' manager_name
+  read -r -p 'E-mail da conta do administrador: ' manager_email
+  read -r -p 'Nome do administrador [Administrador]: ' manager_name
   manager_name="${manager_name:-Administrador}"
 elif [[ $# -eq 2 ]]; then
   manager_email="$1"
@@ -21,11 +21,11 @@ stack_dir="${TI_SUPABASE_WORKDIR:-/opt}"
 cd "$repo_dir"
 docker exec -u postgres "$db_container" mkdir -p /tmp/checklist-ti/migrations
 docker cp supabase/install-ti.sql "$db_container:/tmp/checklist-ti/install-ti.sql"
-for migration in 20261110120000_create_ti_handover.sql 20261110140000_create_ti_computer_checklists.sql 20261110160000_create_ti_account_managers.sql; do
+for migration in 20261110120000_create_ti_handover.sql 20261110140000_create_ti_computer_checklists.sql 20261110160000_create_ti_account_managers.sql 20261110180000_unify_ti_administrator_login.sql; do
   docker cp "supabase/migrations/$migration" "$db_container:/tmp/checklist-ti/migrations/"
 done
 docker exec -u postgres "$db_container" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/checklist-ti/install-ti.sql
 bash scripts/install-ti-management.sh "$stack_dir"
 node scripts/check-ti-management.mjs "$stack_dir"
-node scripts/manage-ti-user.mjs --email "$manager_email" --name "$manager_name" --manager --stack "$stack_dir"
-echo 'Ativação concluída. No administrativo, entre como administrador e abra Usuários → Analistas do TI.'
+node scripts/manage-ti-user.mjs --email "$manager_email" --name "$manager_name" --manager --administrator --reset-password --stack "$stack_dir"
+echo 'Ativação concluída. Saia e entre no administrativo com o usuário administrador e a senha definida agora. Abra Analistas TI.'

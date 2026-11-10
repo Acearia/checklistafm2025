@@ -11,10 +11,14 @@ try {
   let ready = false;
   for (let attempt = 0; attempt < 30; attempt++) {
     try {
-      const response = await fetch(`${config.API_URL.replace(/\/$/, '')}/functions/v1/manage-ti-analysts`, {
+      const request = action => fetch(`${config.API_URL.replace(/\/$/, '')}/functions/v1/manage-ti-analysts`, {
         method: 'POST', headers: {apikey: config.ANON_KEY, Authorization: `Bearer ${config.ANON_KEY}`, 'Content-Type': 'application/json'},
-        body: JSON.stringify({action: 'list'}), signal: AbortSignal.timeout(2000),
+        body: JSON.stringify({action}), signal: AbortSignal.timeout(2000),
       });
+      const health = await request('health');
+      const version = await health.json().catch(() => ({}));
+      if (health.status !== 200 || version.service !== 'ti-analyst-management' || version.protocol !== 2) throw new Error('Aguardando a versão com login único.');
+      const response = await request('list');
       const body = await response.json().catch(() => ({}));
       // The function itself must deny an anonymous credential. A generic
       // gateway 401 or SPA HTML response does not prove it is running.

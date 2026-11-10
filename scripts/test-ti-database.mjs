@@ -86,4 +86,13 @@ try{
  await db.exec(`set request.jwt.claim.sub='${member}'`);
  await assert.rejects(db.query('select * from ti_account_managers'),/permission denied/);
  console.log('PASS manager grants cannot be read or changed by browser roles, including TI members');
+ await db.exec('reset role');
+ await db.exec(fs.readFileSync(new URL('../supabase/migrations/20261110180000_unify_ti_administrator_login.sql', import.meta.url),'utf8'));
+ await db.query("insert into ti_administrator_login(username,user_id) values('administrador',$1)",[member]);
+ await db.exec(`set role authenticated; set request.jwt.claim.sub='${outsider}'`);
+ await assert.rejects(db.query('select * from ti_administrator_login'),/permission denied/);
+ await assert.rejects(db.query('update ti_administrator_login set user_id=$1',[outsider]),/permission denied/);
+ await db.exec(`set request.jwt.claim.sub='${member}'`);
+ await assert.rejects(db.query('select * from ti_administrator_login'),/permission denied/);
+ console.log('PASS administrator login mapping is private and cannot be forged by browser roles');
 }finally{await db.close();}
