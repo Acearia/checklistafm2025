@@ -25,6 +25,7 @@ const AdminUsers = lazy(() => import("./pages/AdminUsers"));
 const InvestigacaoAcidente = lazy(() => import("./pages/InvestigacaoAcidente"));
 const InvestigacaoAcidente2 = lazy(() => import("./pages/InvestigacaoAcidente2"));
 const InspecaoAmbiental = lazy(() => import("./pages/InspecaoAmbiental"));
+const TiHandover = lazy(() => import("./pages/TiHandover"));
 const PermissaoTrabalho = lazy(() => import("./pages/PermissaoTrabalho"));
 const AdminPermissoesTrabalho = lazy(() => import("./pages/AdminPermissoesTrabalho"));
 const PlanoAcaoAcidente = lazy(() => import("./pages/PlanoAcaoAcidente"));
@@ -55,6 +56,7 @@ function App() {
       <Suspense fallback={<RouteLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/ti" element={<TiHandover />} />
           <Route path="/checklist" element={<Checklist />} />
           <Route path="/checklist/:equipmentId" element={<Checklist />} />
           <Route path="/investigacao-acidente" element={<InvestigacaoAcidente />} />
