@@ -15,7 +15,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node --import tsx --test scripts/test-inspection-offline.ts scripts/test-paged-load.ts scripts/test-resource-health.ts scripts/test-environmental-action-plan.ts scripts/test-environmental-question-plans.ts scripts/test-ti-handover.ts
+      - run: node --import tsx --test scripts/test-inspection-offline.ts scripts/test-paged-load.ts scripts/test-resource-health.ts scripts/test-environmental-action-plan.ts scripts/test-environmental-question-plans.ts scripts/test-ti-handover.ts scripts/test-ti-computer-checklist.ts
       - run: node scripts/test-ti-database.mjs
       - run: npm run build
         env:

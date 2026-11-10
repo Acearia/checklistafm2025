@@ -1,20 +1,20 @@
 # Troca de turnos do TI
 
-Endereço: `/ti`. Login próprio por e-mail e senha, via Supabase Auth. A área possui registros, filtros, PDF, atualização de status, lista de analistas e checklist de passagem de turno. Apenas contas ativas em `ti_members` conseguem ler ou gravar os dados; a restrição é aplicada no banco por RLS. A sessão fica em sessionStorage e os registros não são guardados no cache público do checklist.
+Endereço: `/ti`. Login próprio por e-mail e senha, via Supabase Auth. A área possui registros de troca de turno, filtros, PDF dos registros, atualização de status, lista de analistas e checklist de formatação de computadores. Apenas contas ativas em `ti_members` conseguem ler ou gravar os dados; a restrição é aplicada no banco por RLS. A sessão fica em sessionStorage e os registros não são guardados no cache público do checklist.
 
 ## Instalação na VM
 
-Após `git pull --ff-only origin main`, aplicar apenas a nova migração no banco Supabase local:
+Após `git pull --ff-only origin main`, aplicar o instalador no banco Supabase local:
 
 ```bash
 cd /opt/app
-psql -W -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261110120000_create_ti_handover.sql
+psql -W -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/install-ti.sql
 npm ci
 npm run build
 pm2 restart checklist-frontend
 ```
 
-O `psql` solicita a senha do PostgreSQL. Não executar novamente essa migração em um banco onde as tabelas já foram criadas.
+O `psql` solicita a senha do PostgreSQL. O instalador verifica as tabelas antes de aplicar cada migração. Ele funciona tanto em uma instalação nova quanto na atualização do TI e não recria as tabelas já existentes.
 
 ## Contas do TI
 
@@ -35,14 +35,19 @@ node scripts/manage-ti-user.mjs --email analista@empresa.com.br --deactivate
 
 O cadastro e a liberação de contas são feitos no servidor. A aba Analistas mostra as contas autorizadas; o login administrativo antigo não libera o módulo automaticamente. O cadastro público no Supabase Auth, se habilitado, também não concede acesso ao TI.
 
-## Checklist inicial
+## Checklist de formatação
 
-Rede, servidores/monitoramento, backups, sistemas essenciais, chamados prioritários e pendências para o próximo turno. Todas as perguntas devem ser respondidas; irregularidades exigem descrição. Cada checklist concluído cria um registro com suas respostas originais preservadas. O status e as observações podem ser atualizados posteriormente. Alterações simultâneas são detectadas para evitar sobrescrever o trabalho de outro analista.
+Na aba Checklist, os filtros são computador, usuário, analista e período. A tabela exibe ID, data, computador, usuário, analista responsável, contagem Sim/total, observações e ações Ver/Editar. As opções são liberadas após preencher computador e usuário; o responsável é uma conta ativa do TI. São 22 perguntas iniciais, reproduzindo o formulário enviado: domínio, Office, e-mail, Spark, FileMaker, GLPI, RustDesk, antivírus, Teams, Power BI, VPN, Adobe Reader, impressora, pastas e software adicional.
+
+Os itens funcionam como caixas de seleção, permitindo preenchimento parcial. Software adicional marcado exige detalhamento. Perguntas extras (uma por linha) aparecem para marcação no próprio formulário e pertencem apenas àquele checklist. O botão Perguntas permite incluir, renomear, ativar e desativar o modelo para próximos checklists. Os anteriores preservam suas perguntas e contagens originais. Todos os analistas ativos podem consultar; somente o criador pode editar um checklist, e o banco também aplica essa restrição. Não há exclusão. Alterações simultâneas são detectadas para evitar sobrescrita.
+
+Os registros de troca de turno continuam na aba Registros. Eventuais checklists antigos de passagem de turno, criados antes desta mudança, continuam consultáveis ali com suas respostas originais.
 
 ## Verificação
 
 ```bash
 node --import tsx --test scripts/test-ti-handover.ts
+node --import tsx --test scripts/test-ti-computer-checklist.ts
 node scripts/test-ti-database.mjs
 ```
 

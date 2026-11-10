@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import ListPagination, { useListPagination } from "@/components/ListPagination";
 import { tiClient, tiHandoverService, exportTiRecordsPdf } from "@/lib/tiHandoverService";
-import { filterTiRecords, newTiChecklist, TI_STATUSES, validateTiChecklist, type TiFilters, type TiRecord, type TiMember, type TiStatus } from "@/lib/tiHandover";
+import { filterTiRecords, TI_STATUSES, type TiFilters, type TiRecord, type TiMember, type TiStatus } from "@/lib/tiHandover";
+import TiComputerChecklists from "@/components/ti/TiComputerChecklists";
 
 const emptyFilters: TiFilters = {analyst: "", location: "", from: "", to: "", status: ""};
 const fieldClass = "h-10 w-full rounded-md border border-slate-600 bg-slate-950 px-3 text-sm text-slate-100";
@@ -31,7 +32,6 @@ export default function TiHandover() {
   const [draftFilters, setDraftFilters] = useState(emptyFilters); const [filters, setFilters] = useState(emptyFilters);
   const [location, setLocation] = useState(""); const [problem, setProblem] = useState(""); const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<TiStatus>("Aberto");
-  const [checklist, setChecklist] = useState(newTiChecklist);
   const [selected, setSelected] = useState<TiRecord | null>(null);
   const [editNotes, setEditNotes] = useState(""); const [editStatus, setEditStatus] = useState<TiStatus>("Aberto");
   const generation = useRef(0);
@@ -49,7 +49,7 @@ export default function TiHandover() {
         userIdRef.current = nextUser;
         generation.current++;
         setMember(null); setMembers([]); setRecords([]); setSelected(null); setError("");
-        setLocation(""); setProblem(""); setNotes(""); setChecklist(newTiChecklist()); setStatus("Aberto"); setPassword(""); setTab("Registros");
+        setLocation(""); setProblem(""); setNotes(""); setStatus("Aberto"); setPassword(""); setTab("Registros");
       }
       setSession(value); setInitializing(false);
     });
@@ -95,22 +95,17 @@ export default function TiHandover() {
   };
   const save = async (event: React.FormEvent) => {
     event.preventDefault(); if (busy || !member || !session) return;
-    const isChecklist = tab === "Checklist";
-    if (!location.trim() || (!isChecklist && !problem.trim())) {
+    if (!location.trim() || !problem.trim()) {
       toast({title: "Campos obrigatórios", description: "Informe o local e a descrição da ocorrência.", variant: "destructive"}); return;
     }
-    const invalid = isChecklist ? validateTiChecklist(checklist) : null;
-    if (invalid) {toast({title: "Checklist incompleto", description: invalid, variant: "destructive"}); return;}
     setBusy(true);
     const current = generation.current;
     try {
-      const irregular = checklist.filter(item => item.answer === "Irregular");
       const saved = await tiHandoverService.create({created_by: session.user.id, location: location.trim(), occurred_at: new Date().toISOString(),
-        problem: isChecklist ? `Checklist de passagem de turno${irregular.length ? ` — ${irregular.length} irregularidade(s)` : " — sem irregularidades"}` : problem.trim(),
-        status: isChecklist ? (irregular.length ? "Pendente" : "Resolvido") : status, notes: notes.trim(), kind: isChecklist ? "checklist" : "ocorrencia", checklist: isChecklist ? checklist : []});
+        problem: problem.trim(), status, notes: notes.trim(), kind: "ocorrencia", checklist: []});
       if (current !== generation.current) return;
       setRecords(rows => [saved, ...rows.filter(row => row.id !== saved.id)]);
-      setLocation(""); setProblem(""); setNotes(""); setChecklist(newTiChecklist()); setStatus("Aberto");
+      setLocation(""); setProblem(""); setNotes(""); setStatus("Aberto");
       setDraftFilters(emptyFilters); setFilters(emptyFilters); setTab("Registros");
       toast({title: "Registro salvo", description: "Disponível para os analistas de TI."});
     } catch (e) {toast({title: "Falha ao salvar", description: errorMessage(e), variant: "destructive"});}
@@ -174,17 +169,15 @@ export default function TiHandover() {
           <ListPagination {...pagination.pagination} />
         </section>
       </>}
-      {member && (tab === "Novo Registro" || tab === "Checklist") && <form onSubmit={save} className={`${panelClass} space-y-4`}>
-        <h2 className="text-xl font-bold">{tab === "Checklist" ? "Checklist de passagem de turno do TI" : "Novo registro"}</h2>
+      {member && tab === "Checklist" && <TiComputerChecklists key={member.user_id} member={member} members={members} />}
+      {member && tab === "Novo Registro" && <form onSubmit={save} className={`${panelClass} space-y-4`}>
+        <h2 className="text-xl font-bold">Novo registro</h2>
         <p className="text-sm text-slate-300">Analista: {member.name}. A data e a hora serão registradas no envio.</p>
         <div><Label htmlFor="ti-location">Local *</Label><Input className={fieldClass} id="ti-location" value={location} maxLength={200} required onChange={e => setLocation(e.target.value)} /></div>
-        {tab === "Novo Registro" ? <>
+        <>
           <div><Label htmlFor="ti-problem">Problema / ocorrência *</Label><Textarea className="border-slate-600 bg-slate-950" id="ti-problem" value={problem} required maxLength={10000} onChange={e => setProblem(e.target.value)} /></div>
           <div><Label htmlFor="ti-status">Status</Label><select className={fieldClass} id="ti-status" value={status} onChange={e => setStatus(e.target.value as TiStatus)}>{TI_STATUSES.map(value => <option key={value}>{value}</option>)}</select></div>
-        </> : checklist.map((item, index) => <fieldset key={item.id} className="space-y-3 rounded border border-slate-700 p-4"><legend className="px-2 font-medium">{index + 1}. {item.question}</legend>
-          <div className="flex flex-wrap gap-2">{["Conforme", "Irregular", "Não se aplica"].map(answer => <Button type="button" key={answer} variant={item.answer === answer ? "default" : "secondary"} aria-pressed={item.answer === answer} onClick={() => setChecklist(rows => rows.map(row => row.id === item.id ? {...row, answer: answer as typeof item.answer} : row))}>{answer}</Button>)}</div>
-          <Label htmlFor={`ti-note-${item.id}`}>{item.answer === "Irregular" ? "Descrição da irregularidade *" : "Observação"}</Label><Textarea className="border-slate-600 bg-slate-950" id={`ti-note-${item.id}`} value={item.notes} required={item.answer === "Irregular"} maxLength={2000} onChange={e => setChecklist(rows => rows.map(row => row.id === item.id ? {...row, notes: e.target.value} : row))} />
-        </fieldset>)}
+        </>
         <div><Label htmlFor="ti-notes">Observação / orientações para o próximo turno</Label><Textarea className="border-slate-600 bg-slate-950" id="ti-notes" value={notes} maxLength={20000} onChange={e => setNotes(e.target.value)} /></div>
         <Button type="submit" disabled={busy}>{busy ? "Salvando..." : "Salvar registro"}</Button>
       </form>}
