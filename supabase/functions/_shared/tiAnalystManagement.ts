@@ -8,6 +8,7 @@ export interface TiManagementStore {
   list(): Promise<ManagedTiAnalyst[]>;
   findUser(email: string): Promise<string | null>;
   createUser(email: string, password: string): Promise<string>;
+  deleteUser(userId: string): Promise<void>;
   link(userId: string, name: string, badge: string): Promise<void>;
   member(userId: string): Promise<{manager: boolean} | null>;
   update(userId: string, name: string, active: boolean, badge: string | null): Promise<void>;
@@ -56,7 +57,7 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (req.method === "OPTIONS") return new Response(null, {status: 204, headers});
     if (req.method !== "POST") throw new ApiError(405, "Método não permitido.");
     const body = await readBody(req);
-    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 3});
+    if (body.action === "health") return reply(200, {service: "ti-analyst-management", protocol: 4});
     if (body.action === "analyst_login") {
       const badge = normalizeBadge(body.badge)!;
       const password = typeof body.password === "string" && body.password.length <= 128 ? body.password : "";
@@ -81,7 +82,8 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
     if (body.action === "list") return reply(200, {analysts: await store.list()});
     if (body.action === "create" || body.action === "link_existing") {
       const name = requiredText(body.name, "um nome", 120);
-      const email = requiredText(body.email, "um e-mail", 254).toLowerCase();
+      // Auth requires a unique internal address; analysts never provide or share it.
+      const email = body.action === "create" ? `ti-${crypto.randomUUID()}@analysts.checklist.invalid` : requiredText(body.email, "um e-mail", 254).toLowerCase();
       const badge = normalizeBadge(body.badge)!;
       if (await store.badgeOwner(badge)) throw new ApiError(409, "Este crachá já está vinculado a outro analista.");
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError(400, "Informe um e-mail válido.");
@@ -93,7 +95,11 @@ export const createTiManagementHandler = (store: TiManagementStore, allowedOrigi
       } else if (!userId) throw new ApiError(404, "Não existe uma conta com este e-mail.");
       const existing = await store.member(userId!);
       if (existing) throw new ApiError(409, "Esta conta já pertence ao TI. Use a lista para administrá-la.");
-      try {await store.link(userId!, name, badge);} catch {throw new ApiError(500, "A conta existe, mas o acesso ao TI não foi liberado. Confira o crachá e tente Vincular conta existente.");}
+      try {await store.link(userId!, name, badge);} catch {
+        // A failed new membership must not leave an inaccessible Auth account.
+        if (body.action === "create") await store.deleteUser(userId!);
+        throw new ApiError(500, "Não foi possível liberar o acesso ao TI. Confira o crachá e tente novamente.");
+      }
       return reply(200, {ok: true});
     }
     if (body.action === "update" || body.action === "reset_password") {

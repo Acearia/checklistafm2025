@@ -11,7 +11,7 @@ test("only the administrador admin account sees analyst management", () => {
 });
 const fixture = () => {
   const rows: ManagedTiAnalyst[] = [{user_id:"owner",name:"Gestor",email:"owner@qa.test",badge:null,active:true,manager:true}];
-  const passwords = new Map<string,string>();let writes=0;
+  const passwords = new Map<string,string>(); const accounts = new Map<string,string>(); let writes=0;
   const store: TiManagementStore = {
     async administratorLogin(password) {return {configured:true,session:password==="administrator-password"?{access_token:"owner-token",refresh_token:"owner-refresh",user:{id:"owner"}}:null};},
     async analystLogin(badge,password) {const row=rows.find(item=>item.badge===badge&&item.active);return row&&passwords.get(row.email)===password?{access_token:"analyst-token",refresh_token:"analyst-refresh",user:{id:row.user_id}}:null;},
@@ -19,8 +19,9 @@ const fixture = () => {
     async authenticate(token) {return token === "owner-token" ? "owner" : token === "analyst-token" ? "analyst" : null;},
     async authorized(userId) {return userId === "owner";}, async list() {return rows.map(row=>({...row}));},
     async findUser(email) {return rows.find(row=>row.email===email)?.user_id || (email==="existing@qa.test"?"existing":null);},
-    async createUser(email,password) {writes++;passwords.set(email,password);return "new-analyst";},
-    async link(userId,name,badge) {writes++;rows.push({user_id:userId,name,badge,email:userId==="existing"?"existing@qa.test":"new@qa.test",active:true,manager:false});},
+    async createUser(email,password) {writes++;passwords.set(email,password); const id = `analyst-${accounts.size + 1}`; accounts.set(id,email); return id;},
+    async deleteUser(userId) {accounts.delete(userId);},
+    async link(userId,name,badge) {writes++;rows.push({user_id:userId,name,badge,email:userId==="existing"?"existing@qa.test":accounts.get(userId)!,active:true,manager:false});},
     async member(userId) {const row=rows.find(row=>row.user_id===userId);return row?{manager:row.manager}:null;},
     async update(userId,name,active,badge) {writes++;Object.assign(rows.find(row=>row.user_id===userId)!,{name,active,badge});},
     async resetPassword(userId,password) {writes++;passwords.set(userId,password);},
@@ -54,17 +55,17 @@ test("authorized manager creates access, updates name/status and resets password
   const {call,rows,passwords}=fixture();
   assert.equal((await call({action:"create",name:"Novo TI",email:" NEW@qa.test ",badge:"001234",password:"long-password-123",manager:true})).status,200);
   assert.equal(rows[1].manager,false);
-  assert.equal((await call({action:"update",user_id:"new-analyst",name:"Novo nome",badge:"001234",active:false,manager:true})).status,200);
+  assert.equal((await call({action:"update",user_id:"analyst-1",name:"Novo nome",badge:"001234",active:false,manager:true})).status,200);
   assert.equal(rows[1].active,false);assert.equal(rows[1].manager,false);
-  assert.equal((await call({action:"reset_password",user_id:"new-analyst",password:"new-password-123"})).status,200);
-  assert.equal(passwords.get("new-analyst"),"new-password-123");
+  assert.equal((await call({action:"reset_password",user_id:"analyst-1",password:"new-password-123"})).status,200);
+  assert.equal(passwords.get("analyst-1"),"new-password-123");
   const result=await call({action:"list"});const body=await result.text();
   assert.match(body,/Novo nome/);assert.doesNotMatch(body,/long-password|new-password|password_hash/);
   assert.equal(result.headers.get("cache-control"),"no-store");
 });
 test("existing accounts must be linked explicitly and manager accounts cannot be modified through the UI API", async () => {
   const {call,passwords}=fixture();
-  assert.equal((await call({action:"create",name:"QA",email:"existing@qa.test",badge:"001234",password:"long-password-123"})).status,409);
+
   assert.equal((await call({action:"link_existing",name:"QA",email:"existing@qa.test",badge:"001234"})).status,200);
   assert.equal(passwords.size,0);
   assert.equal((await call({action:"reset_password",user_id:"owner",password:"long-password-123"})).status,403);
@@ -73,7 +74,7 @@ test("existing accounts must be linked explicitly and manager accounts cannot be
 test("invalid input, unsupported methods and unexpected origins never create accounts", async () => {
   const {call,handler,writes}=fixture();
   assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"001234",password:"short"})).status,400);
-  assert.equal((await call({action:"create",name:"QA",email:"invalid",badge:"001234",password:"long-password-123"})).status,400);
+  assert.equal((await call({action:"link_existing",name:"QA",email:"invalid",badge:"001234",password:"long-password-123"})).status,400);
   assert.equal((await call({action:"list"},"owner-token","https://other.test")).status,403);
   assert.equal((await handler(new Request("https://qa.test"))).status,405);
   assert.equal((await call({action:"create",name:"x".repeat(17000)})).status,413);
@@ -83,10 +84,10 @@ test("badge login preserves leading zeroes, requires password and denies blocked
   const {call}=fixture();
   assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"001234",password:"long-password-123"})).status,200);
   const result=await call({action:"analyst_login",badge:" 001234 ",password:"long-password-123"},"public-token");
-  assert.equal(result.status,200);assert.equal((await result.json()).session.user.id,"new-analyst");
+  assert.equal(result.status,200);assert.equal((await result.json()).session.user.id,"analyst-1");
   assert.equal((await call({action:"analyst_login",badge:"1234",password:"long-password-123"},"public-token")).status,401);
   assert.equal((await call({action:"analyst_login",badge:"001234",password:"wrong"},"public-token")).status,401);
-  await call({action:"update",user_id:"new-analyst",name:"QA",badge:"001234",active:false});
+  await call({action:"update",user_id:"analyst-1",name:"QA",badge:"001234",active:false});
   assert.equal((await call({action:"analyst_login",badge:"001234",password:"long-password-123"},"public-token")).status,401);
 });
 test("duplicate badge is rejected before creating an Auth account; administrator may set own badge without disabling own access", async () => {
@@ -97,4 +98,24 @@ test("duplicate badge is rejected before creating an Auth account; administrator
   assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:"000001",password:"long-password-123"})).status,409);
   assert.equal(writes(),before);
   assert.equal((await call({action:"create",name:"QA",email:"new@qa.test",badge:1234,password:"long-password-123"})).status,400);
+});
+
+test("analysts need no email; shared supplied email never identifies or overwrites another account", async () => {
+  const {call,rows}=fixture();
+  for (const [name,badge,email] of [["First","000010",undefined],["Second","000020","owner@qa.test"]]) {
+    assert.equal((await call({action:"create",name,badge,email,password:"long-password-123"})).status,200);
+    assert.equal((await call({action:"analyst_login",badge,password:"long-password-123"},"public-token")).status,200);
+  }
+  assert.notEqual(rows[1].email,rows[2].email);
+  assert.match(rows[1].email,/@analysts\.checklist\.invalid$/);
+  assert.equal(rows[0].email,"owner@qa.test");
+});
+test("failed new membership removes the new Auth account, never an existing account", async () => {
+  const {call,store}=fixture();const deleted:string[]=[];
+  store.link=async()=>{throw new Error("database unavailable");};
+  store.deleteUser=async id=>{deleted.push(id);};
+  assert.equal((await call({action:"create",name:"QA",badge:"001234",password:"long-password-123"})).status,500);
+  assert.deepEqual(deleted,["analyst-1"]);
+  assert.equal((await call({action:"link_existing",name:"QA",email:"existing@qa.test",badge:"001234"})).status,500);
+  assert.deepEqual(deleted,["analyst-1"]);
 });

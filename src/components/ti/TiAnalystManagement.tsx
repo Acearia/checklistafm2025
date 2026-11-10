@@ -15,12 +15,12 @@ export default function TiAnalystManagement() {
   const [authorized, setAuthorized] = useState(false); const [busy, setBusy] = useState(false);
   const [needsLogin, setNeedsLogin] = useState(false);
   const [rows, setRows] = useState<ManagedTiAnalyst[]>([]); const [error, setError] = useState("");
-  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [password, setPassword] = useState("");
+  const [name, setName] = useState(""); const [password, setPassword] = useState("");
   const [badge, setBadge] = useState("");
-  const [linkExisting, setLinkExisting] = useState(false); const [selected, setSelected] = useState<ManagedTiAnalyst | null>(null);
+  const [selected, setSelected] = useState<ManagedTiAnalyst | null>(null);
   const [active, setActive] = useState(true); const [resetTarget, setResetTarget] = useState<ManagedTiAnalyst | null>(null);
   const [newPassword, setNewPassword] = useState(""); const generation = useRef(0);
-  const clearForm = () => {setSelected(null); setName(""); setEmail(""); setBadge(""); setPassword(""); setActive(true); setLinkExisting(false);};
+  const clearForm = () => {setSelected(null); setName(""); setBadge(""); setPassword(""); setActive(true);};
   const reload = useCallback(async () => {
     setBusy(true); const current = generation.current;
     try {const data = await manageTiAnalysts({action: "list"}); if (current === generation.current) {setRows(data.analysts || []); setError(""); setAuthorized(true); setNeedsLogin(false);}}
@@ -34,7 +34,7 @@ export default function TiAnalystManagement() {
     let saved = false;
     try {
       await manageTiAnalysts(selected ? {action: "update", user_id: selected.user_id, name, active, badge}
-        : {action: linkExisting ? "link_existing" : "create", name, email, badge, ...(linkExisting ? {} : {password})});
+        : {action: "create", name, badge, password});
       saved = true;
       if (current !== generation.current) return;
       clearForm(); toast({title: "Acesso do TI salvo"});
@@ -66,17 +66,15 @@ export default function TiAnalystManagement() {
       </div> : <>
         <div className="flex gap-2"><Button variant="outline" disabled={busy} onClick={() => void reload()}>Atualizar analistas TI</Button></div>
         <form onSubmit={save} className="space-y-3 rounded border p-4"><h3 className="font-semibold">{selected ? "Editar analista TI" : "Novo analista TI"}</h3>
-          <div className="grid gap-3 md:grid-cols-2"><div><Label htmlFor="ti-analyst-name">Nome do analista TI</Label><Input id="ti-analyst-name" required maxLength={120} value={name} onChange={e => setName(e.target.value)} /></div>
-            <div><Label htmlFor="ti-analyst-email">E-mail do analista TI</Label><Input id="ti-analyst-email" type="email" required disabled={!!selected} maxLength={254} value={email} onChange={e => setEmail(e.target.value)} /></div></div>
+          <div><Label htmlFor="ti-analyst-name">Nome do analista TI</Label><Input id="ti-analyst-name" required maxLength={120} value={name} onChange={e => setName(e.target.value)} /></div>
           <div><Label htmlFor="ti-analyst-badge">Crachá do analista TI</Label><Input id="ti-analyst-badge" type="text" autoComplete="off" required={active} maxLength={40} placeholder="Ex.: 001234" value={badge} onChange={e => setBadge(e.target.value)} /><p className="text-xs text-muted-foreground">Usado na entrada do TI com a senha. Os zeros à esquerda são preservados.</p></div>
-          {!selected && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={linkExisting} onChange={e => {setLinkExisting(e.target.checked); setPassword("");}} />Vincular conta de e-mail já existente</label>}
-          {!selected && !linkExisting && <div><Label htmlFor="ti-analyst-password">Senha inicial do analista TI</Label><Input id="ti-analyst-password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} /><p className="text-xs text-muted-foreground">Entre 12 e 128 caracteres.</p></div>}
+          {!selected && <div><Label htmlFor="ti-analyst-password">Senha inicial do analista TI</Label><Input id="ti-analyst-password" type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={password} onChange={e => setPassword(e.target.value)} /><p className="text-xs text-muted-foreground">Entre 12 e 128 caracteres.</p></div>}
           {selected && <label className="flex items-center gap-2"><input type="checkbox" checked={active} disabled={selected.manager} onChange={e => setActive(e.target.checked)} />Acesso ao TI ativo</label>}
           <div className="flex gap-2"><Button type="submit" disabled={busy}>Salvar acesso TI</Button>{selected && <Button type="button" variant="outline" disabled={busy} onClick={clearForm}>Cancelar edição</Button>}</div>
         </form>
         {resetTarget && <form onSubmit={reset} className="space-y-3 rounded border p-4"><h3 className="font-semibold">Redefinir senha de {resetTarget.name}</h3><Label htmlFor="ti-reset-password">Nova senha do analista TI</Label><Input id="ti-reset-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={newPassword} onChange={e => setNewPassword(e.target.value)} /><div className="flex gap-2"><Button disabled={busy} type="submit">Confirmar nova senha TI</Button><Button disabled={busy} type="button" variant="outline" onClick={() => {setResetTarget(null); setNewPassword("");}}>Cancelar</Button></div></form>}
-        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["Nome", "Crachá", "E-mail", "Situação", "Ações"].map(label => <th className="border-b p-2" key={label}>{label}</th>)}</tr></thead><tbody>
-          {rows.map(row => <tr key={row.user_id}><td className="border-b p-2">{row.name}</td><td className="border-b p-2">{row.badge || "Não informado"}</td><td className="border-b p-2">{row.email}</td><td className="border-b p-2">{row.active ? "Ativo" : "Bloqueado"}{row.manager ? " — Administrador" : ""}</td><td className="border-b p-2"><div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => {setSelected(row); setName(row.name); setEmail(row.email); setBadge(row.badge || ""); setActive(row.active); setPassword("");}}>Editar acesso TI</Button><Button size="sm" variant="outline" disabled={busy || row.manager} onClick={() => {setResetTarget(row); setNewPassword("");}}>Redefinir senha TI</Button></div></td></tr>)}
+        <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr>{["Nome", "Crachá", "Situação", "Ações"].map(label => <th className="border-b p-2" key={label}>{label}</th>)}</tr></thead><tbody>
+          {rows.map(row => <tr key={row.user_id}><td className="border-b p-2">{row.name}</td><td className="border-b p-2">{row.badge || "Não informado"}</td><td className="border-b p-2">{row.active ? "Ativo" : "Bloqueado"}{row.manager ? " — Administrador" : ""}</td><td className="border-b p-2"><div className="flex gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={() => {setSelected(row); setName(row.name); setBadge(row.badge || ""); setActive(row.active); setPassword("");}}>Editar acesso TI</Button><Button size="sm" variant="outline" disabled={busy || row.manager} onClick={() => {setResetTarget(row); setNewPassword("");}}>Redefinir senha TI</Button></div></td></tr>)}
         </tbody></table>{!rows.length && <p className="p-3 text-muted-foreground">Nenhum analista cadastrado.</p>}</div>
       </>}
     </CardContent>

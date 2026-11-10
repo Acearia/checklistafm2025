@@ -62,6 +62,7 @@ Deno.serve(createTiManagementHandler({
   },
   async findUser(email) {return (await allUsers()).find(user => user.email?.toLowerCase() === email)?.id || null;},
   async createUser(email, password) {return assertOk(await client.auth.admin.createUser({email, password, email_confirm: true})).user!.id;},
+  async deleteUser(userId) {assertOk(await client.auth.admin.deleteUser(userId));},
   async link(userId, name, badge) {assertOk(await client.from("ti_members").insert({user_id: userId, name, badge, active: true}));},
   async member(userId) {
     const member = assertOk(await client.from("ti_members").select("user_id").eq("user_id", userId).maybeSingle());
