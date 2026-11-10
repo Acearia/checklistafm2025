@@ -17,6 +17,7 @@ jobs:
       - run: npm ci
       - run: node --import tsx --test scripts/test-inspection-offline.ts scripts/test-paged-load.ts scripts/test-resource-health.ts scripts/test-environmental-action-plan.ts scripts/test-environmental-question-plans.ts scripts/test-ti-handover.ts scripts/test-ti-computer-checklist.ts scripts/test-ti-analyst-management.ts
       - run: node scripts/test-ti-database.mjs
+      - run: node --test scripts/test-ti-server-config.mjs
       - run: npm run build
         env:
           VITE_SUPABASE_URL: http://127.0.0.1:54321

@@ -25,7 +25,7 @@ cd /opt/app
 node scripts/manage-ti-user.mjs --email analista@empresa.com.br --name "Nome do analista"
 ```
 
-O script lê a URL do `.env` da aplicação e a chave privada `SERVICE_ROLE_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` de `/opt/supabase/.env`. Se necessário, usar `--env /caminho/arquivo-privado`. A senha é solicitada sem eco no terminal. A chave privada nunca deve ser salva em variáveis `VITE_*`, no código, em comandos enviados por chat ou no Git.
+Por padrão, o script obtém `API_URL`, `SERVICE_ROLE_KEY` e `ANON_KEY` juntos com `supabase status --workdir /opt --output env`, sem exibir a saída. Não utiliza as chaves antigas de `.env`, `.env.local` ou do ambiente do processo para completar essa configuração. Para uma configuração explicitamente diferente, `--env /caminho/arquivo-privado` deve conter a URL e as duas chaves correspondentes à mesma instância. A senha é solicitada sem eco e deve ser confirmada. A chave privada nunca deve ser salva em variáveis `VITE_*`, no código, em comandos enviados por chat ou no Git.
 
 Para uma conta Auth já existente, o script libera o acesso sem alterar a senha. Adicionar `--reset-password` para definir outra senha. Para bloquear acesso sem apagar o histórico:
 
@@ -56,9 +56,11 @@ O script aplica somente as migrações ainda ausentes, usando o contêiner `supa
 
 O ativador solicita e-mail e nome do administrador (nome padrão: Administrador). Também aceita esses dois valores como argumentos. **Nesta ativação será definida a senha única do usuário `administrador`, inclusive se a conta Auth já existir.** A senha deve ter pelo menos 12 caracteres. O e-mail identifica a conta no servidor; no login administrativo continua sendo usado o nome `administrador`. Após ativar e atualizar a interface, sair e entrar novamente com `administrador` e a senha recém-definida. Os analistas são cadastrados diretamente na nova página, sem segunda autorização. O login de `administrador` não aceita mais a senha antiga da tabela legada nem usa fallback local; não publicar a nova interface sem concluir essa ativação.
 
-Se a chave privada não estiver em `/opt/supabase/.env`, o script tenta obtê-la internamente com `supabase status --workdir /opt --output env`, sem imprimir essa saída. A função aceita por padrão a origem `https://checklist.afm.com.br`; para outra origem, configurar `TI_ALLOWED_ORIGIN` no ambiente das funções. A operação segue o fluxo local do [CLI Supabase](https://supabase.com/docs/reference/cli/supabase-functions-serve).
+A configuração administrativa vem exclusivamente da instância local selecionada, evitando misturar a chave de um projeto antigo com a URL atual. A função aceita por padrão a origem `https://checklist.afm.com.br`; para outra origem, configurar `TI_ALLOWED_ORIGIN` no ambiente das funções. A operação segue o fluxo local do [CLI Supabase](https://supabase.com/docs/reference/cli/supabase-functions-serve).
 
 O ativador aguarda a versão 2 da função (com suporte ao login único) e verifica que uma credencial anônima é recusada para listar contas. Uma resposta HTML, a versão anterior ou um erro genérico do gateway não é tratado como serviço pronto. No primeiro uso, o CLI pode precisar baixar a imagem do runtime; se houver demora ou falha, consultar `pm2 logs checklist-ti-functions --lines 30` e repetir a ativação depois de corrigir. O teste local cobre o manipulador da API, as permissões no banco e a interface; a ativação do runtime na VM precisa ser conferida no ambiente real.
+
+Antes de pedir a senha, o cadastro consulta o Auth com a credencial administrativa selecionada. Se ela for recusada, o script para informando que nenhuma conta foi criada ou alterada. Após criar/redefinir a senha e liberar o acesso, ele testa a entrada por e-mail no Auth. Para o administrador, testa também o login administrativo pela função e só então confirma a conclusão. Contas existentes aprovadas pelo administrador têm seu e-mail confirmado nesse provisionamento, assim como as novas; nenhuma senha, JWT ou chave é exibida nos testes de entrada.
 
 ## Checklist de formatação
 
@@ -75,6 +77,7 @@ node --import tsx --test scripts/test-ti-handover.ts
 node --import tsx --test scripts/test-ti-computer-checklist.ts
 node scripts/test-ti-database.mjs
 node --import tsx --test scripts/test-ti-analyst-management.ts
+node --test scripts/test-ti-server-config.mjs
 ```
 
 Testar na VM o login de um analista autorizado, a criação de registro e checklist e o bloqueio de uma conta Auth que não pertença ao TI. A migração usa `auth.users`, `auth.uid()` e os papéis anon/authenticated/service_role do Supabase; não é uma migração para PostgreSQL sem Supabase.
